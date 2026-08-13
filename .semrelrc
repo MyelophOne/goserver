@@ -1,0 +1,115 @@
+{
+	"analyzer": {
+		"pre_major": false,
+		"rules": [
+			{
+				"match": "^BREAKING CHANGE",
+				"release": "major"
+			},
+			{
+				"match": "^feat(\\([^)]*\\))?:",
+				"release": "minor"
+			},
+			{
+				"match": "^fix(\\([^)]*\\))?:",
+				"release": "patch"
+			},
+			{
+				"match": "^perf(\\([^)]*\\))?:",
+				"release": "patch"
+			},
+			{
+				"match": "^(refactor|test|build|ci|style|docs|revert|chore|wip)(\\([^)]*\\))?:",
+				"release": false
+			}
+		],
+		"default_bump": false,
+		"breaking_change_labels": [
+			"BREAKING CHANGE"
+		],
+		"breaking_change_release": "major"
+	},
+	"changelog": {
+		"sort": "asc",
+		"groups": [
+			{
+				"title": "💥 Breaking Changes",
+				"labels": [
+					"BREAKING CHANGE"
+				]
+			},
+			{
+				"title": "✨ Features",
+				"labels": [
+					"feat"
+				]
+			},
+			{
+				"title": "🐛 Bug Fixes",
+				"labels": [
+					"fix"
+				]
+			},
+			{
+				"title": "⚡ Performance Improvements",
+				"labels": [
+					"perf"
+				]
+			},
+			{
+				"title": "🔄 Code Refactoring",
+				"labels": [
+					"refactor"
+				]
+			},
+			{
+				"title": "📋 Tests",
+				"labels": [
+					"test"
+				]
+			},
+			{
+				"title": "🛠️ Build System",
+				"labels": [
+					"build"
+				]
+			},
+			{
+				"title": "🤖 Continuous Integration",
+				"labels": [
+					"ci"
+				]
+			},
+			{
+				"title": "🎨 Code Style",
+				"labels": [
+					"style"
+				]
+			},
+			{
+				"title": "📚 Documentation",
+				"labels": [
+					"docs"
+				]
+			},
+			{
+				"title": "⏪ Reverts",
+				"labels": [
+					"revert"
+				]
+			},
+			{
+				"title": "🧹 Chores",
+				"labels": [
+					"chore"
+				]
+			},
+			{
+				"title": "⏳ Work in progress",
+				"labels": [
+					"wip"
+				]
+			}
+		]
+	}
+}

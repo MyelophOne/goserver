@@ -1,0 +1,55 @@
+name: Publish Go Module
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26"
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Run go-semantic-release
+        uses: go-semantic-release/action@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify Go module publication
+        run: |
+          go mod tidy
+
+          if git describe --tags --abbrev=0 >/dev/null 2>&1; then
+            TAG=$(git describe --tags --abbrev=0)
+          else
+            echo "No tags found, using default tag v0.0.1"
+            TAG="v0.0.1"
+          fi
+
+          echo "Using tag: $TAG"
+
+          go list -m -v github.com/myelophone/goserver@$TAG || {
+            echo "Failed to resolve module"
+            exit 1
+          }
+
+          echo "Module github.com/myelophone/goserver@$TAG is published"

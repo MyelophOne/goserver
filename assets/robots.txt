@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+
+Disallow: /*?*query=
+Disallow: /*?*sort=
+Disallow: /*?*filter=
+
+User-agent: Yandex
+Allow: /
+
+Clean-param: utm_source&utm_medium&utm_campaign&utm_content&utm_term /
+Clean-param: gclid&fbclid&msclkid&sref&yadclid&ysclid&yclid&yadordid /
+Clean-param: from&theme /
+Clean-param: query&page&sort&filter /

@@ -1,0 +1,159 @@
+version: "3"
+
+dotenv:
+  - .env
+
+vars:
+  GIT_HASH:
+    sh: git rev-parse --short HEAD || echo "dev"
+  EXT:
+    sh: go env GOEXE
+  BIN: "./tmp/goserver{{.EXT}}"
+
+tasks:
+  run:
+    env:
+      APP_ENV: dev
+    cmds:
+      - go run ./cmd/main.go
+  dev:
+    env:
+      APP_ENV: dev
+      METRICS_ENABLED: true
+    cmds:
+      - air -c .air.toml
+  preview:
+    env:
+      APP_ENV: prod
+    cmds:
+      - go run ./cmd/main.go
+  build:
+    env:
+      APP_ENV: prod
+      GIT_COMMIT_HASH: "{{.GIT_HASH}}"
+    cmds:
+      - CGO_ENABLED=0 GOFLAGS="-trimpath" go build -pgo=auto -ldflags="-s -w -X github.com/myelophone/goserver.AppEnv=prod -X github.com/myelophone/goserver.AppVersion=${GIT_COMMIT_HASH}" -o {{.BIN}} ./cmd/main.go
+  view:
+    cmds:
+      - "{{.BIN}} {{.CLI_ARGS}}"
+  lint:
+    cmds:
+      - golangci-lint run
+  format:
+    cmds:
+      - go fmt ./...
+  vet:
+    cmds:
+      - go vet ./...
+  vulncheck:
+    cmds:
+      - govulncheck ./...
+  test:
+    cmds:
+      - go test -v ./...
+  clean:
+    cmds:
+      - go clean -modcache
+  cover:
+    desc: Run tests with coverage
+    cmds:
+      - go test -run . -coverprofile=coverage.out ./...
+      - go tool cover -html=coverage.out -o coverage.html
+      - |
+        if command -v xdg-open >/dev/null 2>&1; then
+          xdg-open coverage.html
+        elif command -v open >/dev/null 2>&1; then
+          open coverage.html
+        else
+          echo "Open coverage.html manually"
+        fi
+  check-updates:
+    cmds:
+      - go list -u -m all
+  update:
+    cmds:
+      - go get -u ./...
+      - go mod tidy
+  ba:
+    cmds:
+      - betteralign ./... || true
+  bafix:
+    cmds:
+      - betteralign -apply ./... || true
+  critic:
+    cmds:
+      - go-critic check ./...
+  osv:
+    cmds:
+      - osv-scanner scan source -r .
+  optimize:
+    cmds:
+      - task: format
+      - task: lint
+      - task: vet
+      - task: vulncheck
+      - task: osv
+      - task: critic
+      - task: bafix
+  loadtest:
+    cmds:
+      - bombardier -c 50 -n 1000 -l -t 2s -d 10s http://localhost:8080
+      - bombardier -c 100 -n 5000 -l -t 2s -d 10s http://localhost:8080
+      - bombardier -c 200 -n 10000 -l -t 2s -d 10s http://localhost:8080
+  analyze-web:
+    deps: [build]
+    cmds:
+      - gsa --web {{.BIN}}
+  analyze-tui:
+    deps: [build]
+    cmds:
+      - gsa --tui {{.BIN}}
+  analyze:
+    deps: [build]
+    cmds:
+      - gsa {{.BIN}}
+  tag:patch:
+    desc: Increment patch version and create tag
+    cmds:
+      - |
+        LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+        VERSION=${LAST_TAG#v}
+        IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+        PATCH=$((PATCH+1))
+        NEW_TAG="v$MAJOR.$MINOR.$PATCH"
+        echo "New tag: $NEW_TAG"
+        git tag $NEW_TAG
+        git push origin $NEW_TAG
+  tag:minor:
+    desc: Increment minor version and create tag
+    cmds:
+      - |
+        LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+        VERSION=${LAST_TAG#v}
+        IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+        MINOR=$((MINOR+1))
+        PATCH=0
+        NEW_TAG="v$MAJOR.$MINOR.$PATCH"
+        echo "New tag: $NEW_TAG"
+        git tag $NEW_TAG
+        git push origin $NEW_TAG
+  tag:major:
+    desc: Increment major version and create tag
+    cmds:
+      - |
+        LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+        VERSION=${LAST_TAG#v}
+        IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+        MAJOR=$((MAJOR+1))
+        MINOR=0
+        PATCH=0
+        NEW_TAG="v$MAJOR.$MINOR.$PATCH"
+        echo "New tag: $NEW_TAG"
+        git tag $NEW_TAG
+        git push origin $NEW_TAG
+  pprof:
+    desc: "Pprof analyze. Example: task pprof -- ~/Downloads/heap.pb.gz"
+    cmds:
+      - go tool pprof -http=:8080 {{.CLI_ARGS}}
+    preconditions:
+      - sh: 'test -n "{{.CLI_ARGS}}"'

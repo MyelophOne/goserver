@@ -1,0 +1,5 @@
+remotes:
+  - git_url: https://github.com/Myelophone/shared-config-files
+    refetch_frequency: 60h
+    configs:
+      - lefthook-golang.yml

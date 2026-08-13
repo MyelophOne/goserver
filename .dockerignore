@@ -1,0 +1,57 @@
+# Node modules and dependencies
+node_modules
+.pnp/
+.pnp.js
+.yarn/install-state.gz
+
+# Yarn and npm logs
+yarn-error.log
+yarn-debug.log*
+npm-debug.log*
+
+# nuxt / vue
+.nuxt
+.output
+
+# Build outputs
+build/
+dist/
+coverage/
+
+# Docker files and configurations
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+#.git/
+#.git/
+#!git/HEAD
+#!git/refs
+.env.example
+.gitignore
+.gitkeep
+
+# Editor and IDE settings
+.vscode/
+.idea/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Miscellaneous
+logs/
+*.log
+tmp/
+.cache/
+
+load-test.yml
+biome.json
+.editorconfig
+vitest.config.ts
+README.md
+yarn.lock
+sample.json
+__tests__/
+__pycache__/
+*.pyc

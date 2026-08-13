@@ -1,0 +1,99 @@
+{{define "base"}}
+<!DOCTYPE html>
+<html lang="{{default " en" (var . "lang" )}}" class="nojs">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+	<title>{{default "Cool web site powered by MyelophOne GoServer" (var . "title")}}</title>
+	<meta name="description" content="{{default " This cool site was created using MyelophOne GoServer" (var
+		. "description" )}}">
+	<style>
+		html,
+		body,
+		img {
+			overflow-x: hidden !important;
+			max-width: 100% !important
+		}
+
+		html,
+		body {
+			margin: 0;
+			padding: 0;
+			height: 100%;
+			width: 100%;
+			font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, "Helvetica Neue", Arial, sans-serif, color-emoji
+		}
+
+		html {
+			height: auto;
+			font-size:15px;
+			-webkit-text-size-adjust: 100%;
+        	text-size-adjust: 100%
+		}
+
+		body {
+			min-height: 100dvh;
+			font-size:1rem;
+			position:relative
+		}
+
+		@media screen and (min-width: 768px) {
+	        html {
+	            font-size: 16px;
+	        }
+	    }
+	    @media screen and (min-width: 1500px) {
+	        html {
+	            font-size: 17px;
+	        }
+	    }
+	    @media screen and (min-width: 1920px) {
+	        html {
+	            font-size: 18px;
+	        }
+	    }
+	    @media screen and (min-width: 2560px) {
+	        html {
+	            font-size: 20px;
+	        }
+	    }
+	    @media screen and (max-height: 650px) {
+	        html {
+	            font-size: 15px;
+	        }
+	    }
+	    @media screen and (max-height: 480px) {
+	        html {
+	            font-size: 14px;
+	        }
+	    }
+
+		@font-face {
+			font-family: "color-emoji";
+			src:
+				local("Apple Color Emoji"), local("Twemoji Mozilla"),
+				local("Segoe UI Emoji"), local("Segoe UI Symbol"),
+				local("Noto Color Emoji"), local("EmojiOne Color"),
+				local("Android Emoji");
+		}
+	</style>
+	{{.GlobalHead}}
+	{{.PageHead}}
+	{{.GlobalStyles}}
+	{{.PageStyles}}
+	<script async>document.documentElement.classList.replace('nojs', 'js');console.info(
+		"%cBuilt on top of @myelophone/goserver, licensed under the PolyForm Noncommercial License 1.0.0. Copyright (c) 2026 Aliaksandr Ivanou.\nExperiment, customize and enjoy the speed and the performance! With ❤️ from @myeloph.one. Necessariam et Sufficientem.",
+		"font-size:14px",
+	);</script>
+</head>
+
+<body>
+	{{template "content" .}}
+
+	{{.GlobalScripts}}
+	{{.PageScripts}}
+</body>
+
+</html>
+{{end}}

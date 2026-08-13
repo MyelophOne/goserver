@@ -1,0 +1,33 @@
+services:
+  goserver:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${DOCKER_PORT_BINDING:-8080}:8080"
+    expose:
+      - "${HTTP_PORT:-8080}"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - HTTP_PORT=${HTTP_PORT:-8080}
+    restart: on-failure
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+        window: 300s
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${HTTP_PORT:-8080}/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+        compress: "true"
