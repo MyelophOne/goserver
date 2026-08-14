@@ -33,7 +33,6 @@ func (s *Server) Defaults() {
 	s.Use(s.WithRateLimiter(s.Config.RateLimiteSize, s.Config.RateLimiteRate, s.Config.RateLimiteWindow))
 	s.Use(s.FaviconMiddleware)
 	s.Use(s.StaticAssetsMiddleware)
-	s.Use(s.APIPrefixMiddleware)
 	s.Use(s.RedirectMiddleware)
 	s.Use(s.OutdatedBrowserMiddleware)
 	s.Use(s.MaliciousRequestMiddleware)

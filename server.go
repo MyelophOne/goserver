@@ -298,7 +298,7 @@ func (s *Server) bootServer(cfg Config) (*http.Server, net.Listener, error) {
 		WriteByteTimeout:             cfg.WriteTimeout,
 		CountError:                   nil,
 	}
-	if err := http2.ConfigureServer(s.srv, h2s); err != nil {
+	if err := http2.ConfigureServer(srv, h2s); err != nil {
 		s.Logger.Printf("configure HTTP/2 server: %v", err)
 		panic(err)
 	}
@@ -316,9 +316,9 @@ func (s *Server) bootServer(cfg Config) (*http.Server, net.Listener, error) {
 func (s *Server) buildHandler(cfg Config) http.Handler {
 	var handler http.Handler = s.router
 
-	if cfg.APIPrefix != "" {
-		s.Logger.Printf("using routes without API prefix: %s", cfg.APIPrefix)
-		handler = http.StripPrefix(cfg.APIPrefix, handler)
+	if prefix := normalizeAPIPrefix(cfg.APIPrefix); prefix != "" {
+		s.Logger.Printf("using API prefix: %s", prefix)
+		handler = http.StripPrefix(prefix, handler)
 	}
 
 	compiledHandler := s.compileMiddlewareChain(handler)

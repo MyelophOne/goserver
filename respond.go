@@ -25,6 +25,21 @@ var gzipPool = sync.Pool{
 	},
 }
 
+// ResponseHeader returns middleware that sets a response header before the next handler runs.
+// An empty header name leaves the handler unchanged.
+func ResponseHeader(name, value string) Middleware {
+	return func(next http.Handler) http.Handler {
+		if name == "" {
+			return next
+		}
+
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set(name, value)
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 func (s *Server) GzipMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") ||

@@ -90,7 +90,7 @@ func (s *Server) loadConfig() {
 		SmtpUser:               GetEnv("SMTP_USER", ""),
 		SmtpPassword:           GetEnv("SMTP_PASS", ""),
 		SmtpFrom:               GetEnv("SMTP_FROM", ""),
-		SmtpWorkers:            GetEnv("SMTP_FROM", "1"),
+		SmtpWorkers:            GetEnv("SMTP_WORKERS", "1"),
 		SmtpQueueSize:          GetEnv("SMTP_QUEUE_SIZE", "20"),
 		sessionKey:             GetEnv("SESSION_KEY", "DefaultSessionKey_CHANGE_IT!"+hex.EncodeToString(b)),
 		maxConcurrent:          GetEnvInt("CONCURRENCY_LIMIT", 100),

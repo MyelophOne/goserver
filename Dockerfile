@@ -21,7 +21,7 @@ COPY --from=builder /app/templates ./templates
 COPY --from=builder /app/goserver .
 COPY --from=builder /app/LICENSE ./LICENSE
 
-LABEL org.opencontainers.image.title="goserver"
+LABEL org.opencontainers.image.title="@myelophone/goserver"
 LABEL org.opencontainers.image.description="High-performance go server by @myeloph.one"
 LABEL org.opencontainers.image.authors="Aliaksandr Ivanou"
 LABEL org.opencontainers.image.licenses="PolyForm-Noncommercial-1.0.0"
