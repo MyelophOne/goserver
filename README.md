@@ -49,7 +49,7 @@ The implementation is performance-conscious and includes pooled buffers, bounded
 
 ## Requirements and installation
 
-- Go `1.26.5` or newer, matching [`go.mod`](./go.mod).
+- Go `1.26.6` or newer, matching [`go.mod`](./go.mod).
 - PostgreSQL and Redis are optional and only needed for their corresponding packages.
 - Docker is optional.
 
