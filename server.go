@@ -54,6 +54,7 @@ type Server struct {
 }
 
 func NewServer(addr string) *Server {
+	addr = normalizeServerAddr(addr)
 	r := NewRouter()
 	safeWriter := &SanitizedWriter{
 		Target: os.Stdout,
@@ -110,6 +111,28 @@ func NewServer(addr string) *Server {
 	}
 
 	return s
+}
+
+func normalizeServerAddr(addr string) string {
+	if addr == "" {
+		return addr
+	}
+
+	portStart := 0
+	for portStart < len(addr) && addr[portStart] == ':' {
+		portStart++
+	}
+	if portStart == len(addr) {
+		return addr
+	}
+
+	for i := portStart; i < len(addr); i++ {
+		if addr[i] < '0' || addr[i] > '9' {
+			return addr
+		}
+	}
+
+	return ":" + addr[portStart:]
 }
 
 func (s *Server) SetLogger(l *log.Logger) {

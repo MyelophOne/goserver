@@ -68,6 +68,8 @@ go run ./cmd/main.go
 
 The server listens on `:8080` unless `HTTP_PORT` is changed.
 
+`NewServer` accepts a port with or without a leading colon. `NewServer("8080")`, `NewServer(":8080")`, and an accidentally duplicated `NewServer("::8080")` all listen on `:8080`. Complete addresses such as `127.0.0.1:8080` and `[::1]:8080` are preserved unchanged.
+
 ## Why @myelophone/goserver
 
 `@myelophone/goserver` makes HTTP services quick to build without introducing a custom request context or a large abstraction layer. Its API stays close to the standard library while covering the complete lifecycle of a production backend—from accepting and validating a request to overload protection, monitoring, background work, and graceful shutdown.
@@ -95,7 +97,7 @@ import (
 )
 
 func main() {
-	s := goserver.NewServer(":" + goserver.GetEnv("HTTP_PORT", "8080"))
+	s := goserver.NewServer(goserver.GetEnv("HTTP_PORT", "8080"))
 
 	// Installs the opinionated production middleware set.
 	s.Defaults()
@@ -138,7 +140,7 @@ There are two supported assembly styles.
 Call `Defaults()` before registering routes, then call `Run()`:
 
 ```go
-s := goserver.NewServer(":8080")
+s := goserver.NewServer("8080")
 s.Defaults()
 s.GET("/", home)
 s.Run()
@@ -169,7 +171,7 @@ It also registers `/robots.txt` and, when metrics are enabled, protected pprof r
 Use only the middleware your service needs. Middleware is executed in registration order: the first `Use` call is the outermost wrapper.
 
 ```go
-s := goserver.NewServer(":8080")
+s := goserver.NewServer("8080")
 s.Use(s.RequestIDMiddleware)
 s.Use(s.ProdAccessLogger)
 s.Use(s.RecoveryMiddleware(nil))
@@ -1500,7 +1502,7 @@ type Greeting struct {
 }
 
 func main() {
-	s := goserver.NewServer(":" + goserver.GetEnv("HTTP_PORT", "8080"))
+	s := goserver.NewServer(goserver.GetEnv("HTTP_PORT", "8080"))
 
 	// Enables cached handlers/idempotent response replay and browser sessions.
 	s.Cache = goserver.NewCache(1_000, "")

@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	httpPort := ":" + goserver.GetEnv("HTTP_PORT", "8080")
+	httpPort := goserver.GetEnv("HTTP_PORT", "8080")
 	s := goserver.NewServer(httpPort)
 
 	s.Defaults()
