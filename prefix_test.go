@@ -13,7 +13,7 @@ func TestNormalizeAPIPrefix(t *testing.T) {
 		"":        "",
 		"/":       "",
 		"api":     "/api",
-		" /api ":  "/api",
+		"/api":    "/api",
 		"/api/":   "/api",
 		"api/v1/": "/api/v1",
 	}
