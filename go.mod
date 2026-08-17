@@ -2,6 +2,8 @@ module github.com/myelophone/goserver
 
 go 1.26.6
 
+retract v1.0.0
+
 require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/hashicorp/golang-lru v1.0.2
