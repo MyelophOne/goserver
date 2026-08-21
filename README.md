@@ -49,7 +49,7 @@ The implementation is performance-conscious and includes pooled buffers, bounded
 
 ## Requirements and installation
 
-- Go `1.26.6` or newer, matching [`go.mod`](./go.mod).
+- Go `1.27` or newer, matching [`go.mod`](./go.mod).
 - PostgreSQL and Redis are optional and only needed for their corresponding packages.
 - Docker is optional.
 
@@ -1439,14 +1439,14 @@ It receives these repository permissions:
 - `contents: write` — required to create Git tags and GitHub Releases;
 - `packages: write` — currently granted, although the workflow does not upload an artifact to GitHub Packages.
 
-The job uses `ubuntu-latest` and the latest available patch release in the Go `1.26` line.
+The job uses `ubuntu-latest` and the latest available patch release in the Go `1.27` line.
 
 ### What the workflow does
 
 | Step                | Behavior                                                                                                                                                                                                                                                                                                         |
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Checkout            | Uses `actions/checkout@v6` with `fetch-depth: 0`, making the complete commit and tag history available for version calculation.                                                                                                                                                                                  |
-| Go setup            | Uses `actions/setup-go@v6` with `go-version: "1.26"`. A minor-only selector resolves to the latest available Go 1.26 patch release.                                                                                                                                                                              |
+| Go setup            | Uses `actions/setup-go@v6` with `go-version: "1.27"`. A minor-only selector resolves to the latest available Go 1.27 patch release.                                                                                                                                                                              |
 | Git identity        | Configures `github-actions[bot]` as the Git author used by the release process.                                                                                                                                                                                                                                  |
 | Semantic release    | Runs [`go-semantic-release/action@v1`](https://github.com/go-semantic-release/action) with the repository `GITHUB_TOKEN`. It examines commits since the previous release, calculates the next semantic version, and creates the corresponding tag and GitHub Release when the commit history requires a release. |
 | Module verification | Runs `go mod tidy`, chooses the most recent Git tag, and executes `go list -m -v github.com/myelophone/goserver@$TAG`. The job fails when that tagged module cannot be resolved.                                                                                                                                 |

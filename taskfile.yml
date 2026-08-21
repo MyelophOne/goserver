@@ -93,7 +93,7 @@ tasks:
       - task: vet
       - task: vulncheck
       - task: osv
-      - task: critic
+      #- task: critic # temporarily commented out as it does not support go 1.27 yet
       - task: bafix
   loadtest:
     cmds:
