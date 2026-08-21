@@ -25,8 +25,28 @@ var gzipPool = sync.Pool{
 	},
 }
 
-// ResponseHeader returns middleware that sets a response header before the next handler runs.
-// An empty header name leaves the handler unchanged.
+var sniffBufPool = sync.Pool{
+	New: func() any {
+		b := make([]byte, 0, minGzipSize)
+		return &b
+	},
+}
+
+func acquireSniffBuf() []byte {
+	b := sniffBufPool.Get().(*[]byte)
+	buf := (*b)[:0]
+	sniffBufPool.Put(b)
+	return buf
+}
+
+func releaseSniffBuf(b []byte) {
+	if cap(b) >= minGzipSize {
+		bp := sniffBufPool.Get().(*[]byte)
+		*bp = b[:0]
+		sniffBufPool.Put(bp)
+	}
+}
+
 func ResponseHeader(name, value string) Middleware {
 	return func(next http.Handler) http.Handler {
 		if name == "" {
@@ -50,12 +70,13 @@ func (s *Server) GzipMiddleware(next http.Handler) http.Handler {
 
 		grw := &gzipResponseWriter{
 			ResponseWriter: w,
-			sniffBuf:       make([]byte, 0, minGzipSize),
+			sniffBuf:       acquireSniffBuf(),
 			status:         http.StatusOK,
 		}
 
 		defer func() {
 			_ = grw.Close()
+			releaseSniffBuf(grw.sniffBuf)
 		}()
 
 		next.ServeHTTP(grw, r)
@@ -95,10 +116,6 @@ func (w *gzipResponseWriter) Write(b []byte) (int, error) {
 	}
 
 	if w.skipGzip {
-		if !w.headerSent {
-			w.ResponseWriter.WriteHeader(w.status)
-			w.headerSent = true
-		}
 		return w.ResponseWriter.Write(b)
 	}
 
@@ -109,6 +126,25 @@ func (w *gzipResponseWriter) Write(b []byte) (int, error) {
 	}
 
 	return len(b), nil
+}
+
+func (w *gzipResponseWriter) Unwrap() http.ResponseWriter {
+	return w.ResponseWriter
+}
+
+func (w *gzipResponseWriter) DisableGzip() {
+	if w.skipGzip || w.writer != nil {
+		return
+	}
+	w.skipGzip = true
+	if !w.headerSent {
+		if !w.wroteHeader {
+			w.status = http.StatusOK
+			w.wroteHeader = true
+		}
+		w.ResponseWriter.WriteHeader(w.status)
+		w.headerSent = true
+	}
 }
 
 func (w *gzipResponseWriter) flushBuffer(isClosing bool) (int, error) {
@@ -133,8 +169,10 @@ func (w *gzipResponseWriter) flushBuffer(isClosing bool) (int, error) {
 		w.ResponseWriter.Header().Set("Content-Encoding", "gzip")
 		w.ResponseWriter.Header().Del("Content-Length")
 
-		w.ResponseWriter.WriteHeader(w.status)
-		w.headerSent = true
+		if !w.headerSent {
+			w.ResponseWriter.WriteHeader(w.status)
+			w.headerSent = true
+		}
 
 		gz := gzipPool.Get().(*gzip.Writer)
 		gz.Reset(w.ResponseWriter)
@@ -184,6 +222,9 @@ func (w *gzipResponseWriter) Close() error {
 }
 
 func (w *gzipResponseWriter) Flush() {
+	if w.writer == nil && !w.skipGzip && len(w.sniffBuf) > 0 {
+		_, _ = w.flushBuffer(false)
+	}
 	if w.writer != nil {
 		_ = w.writer.Flush()
 	}

@@ -46,6 +46,23 @@ func (tw *timeoutWriter) WriteHeader(statusCode int) {
 	tw.w.WriteHeader(statusCode)
 }
 
+func (tw *timeoutWriter) Flush() {
+	tw.mu.Lock()
+	defer tw.mu.Unlock()
+
+	if tw.timedOut {
+		return
+	}
+
+	if flusher, ok := tw.w.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
+func (tw *timeoutWriter) Unwrap() http.ResponseWriter {
+	return tw.w
+}
+
 func (s *Server) TimeoutMiddleware(timeout time.Duration) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

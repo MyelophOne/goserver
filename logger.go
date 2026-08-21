@@ -3,8 +3,8 @@ package goserver
 import (
 	"fmt"
 	"net/http"
-	"runtime"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -14,46 +14,25 @@ type statusRecorder struct {
 	size   int
 }
 
-func (s *Server) LogRequest(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/.well-known/") || strings.HasPrefix(r.URL.Path, "/healthz") ||
-			r.URL.Path == "/favicon.ico" {
-			next.ServeHTTP(w, r)
-			return
-		}
+var recorderPool = sync.Pool{
+	New: func() any {
+		return &statusRecorder{}
+	},
+}
 
-		start := time.Now()
+func acquireStatusRecorder(w http.ResponseWriter) *statusRecorder {
+	r := recorderPool.Get().(*statusRecorder)
+	r.ResponseWriter = w
+	r.status = http.StatusOK
+	r.size = 0
+	return r
+}
 
-		var before runtime.MemStats
-		runtime.ReadMemStats(&before)
-
-		next.ServeHTTP(w, r)
-
-		var after runtime.MemStats
-		runtime.ReadMemStats(&after)
-
-		allocDelta := int64(after.Alloc) - int64(before.Alloc)
-
-		deltaStr := ""
-		if allocDelta >= 0 {
-			deltaStr = FormatBytes(uint64(allocDelta))
-		} else {
-			deltaStr = "-" + FormatBytes(uint64(-allocDelta))
-		}
-
-		reqID := GetRequestID(r.Context())
-
-		s.Logger.Printf("[%v] %s %s - %v | ΔMem: %s | Alloc: %s | Sys: %s | NumGC: %d",
-			reqID,
-			r.Method,
-			r.URL.Path,
-			time.Since(start),
-			deltaStr,
-			FormatBytes(after.Alloc),
-			FormatBytes(after.Sys),
-			after.NumGC,
-		)
-	})
+func releaseStatusRecorder(r *statusRecorder) {
+	if r != nil {
+		r.ResponseWriter = nil
+		recorderPool.Put(r)
+	}
 }
 
 func (r *statusRecorder) WriteHeader(status int) {
@@ -67,6 +46,39 @@ func (r *statusRecorder) Write(b []byte) (int, error) {
 	return size, err
 }
 
+func (r *statusRecorder) Flush() {
+	if flusher, ok := r.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
+func (r *statusRecorder) Unwrap() http.ResponseWriter {
+	return r.ResponseWriter
+}
+
+func (s *Server) LogRequest(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/.well-known/") || strings.HasPrefix(r.URL.Path, "/healthz") ||
+			r.URL.Path == "/favicon.ico" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		start := time.Now()
+
+		next.ServeHTTP(w, r)
+
+		reqID := GetRequestID(r.Context())
+
+		s.Logger.Printf("[%v] %s %s - %v",
+			reqID,
+			r.Method,
+			r.URL.Path,
+			time.Since(start),
+		)
+	})
+}
+
 func (s *Server) ProdAccessLogger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/.well-known/") ||
@@ -78,10 +90,8 @@ func (s *Server) ProdAccessLogger(next http.Handler) http.Handler {
 
 		start := time.Now()
 
-		recorder := &statusRecorder{
-			ResponseWriter: w,
-			status:         http.StatusOK,
-		}
+		recorder := acquireStatusRecorder(w)
+		defer releaseStatusRecorder(recorder)
 
 		next.ServeHTTP(recorder, r)
 

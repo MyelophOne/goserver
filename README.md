@@ -28,6 +28,7 @@ The implementation is performance-conscious and includes pooled buffers, bounded
 - [Extending @myelophone/goserver](#extending-myelophonegoserver)
 - [Routing and route groups](#routing-and-route-groups)
 - [Requests, validation, and responses](#requests-validation-and-responses)
+- [Streaming responses](#streaming-responses)
 - [Middleware](#middleware)
 - [Errors, hooks, and background work](#errors-hooks-and-background-work)
 - [Cookies, sessions, JWT, and encryption](#cookies-sessions-jwt-and-encryption)
@@ -452,6 +453,146 @@ Set a response header for every request with the packaged middleware:
 ```go
 s.Use(goserver.ResponseHeader("X-Powered-By", "@myelophone/goserver"))
 ```
+
+## Streaming responses
+
+`ResponseStream` sends a response incrementally over an HTTP connection. It sets the headers that disable proxy and browser buffering, flushes headers immediately, and writes each chunk as soon as the handler produces it. The server disables gzip compression automatically for a stream, even when `GzipMiddleware` is active elsewhere.
+
+Create a typed stream:
+
+```go
+stream, err := s.NewHTMLStream(w, r)   // text/html; charset=utf-8
+stream, err := s.NewJSONStream(w, r)   // application/json; charset=utf-8
+stream, err := s.NewSSEStream(w, r)    // text/event-stream; charset=utf-8
+stream, err := s.NewNDJSONStream(w, r) // application/x-ndjson; charset=utf-8
+```
+
+Use `NewStreamWithStatus` when the stream needs a non-200 status code:
+
+```go
+stream, err := s.NewStreamWithStatus(w, r, "text/html; charset=utf-8", http.StatusAccepted)
+```
+
+### HTML streaming (SSR)
+
+`WriteHTML` sends a chunk and flushes it immediately. The browser can render partial markup while the handler is still running.
+
+```go
+s.GET("/stream-example", func(w http.ResponseWriter, r *http.Request) {
+	stream, err := s.NewHTMLStream(w, r)
+	if err != nil {
+		http.Error(w, "stream not supported", http.StatusInternalServerError)
+		return
+	}
+
+	stream.WriteHTML("<!doctype html><html><body><h1>Loading...</h1>")
+
+	for i := 1; i <= 5; i++ {
+		if stream.IsClosed() {
+			return
+		}
+		time.Sleep(500 * time.Millisecond)
+		stream.WriteHTML(fmt.Sprintf("<p>Section %d loaded</p>", i))
+	}
+
+	stream.WriteHTML("</body></html>")
+})
+```
+
+### Streaming JSON arrays
+
+`StartJSONArray`, `WriteJSONArrayItem`, and `EndJSONArray` stream a JSON array one element at a time.
+
+```go
+s.GET("/api/stream-data", func(w http.ResponseWriter, r *http.Request) {
+	stream, err := s.NewJSONStream(w, r)
+	if err != nil {
+		http.Error(w, "stream not supported", http.StatusInternalServerError)
+		return
+	}
+
+	stream.StartJSONArray()
+
+	for i := 1; i <= 10; i++ {
+		if stream.IsClosed() {
+			return
+		}
+		time.Sleep(200 * time.Millisecond)
+		stream.WriteJSONArrayItem(map[string]any{
+			"id":   i,
+			"name": fmt.Sprintf("Item %d", i),
+		})
+	}
+
+	stream.EndJSONArray()
+})
+```
+
+### Server-Sent Events
+
+`WriteSSEEvent` formats and sends a single SSE message. The `Data` field can be a string, `[]byte`, or any JSON-marshalable value.
+
+```go
+s.GET("/api/sse", func(w http.ResponseWriter, r *http.Request) {
+	stream, err := s.NewSSEStream(w, r)
+	if err != nil {
+		http.Error(w, "stream not supported", http.StatusInternalServerError)
+		return
+	}
+
+	stream.WriteSSEEvent(goserver.SSEEvent{Event: "connected", Data: "ready"})
+
+	for i := 1; i <= 10; i++ {
+		if stream.IsClosed() {
+			return
+		}
+		time.Sleep(1 * time.Second)
+		stream.WriteSSEEvent(goserver.SSEEvent{
+			ID:    fmt.Sprintf("event-%d", i),
+			Event: "update",
+			Data: map[string]any{
+				"count": i,
+				"time":  time.Now().Format(time.RFC3339),
+			},
+		})
+	}
+
+	stream.WriteSSEEvent(goserver.SSEEvent{Event: "complete", Data: "done"})
+})
+```
+
+### NDJSON
+
+`WriteNDJSON` marshals a value and appends a newline. This format is useful for log streaming.
+
+```go
+s.GET("/api/logs", func(w http.ResponseWriter, r *http.Request) {
+	stream, err := s.NewNDJSONStream(w, r)
+	if err != nil {
+		http.Error(w, "stream not supported", http.StatusInternalServerError)
+		return
+	}
+
+	for i := 1; i <= 20; i++ {
+		if stream.IsClosed() {
+			return
+		}
+		time.Sleep(100 * time.Millisecond)
+		stream.WriteNDJSON(map[string]any{
+			"level":   "INFO",
+			"message": fmt.Sprintf("Processing item %d", i),
+			"time":    time.Now().Format(time.RFC3339),
+		})
+	}
+})
+```
+
+### Interaction with middleware
+
+`TimeoutMiddleware` and `MetricsMiddleware` recognize streaming responses and handle them correctly:
+
+- `TimeoutMiddleware` keeps the deadline on the request context but does not interrupt an active stream; the stream checks `IsClosed()` to stop early when the client disconnects or the context is cancelled.
+- `MetricsMiddleware` does not log streaming requests as slow requests, because their long duration is expected.
 
 ## Middleware
 
@@ -1211,7 +1352,7 @@ The following table covers the environment variables consumed by the server, exa
 | `PING_TIMEOUT`              | `15s`                 | HTTP/2 ping timeout.                                                                                                         |
 | `RELOAD_SHUTDOWN_TIMEOUT`   | `30s`                 | Graceful drain deadline.                                                                                                     |
 | `ENABLE_SLOWLORIS_CHECK`    | `false`               | Loaded compatibility flag; header deadlines are applied independently.                                                       |
-| `ENABLE_GZIP`               | `true`                | Adds gzip middleware in `Run`.                                                                                               |
+| `ENABLE_GZIP`               | `true`                | Gzip is only applied when `GzipMiddleware` or `WithGzip` is used. Defaults() uses GzipMiddleware.                            |
 | `RATE_LIMIT_SIZE`           | `10000`               | Number of client IP entries retained by an LRU limiter.                                                                      |
 | `RATE_LIMIT_RATE`           | `360`                 | Requests allowed per window.                                                                                                 |
 | `RATE_LIMIT_WINDOW`         | `1m`                  | Rate-limit window.                                                                                                           |
