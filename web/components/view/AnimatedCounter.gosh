@@ -1,0 +1,127 @@
+<!-- @server ./system/logic/animated_counter.go#ViewAnimatedCounterData -->
+<template>
+	<span
+		:id="id"
+		:class="class"
+		:data-to="counterTo"
+		:data-from="counterFrom"
+		:data-duration="counterDuration"
+		:data-decimals="counterDecimals"
+		:data-separator="counterSeparator"
+		:data-prefix="counterPrefix"
+		:data-suffix="counterSuffix"
+		:data-once="counterOnce"
+		:aria-label="counterAriaLabel"
+		data-view-animated-counter
+	>
+		<span aria-hidden="true" data-view-animated-counter-measure
+			>{{ counterPrefix }}{{ counterTargetFormatted
+			}}{{ counterSuffix }}</span
+		>
+		<span aria-hidden="true" data-view-animated-counter-value
+			>{{ counterPrefix }}{{ counterInitialFormatted
+			}}{{ counterSuffix }}</span
+		>
+	</span>
+</template>
+
+<style scoped>
+[data-view-animated-counter] {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	font-variant-numeric: tabular-nums;
+	line-height: 1;
+	white-space: nowrap;
+}
+[data-view-animated-counter-measure] {
+	opacity: 0;
+	pointer-events: none;
+	user-select: none;
+}
+[data-view-animated-counter-value] {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+</style>
+
+<script setup>
+const root = useRoot().querySelector("[data-view-animated-counter]");
+if (!root) return;
+const output = root.querySelector("[data-view-animated-counter-value]"),
+	to = Number(root.dataset.to),
+	from = Number(root.dataset.from),
+	duration = Math.max(0, Number(root.dataset.duration) || 0),
+	decimals = Math.max(0, Number(root.dataset.decimals) || 0),
+	separator = root.dataset.separator || " ",
+	prefix = root.dataset.prefix || "",
+	suffix = root.dataset.suffix || "",
+	once = root.hasAttribute("data-once");
+let hasAnimated = false,
+	frame;
+const format = (value) =>
+	new Intl.NumberFormat("ru-RU", {
+		minimumFractionDigits: decimals,
+		maximumFractionDigits: decimals,
+	})
+		.format(value)
+		.replace(/[\u00a0\u202f]/g, separator)
+		.replace(",", ".");
+const paint = (value) => {
+	output.textContent = prefix + format(value) + suffix;
+};
+const animate = () => {
+	window.cancelAnimationFrame(frame);
+	if (matchMedia("(prefers-reduced-motion: reduce)").matches || !duration) {
+		paint(to);
+		return;
+	}
+	const started = performance.now(),
+		difference = to - from;
+	const step = (now) => {
+		const progress = Math.min((now - started) / duration, 1),
+			eased = 1 - Math.pow(1 - progress, 4);
+		paint(from + difference * eased);
+		if (progress < 1) frame = requestAnimationFrame(step);
+		else {
+			paint(to);
+			root.dispatchEvent(
+				new CustomEvent("ui:animated-counter-finish", {
+					bubbles: true,
+					detail: { value: to },
+				}),
+			);
+		}
+	};
+	frame = requestAnimationFrame(step);
+};
+const observer =
+	typeof IntersectionObserver === "undefined"
+		? null
+		: new IntersectionObserver(
+				(entries) => {
+					if (
+						!entries.some((entry) => entry.isIntersecting) ||
+						(once && hasAnimated)
+					)
+						return;
+					hasAnimated = true;
+					animate();
+					if (once) observer.disconnect();
+				},
+				{ threshold: 0.2 },
+			);
+if (observer) observer.observe(root);
+else {
+	hasAnimated = true;
+	animate();
+}
+onUnmounted(() => {
+	window.cancelAnimationFrame(frame);
+	if (observer) observer.disconnect();
+});
+</script>

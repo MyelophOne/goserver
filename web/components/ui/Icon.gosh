@@ -1,0 +1,13 @@
+<!-- @server ./system/logic/icons.go#UiIconData -->
+<template>
+	<span
+		:id="id"
+		:class="class"
+		:data-ui-icon-key="iconKey"
+		:data-ui-icon-src="iconUrl"
+		:data-ui-icon-size="iconSize"
+		:aria-label="iconName"
+		role="img"
+		data-ui-icon
+	></span>
+</template>

@@ -1,0 +1,41 @@
+<!-- @server ./system/logic/universal_components.go#UniversalComponentData -->
+<template>
+	<div :id="id" :class="class" :data-end="targetDate" data-view-countdown>
+		<slot><span data-view-countdown-value>0 days 00:00:00</span></slot>
+	</div>
+</template>
+<style>
+[data-view-countdown] {
+	font-variant-numeric: tabular-nums;
+}
+</style>
+<script setup>
+const e = useRoot().querySelector("[data-view-countdown]");
+if (!e) return;
+const out = e.querySelector("[data-view-countdown-value]"),
+	end = Date.parse(e.dataset.end || "");
+if (!out || Number.isNaN(end)) return;
+const f = () => {
+	const n = Math.max(0, end - Date.now()),
+		s = Math.floor(n / 1000),
+		d = Math.floor(s / 86400),
+		h = Math.floor((s % 86400) / 3600),
+		m = Math.floor((s % 3600) / 60),
+		q = s % 60;
+	out.textContent =
+		d +
+		" days " +
+		String(h).padStart(2, "0") +
+		":" +
+		String(m).padStart(2, "0") +
+		":" +
+		String(q).padStart(2, "0");
+	if (!n)
+		e.dispatchEvent(
+			new CustomEvent("ui:countdown-finish", { bubbles: true }),
+		);
+};
+f();
+const t = setInterval(f, 1000);
+onUnmounted(() => clearInterval(t));
+</script>

@@ -1,0 +1,153 @@
+<!-- @server ./system/logic/icons.go#UiSnapSectionData -->
+<template>
+	<section :id="id" :class="class" data-ui-snap-section>
+		<div data-ui-snap-section-media>
+			<iframe
+				m-if="snapSectionYoutube"
+				:data-youtube-src="snapSectionYoutube"
+				:data-youtube-mobile-src="snapSectionYoutubeMobile"
+				title="Фоновое видео"
+				allow="autoplay; encrypted-media; picture-in-picture"
+				loading="lazy"
+				data-ui-snap-section-youtube
+			></iframe>
+			<video
+				m-if="snapSectionVideo"
+				autoplay
+				muted
+				loop
+				playsinline
+				:poster="snapSectionPoster"
+				:data-mobile-src="snapSectionVideoMobile"
+				:data-mobile-poster="snapSectionPosterMobile"
+				data-ui-snap-section-video
+			>
+				<source :src="snapSectionVideo" />
+			</video>
+			<img
+				m-if="snapSectionBackground"
+				:src="snapSectionBackground"
+				alt=""
+				:loading="snapSectionLoading"
+				data-ui-snap-section-image
+			/>
+			<div
+				m-if="snapSectionHasOverlay"
+				:style="'background:' + snapSectionOverlayStyle"
+				data-ui-snap-section-overlay
+			></div>
+		</div>
+		<div :class="snapSectionContentClass" data-ui-snap-section-content>
+			<div data-ui-snap-section-slot><slot /></div>
+		</div>
+	</section>
+</template>
+
+<style scoped>
+[data-ui-snap-section] {
+	position: relative;
+	display: flex;
+	flex: 0 0 100%;
+	width: 100%;
+	height: 100%;
+	overflow: hidden;
+	background: var(--ui-bg);
+}
+[data-ui-snap-section-media],
+[data-ui-snap-section-media] > * {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+}
+[data-ui-snap-section-media] {
+	z-index: 0;
+	pointer-events: none;
+}
+[data-ui-snap-section-image],
+[data-ui-snap-section-video] {
+	display: block;
+	object-fit: cover;
+}
+[data-ui-snap-section-youtube] {
+	border: 0;
+	transform: scale(1.2);
+}
+[data-ui-snap-section-content] {
+	position: relative;
+	z-index: 1;
+	display: flex;
+	width: min(100%, 80rem);
+	margin: 0 auto;
+	padding: 2rem 1.5rem;
+	align-items: center;
+	justify-content: center;
+	transition: transform 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+[data-ui-snap-section-slot] {
+	width: 100%;
+}
+</style>
+
+<script setup>
+const root = useRoot().querySelector("[data-ui-snap-section]");
+if (!root) return;
+const css = window._gosh.setStyleProperty,
+	content = root.querySelector("[data-ui-snap-section-content]"),
+	video = root.querySelector("[data-ui-snap-section-video]"),
+	frame = root.querySelector("[data-ui-snap-section-youtube]");
+const setMedia = () => {
+	const mobile = window.innerWidth < 768;
+	if (video) {
+		const source = video.querySelector("source"),
+			next = mobile
+				? video.dataset.mobileSrc
+				: source && source.getAttribute("src"),
+			poster = mobile
+				? video.dataset.mobilePoster
+				: video.getAttribute("poster");
+		if (next && source && source.getAttribute("src") !== next) {
+			source.src = next;
+			video.load();
+		}
+		if (poster) video.poster = poster;
+	}
+	if (frame) {
+		const next = mobile
+			? frame.dataset.youtubeMobileSrc || frame.dataset.youtubeSrc
+			: frame.dataset.youtubeSrc;
+		if (next && frame.src !== next) frame.src = next;
+	}
+};
+const onActive = (event) => {
+	const detail = event.detail || {};
+	css(
+		content,
+		"transform",
+		detail.axis === "horizontal"
+			? `translate3d(${detail.active ? 0 : detail.index % 2 ? 20 : -20}%, 0, 0)`
+			: `translate3d(0, ${detail.active ? 0 : detail.index % 2 ? 20 : -20}%, 0)`,
+	);
+	if (video) {
+		if (detail.active && document.visibilityState === "visible")
+			video.play().catch(() => {});
+		else video.pause();
+	}
+	if (frame && frame.contentWindow)
+		frame.contentWindow.postMessage(
+			JSON.stringify({
+				event: "command",
+				func: detail.active ? "playVideo" : "pauseVideo",
+				args: [],
+			}),
+			"*",
+		);
+};
+root.addEventListener("ui:snap-active", onActive);
+window.addEventListener("resize", setMedia);
+setMedia();
+onUnmounted(() => {
+	root.removeEventListener("ui:snap-active", onActive);
+	window.removeEventListener("resize", setMedia);
+});
+</script>

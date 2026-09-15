@@ -8,32 +8,138 @@ vars:
     sh: git rev-parse --short HEAD || echo "dev"
   EXT:
     sh: go env GOEXE
-  BIN: "./tmp/goserver{{.EXT}}"
+  BIN: "./dist/goserver{{.EXT}}"
+  WEBBIN: "./dist/goserver{{.EXT}}"
 
 tasks:
+  setup:
+    desc: Install the required Tailwind and client-entry builders for GOSH
+    silent: true
+    cmds:
+      - task: setup:tailwind
+      - task: setup:client
+  setup:tailwind:
+    dir: web/system/tailwind
+    silent: true
+    status:
+      - test -d node_modules
+    cmds:
+      - yarn install
+  setup:client:
+    dir: web/system/client
+    silent: true
+    status:
+      - test -d node_modules
+    cmds:
+      - yarn install
+  web:audit:
+    desc: Report unused assets; never deletes source files
+    silent: true
+    cmds:
+      - go run -tags webcli ./cmd audit
+      - cmd: echo "Unused assets report is ready."
+  web:clean:
+    desc: "Optional: remove generated GOSH build output and the audit report"
+    silent: true
+    cmds:
+      - cmd: echo "Start cleaning build output and the audit report..."
+      - go run -tags webcli ./cmd clean
+  web:generate:
+    desc: Generate @server handler bindings from GOSH directives
+    silent: true
+    deps: [setup]
+    cmds:
+      - go run -tags webcli ./cmd generate
+  web:asset-report:
+    silent: true
+    deps: [setup]
+    env:
+      APP_ENV: prod
+      MYELOPHONE_WEB_ASSET_REPORT: tmp/web-assets.json
+    cmds:
+      - go run -tags webcli ./cmd generate
+  web:build:
+    desc: Build a standalone production web distribution in dist/
+    silent: true
+    deps: [setup]
+    env:
+      APP_ENV: prod
+      GIT_COMMIT_HASH: "{{.GIT_HASH}}"
+    cmds:
+      - go run -tags webcli ./cmd generate
+      - go run -tags webcli ./cmd build
+  web:build:profile:
+    desc: Build a production web distribution with Server-Timing profiling enabled
+    silent: true
+    deps: [setup]
+    env:
+      APP_ENV: prod
+      GIT_COMMIT_HASH: "{{.GIT_HASH}}"
+      MYELOPHONE_WEB_RENDER_SERVER_TIMING: "true"
+    cmds:
+      - go run -tags webcli ./cmd generate
+      - go run -tags webcli ./cmd build
   run:
     env:
       APP_ENV: dev
+    silent: true
     cmds:
+      - cmd: echo "Start running app..."
+      - task: '{{if eq .MYELOPHONE_WEB_ENABLED "true"}}web:generate{{end}}'
       - go run ./cmd/main.go
   dev:
     env:
       APP_ENV: dev
-      METRICS_ENABLED: true
+    silent: true
     cmds:
+      - cmd: echo "Start dev running app..."
+      - task: '{{if eq .MYELOPHONE_WEB_ENABLED "true"}}web:generate{{end}}'
       - air -c .air.toml
   preview:
     env:
       APP_ENV: prod
+    silent: true
     cmds:
+      - cmd: echo "Start previewing app..."
+      - task: '{{if eq .MYELOPHONE_WEB_ENABLED "true"}}web:generate{{end}}'
       - go run ./cmd/main.go
+  profile:
+    silent: true
+    env:
+      MYELOPHONE_WEB_RENDER_SERVER_TIMING: "true"
+    cmds:
+      - cmd: echo "Start building app with profiling..."
+      - task: '{{if eq .MYELOPHONE_WEB_ENABLED "true"}}web:build:profile{{end}}'
+      - task: '{{if ne .MYELOPHONE_WEB_ENABLED "true"}}build:server{{end}}'
+      - cmd: echo "Done! Use \"task server\" command to run it."
   build:
+    silent: true
+    cmds:
+      - cmd: echo "Start building app..."
+      - task: '{{if eq .MYELOPHONE_WEB_ENABLED "true"}}web:build{{end}}'
+      - task: '{{if ne .MYELOPHONE_WEB_ENABLED "true"}}build:server{{end}}'
+      - cmd: echo "Done! Use \"task server\" command to run it."
+  build:server:
+    internal: true
+    silent: true
     env:
       APP_ENV: prod
       GIT_COMMIT_HASH: "{{.GIT_HASH}}"
     cmds:
       - CGO_ENABLED=0 GOFLAGS="-trimpath" go build -pgo=auto -ldflags="-s -w -X github.com/myelophone/goserver.AppEnv=prod -X github.com/myelophone/goserver.AppVersion=${GIT_COMMIT_HASH}" -o {{.BIN}} ./cmd/main.go
-  view:
+  server:
+    silent: true
+    cmds:
+      - cmd: echo "Starting app..."
+      - task: '{{if eq .MYELOPHONE_WEB_ENABLED "true"}}server:web{{else}}server:plain{{end}}'
+  server:web:
+    internal: true
+    silent: true
+    cmds:
+      - "{{.WEBBIN}} {{.CLI_ARGS}}"
+  server:plain:
+    internal: true
+    silent: true
     cmds:
       - "{{.BIN}} {{.CLI_ARGS}}"
   lint:
@@ -97,9 +203,14 @@ tasks:
       - task: bafix
   loadtest:
     cmds:
-      - bombardier -c 50 -n 1000 -l -t 2s -d 10s http://localhost:8080
-      - bombardier -c 100 -n 5000 -l -t 2s -d 10s http://localhost:8080
-      - bombardier -c 200 -n 10000 -l -t 2s -d 10s http://localhost:8080
+      - bombardier -c 10 -d 10s http://localhost:8080
+      - bombardier -c 50 -d 15s -l http://localhost:8080
+      - bombardier -c 100 -d 15s -l http://localhost:8080
+      - bombardier -c 250 -d 15s -l http://localhost:8080
+      - bombardier -c 500 -d 15s -l http://localhost:8080
+      - bombardier -c 1000 -d 15s -l http://localhost:8080
+      - bombardier -c 2000 -d 15s -l http://localhost:8080
+      - bombardier -c 250 -d 3m -l http://localhost:8080
   analyze-web:
     deps: [build]
     cmds:

@@ -1,0 +1,27 @@
+<!-- @server ./system/logic/info_bar.go#ViewInfoBarActionData -->
+<template>
+	<button
+		:class="class"
+		:title="infoBarActionTitle"
+		:aria-label="infoBarActionTitle"
+		type="button"
+		data-view-info-bar-action
+	>
+		<UiIcon
+			:name="infoBarActionIcon"
+			:class="infoBarActionIconClass"
+			size="var(--view-info-bar-icon-size)"
+		/>
+	</button>
+</template>
+
+<script setup>
+const root = useRoot().querySelector("[data-view-info-bar-action]");
+if (!root) return;
+const activate = () =>
+	root.dispatchEvent(
+		new CustomEvent("ui:info-bar-action", { bubbles: true }),
+	);
+root.addEventListener("click", activate);
+onUnmounted(() => root.removeEventListener("click", activate));
+</script>

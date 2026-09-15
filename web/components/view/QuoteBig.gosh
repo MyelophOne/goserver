@@ -1,0 +1,153 @@
+<!-- @server ./system/logic/quote_big.go#ViewQuoteBigData -->
+<template>
+	<figure
+		:id="id"
+		:class="class"
+		:data-quote-align="quoteBigQuoteAlign"
+		:data-footer-align="quoteBigFooterAlign"
+		data-view-quote-big
+	>
+		<div aria-hidden="true" data-view-quote-big-mark>
+			<UiIcon
+				name="ri:double-quotes-l"
+				class="view-quote-big-mark-icon"
+			/>
+		</div>
+		<blockquote data-view-quote-big-body>
+			<p :class="quoteBigTextClasses">{{ quoteBigText }}</p>
+		</blockquote>
+		<figcaption m-if="quoteBigHasFooter" data-view-quote-big-footer>
+			<UiAvatar
+				m-if="quoteBigHasAvatar"
+				:src="quoteBigAvatarSrc"
+				:chip-color="quoteBigAvatarChip"
+				class="view-quote-big-avatar"
+			/>
+			<span
+				m-if="quoteBigHasAuthorName || quoteBigHasAuthorRole"
+				data-view-quote-big-author
+			>
+				<cite m-if="quoteBigHasAuthorName">{{
+					quoteBigAuthorName
+				}}</cite>
+				<span m-if="quoteBigHasAuthorRole" data-view-quote-big-role>{{
+					quoteBigAuthorRole
+				}}</span>
+			</span>
+		</figcaption>
+	</figure>
+</template>
+
+<style scoped>
+[data-view-quote-big] {
+	display: flex;
+	width: min(100%, 56rem);
+	flex-direction: column;
+	margin-inline: auto;
+	padding: 2rem 1rem;
+	color: var(--ui-text);
+}
+[data-view-quote-big-mark] {
+	width: 4rem;
+	height: 4rem;
+	margin-bottom: 1rem;
+	align-self: flex-start;
+	color: color-mix(in srgb, #6366f1, transparent 65%);
+	user-select: none;
+}
+.view-quote-big-mark-icon,
+.view-quote-big-mark-icon [data-ui-icon] {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+[data-view-quote-big-body] {
+	position: relative;
+	z-index: 1;
+	width: 100%;
+	margin: 0 0 2rem;
+	font-size: clamp(1.25rem, 2.5vw, 1.875rem);
+	font-weight: 500;
+	line-height: 1.6;
+}
+[data-view-quote-big][data-quote-align="left"] [data-view-quote-big-body] {
+	text-align: left;
+}
+[data-view-quote-big][data-quote-align="center"] [data-view-quote-big-body] {
+	text-align: center;
+}
+[data-view-quote-big][data-quote-align="right"] [data-view-quote-big-body] {
+	text-align: right;
+}
+[data-view-quote-big-footer] {
+	display: flex;
+	width: 100%;
+	align-items: center;
+	gap: 1rem;
+}
+.view-quote-big-avatar {
+	width: 3rem !important;
+	height: 3rem !important;
+	box-shadow: 0 1px 2px color-mix(in srgb, #000, transparent 85%);
+}
+[data-view-quote-big-author] {
+	display: flex;
+	flex-direction: column;
+}
+[data-view-quote-big-author] cite {
+	color: var(--ui-text);
+	font-size: 1rem;
+	font-style: normal;
+	font-weight: 700;
+}
+[data-view-quote-big-role] {
+	margin-top: 0.125rem;
+	color: color-mix(in srgb, var(--ui-text), transparent 40%);
+	font-size: 0.875rem;
+}
+[data-view-quote-big][data-footer-align="left"] [data-view-quote-big-footer] {
+	justify-content: flex-start;
+	text-align: left;
+}
+[data-view-quote-big][data-footer-align="left"] [data-view-quote-big-author] {
+	align-items: flex-start;
+}
+[data-view-quote-big][data-footer-align="center"] [data-view-quote-big-footer] {
+	justify-content: center;
+	text-align: center;
+}
+[data-view-quote-big][data-footer-align="center"] [data-view-quote-big-author] {
+	align-items: center;
+}
+[data-view-quote-big][data-footer-align="right"] [data-view-quote-big-footer] {
+	flex-direction: row-reverse;
+	justify-content: flex-start;
+	text-align: right;
+}
+[data-view-quote-big][data-footer-align="right"] [data-view-quote-big-author] {
+	align-items: flex-end;
+}
+@media (min-width: 640px) {
+	[data-view-quote-big] {
+		padding-block: 2.5rem;
+	}
+	[data-view-quote-big-mark] {
+		width: 5rem;
+		height: 5rem;
+		margin-bottom: 1.5rem;
+	}
+	[data-view-quote-big-body] {
+		margin-bottom: 2.5rem;
+	}
+	.view-quote-big-avatar {
+		width: 3.5rem !important;
+		height: 3.5rem !important;
+	}
+	[data-view-quote-big-author] cite {
+		font-size: 1.125rem;
+	}
+	[data-view-quote-big-role] {
+		font-size: 1rem;
+	}
+}
+</style>

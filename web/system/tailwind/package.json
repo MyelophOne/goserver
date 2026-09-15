@@ -1,0 +1,15 @@
+{
+  "name": "@myelophone/tailwind-toolchain",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "tailwindcss": "tailwindcss",
+    "postcss": "node postcss-runner.mjs"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "latest",
+    "postcss": "latest",
+    "tailwindcss": "latest"
+  },
+  "packageManager": "yarn@4.18.0"
+}

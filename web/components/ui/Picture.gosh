@@ -1,0 +1,16 @@
+<template>
+	<picture :id="id" :class="class">
+		<slot />
+		<img
+			m-if="src"
+			:src="src"
+			:alt="alt"
+			:width="width"
+			:height="height"
+			:sizes="sizes"
+			:loading="loading"
+			:decoding="decoding"
+			:fetchpriority="fetchpriority"
+		/>
+	</picture>
+</template>

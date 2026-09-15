@@ -1,0 +1,52 @@
+{
+  "hello": { "world": "Ciao, mondo!" },
+  "web": {
+    "language": "Lingua",
+    "title": "Esempio I18n",
+    "heading": "Cambia lingua senza ricaricare completamente la pagina",
+    "description": "Questa pagina è renderizzata da Go e tradotta tramite goserver I18n."
+  },
+  "myelophone": {
+    "welcome": "Benvenuto in",
+    "experiment": "Sperimenta, personalizza e goditi velocità e prestazioni!",
+    "poweredBy": "Realizzato da",
+    "goserverVersion": "Versione di GoServer",
+    "toggleTheme": "Cambia tema"
+  },
+  "errors": {
+    "home": "Torna alla home", "homeLabel": "Home MyelophOne GoServer", "toggleTheme": "Cambia tema", "copyright": "Tutti i diritti riservati.",
+    "notFound": { "title": "Pagina non trovata", "description": "L’indirizzo potrebbe essere errato, la pagina potrebbe essere stata spostata o non essere più disponibile." },
+    "server": { "title": "Qualcosa è andato storto", "description": "Il server non ha potuto completare la richiesta. I tuoi dati non sono stati modificati; riprova tra poco." }
+  },
+  "cookies": {
+    "weUseCookies": "Utilizziamo i cookie per le funzionalità del sito e l'analisi.",
+    "customize": "Personalizza",
+    "decline": "Rifiuta",
+    "changePrefs": "Modifica preferenze",
+    "acceptAll": "Accetta tutto",
+    "close": "Chiudi",
+    "privacyTitle": "Impostazioni sulla privacy",
+    "cookieNote": "Scegli le categorie di cookie che desideri consentire.",
+    "necessary": "Necessari",
+    "analytics": "Analitici",
+    "marketing": "Marketing",
+    "functional": "Funzionali",
+    "necessaryDesc": "Necessari al funzionamento del sito. Non possono essere disabilitati.",
+    "analyticsDesc": "Ci aiutano a capire come i visitatori usano il sito.",
+    "marketingDesc": "Abilitano pubblicità e contenuti di terze parti.",
+    "functionalDesc": "Abilitano funzionalità opzionali e servizi incorporati.",
+    "alwaysOn": "Sempre attivi",
+    "usedServices": "Servizi utilizzati",
+    "cookiesList": "Cookie salvati in questo browser",
+    "emptyList": "Nessun cookie leggibile trovato.",
+    "declineAll": "Rifiuta facoltativi",
+    "savePrefs": "Salva preferenze",
+    "contentHidden": "Contenuto nascosto",
+    "setPrefs": "Imposta preferenze",
+    "policyTitle": "Cookie e tecnologie simili",
+    "privacyPolicy": "Informativa sulla privacy",
+    "officialDocs": "Documentazione ufficiale",
+    "allowCategory": "Consenti i cookie della categoria %s per visualizzare questo contenuto.",
+    "allowService": "Consenti i cookie della categoria %s per usare %s."
+  }
+}

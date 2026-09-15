@@ -1,0 +1,49 @@
+<!-- @server ./system/logic/universal_components.go#UniversalComponentData -->
+<template>
+	<figure :id="id" :class="class" data-ui-lightbox>
+		<button type="button" :aria-label="label" data-ui-lightbox-open>
+			<img :src="src" :alt="alt" loading="lazy" />
+		</button>
+		<dialog data-ui-lightbox-dialog><img :src="src" :alt="alt" /></dialog>
+	</figure>
+</template>
+<style>
+[data-ui-lightbox] {
+	margin: 0;
+}
+[data-ui-lightbox-open] {
+	padding: 0;
+	border: 0;
+	background: none;
+	cursor: zoom-in;
+}
+[data-ui-lightbox] img {
+	display: block;
+	max-width: 100%;
+	height: auto;
+}
+[data-ui-lightbox-dialog] {
+	max-width: 95vw;
+	max-height: 95vh;
+	padding: 0;
+	border: 0;
+	background: transparent;
+}
+[data-ui-lightbox-dialog] img {
+	max-width: 95vw;
+	max-height: 95vh;
+}
+[data-ui-lightbox-dialog]::backdrop {
+	background: #000d;
+}
+</style>
+<script setup>
+const r = useRoot().querySelector("[data-ui-lightbox]");
+if (!r) return;
+const b = r.querySelector("[data-ui-lightbox-open]"),
+	d = r.querySelector("dialog");
+const show = () => d.showModal();
+b.addEventListener("click", show);
+d.addEventListener("click", () => d.close());
+onUnmounted(() => b.removeEventListener("click", show));
+</script>

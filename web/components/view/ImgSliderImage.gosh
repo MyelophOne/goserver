@@ -1,0 +1,11 @@
+<!-- @server ./system/logic/img_slider.go#ViewImgSliderImageData -->
+<template>
+	<div data-view-img-slider-slide>
+		<UiImageWithLoader
+			:src="imgSliderImageSrc"
+			:alt="imgSliderImageAlt"
+			img-class="view-img-slider-media"
+			:loading="imgSliderImageLoading"
+		/>
+	</div>
+</template>

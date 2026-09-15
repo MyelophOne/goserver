@@ -1,0 +1,52 @@
+{
+  "hello": { "world": "Merhaba, Dünya!" },
+  "web": {
+    "language": "Dil",
+    "title": "I18n örneği",
+    "heading": "Sayfayı tamamen yeniden yüklemeden dil değiştirin",
+    "description": "Bu sayfa Go tarafından oluşturulur ve goserver I18n ile çevrilir."
+  },
+  "myelophone": {
+    "welcome": "Hoş geldiniz",
+    "experiment": "Deneyin, özelleştirin ve hız ile performansın keyfini çıkarın!",
+    "poweredBy": "Destekleyen",
+    "goserverVersion": "GoServer sürümü",
+    "toggleTheme": "Temayı değiştir"
+  },
+  "errors": {
+    "home": "Ana sayfaya dön", "homeLabel": "MyelophOne GoServer ana sayfası", "toggleTheme": "Temayı değiştir", "copyright": "Tüm hakları saklıdır.",
+    "notFound": { "title": "Sayfa bulunamadı", "description": "Adres hatalı olabilir, sayfa taşınmış olabilir veya artık kullanılamıyor olabilir." },
+    "server": { "title": "Bir şeyler ters gitti", "description": "Sunucu bu isteği tamamlayamadı. Verileriniz değişmedi; lütfen kısa süre sonra tekrar deneyin." }
+  },
+  "cookies": {
+    "weUseCookies": "Site işlevselliği ve analiz için çerez kullanıyoruz.",
+    "customize": "Özelleştir",
+    "decline": "Reddet",
+    "changePrefs": "Tercihleri değiştir",
+    "acceptAll": "Tümünü kabul et",
+    "close": "Kapat",
+    "privacyTitle": "Gizlilik ayarları",
+    "cookieNote": "İzin vermek istediğiniz çerez kategorilerini seçin.",
+    "necessary": "Gerekli",
+    "analytics": "Analiz",
+    "marketing": "Pazarlama",
+    "functional": "İşlevsel",
+    "necessaryDesc": "Web sitesinin çalışması için gereklidir. Devre dışı bırakılamaz.",
+    "analyticsDesc": "Ziyaretçilerin siteyi nasıl kullandığını anlamamıza yardımcı olur.",
+    "marketingDesc": "Reklamları ve üçüncü taraf medyayı etkinleştirir.",
+    "functionalDesc": "İsteğe bağlı özellikleri ve gömülü hizmetleri etkinleştirir.",
+    "alwaysOn": "Her zaman açık",
+    "usedServices": "Kullanılan hizmetler",
+    "cookiesList": "Bu tarayıcıda saklanan çerezler",
+    "emptyList": "Okunabilir çerez bulunamadı.",
+    "declineAll": "İsteğe bağlıları reddet",
+    "savePrefs": "Tercihleri kaydet",
+    "contentHidden": "İçerik gizlendi",
+    "setPrefs": "Tercihleri ayarla",
+    "policyTitle": "Çerezler ve benzer teknolojiler",
+    "privacyPolicy": "Gizlilik politikası",
+    "officialDocs": "Resmî dokümantasyon",
+    "allowCategory": "Bu içeriği görüntülemek için %s kategorisindeki çerezlere izin verin.",
+    "allowService": "%s kullanmak için %s kategorisindeki çerezlere izin verin."
+  }
+}

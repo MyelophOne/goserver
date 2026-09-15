@@ -1,0 +1,141 @@
+<!-- @server ./system/logic/icons.go#UiCheckboxData -->
+<template>
+	<label
+		:class="class"
+		:for="checkboxID"
+		:data-disabled="checkboxDisabled"
+		data-ui-checkbox
+	>
+		<input
+			:id="checkboxID"
+			:name="checkboxName"
+			type="checkbox"
+			:value="checkboxValue"
+			:checked="checkboxChecked"
+			:disabled="checkboxDisabled"
+			:required="checkboxRequired"
+			:aria-describedby="ariaDescribedby"
+			data-ui-checkbox-input
+		/>
+		<span aria-hidden="true" data-ui-checkbox-control>
+			<svg viewBox="0 0 16 16" fill="none" data-ui-checkbox-icon>
+				<path
+					d="M13.25 3.75 6 11 2.75 7.75"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				/>
+			</svg>
+		</span>
+		<span
+			m-if="hasCheckboxLabel || hasDescription"
+			data-ui-checkbox-content
+		>
+			<span m-if="hasCheckboxLabel" data-ui-checkbox-label>{{
+				checkboxLabel
+			}}</span>
+			<span m-if="hasDescription" data-ui-checkbox-description>{{
+				checkboxDescription
+			}}</span>
+		</span>
+	</label>
+</template>
+
+<style scoped>
+[data-ui-checkbox] {
+	display: flex;
+	width: 100%;
+	align-items: flex-start;
+	gap: 0.75rem;
+	padding-block: 0.75rem;
+	color: var(--ui-text);
+	cursor: pointer;
+	user-select: none;
+}
+[data-ui-checkbox][data-disabled] {
+	cursor: not-allowed;
+	opacity: 0.6;
+}
+[data-ui-checkbox-input] {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	padding: 0;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
+[data-ui-checkbox-control] {
+	display: inline-flex;
+	flex: none;
+	width: 1.25rem;
+	height: 1.25rem;
+	margin-top: 0.125rem;
+	align-items: center;
+	justify-content: center;
+	border: 2px solid var(--ui-border, #64748b);
+	border-radius: 0.25rem;
+	background: var(--ui-control-bg, var(--ui-surface, var(--ui-bg)));
+	color: #fff;
+	transition:
+		color 0.15s ease,
+		border-color 0.15s ease,
+		background-color 0.15s ease,
+		box-shadow 0.15s ease;
+}
+[data-ui-checkbox-icon] {
+	width: 0.875rem;
+	height: 0.875rem;
+	transform: scale(0);
+	transition: transform 0.15s ease;
+}
+[data-ui-checkbox-input]:checked + [data-ui-checkbox-control] {
+	border-color: var(--ui-focus, #2563eb);
+	background: var(--ui-focus, #2563eb);
+}
+[data-ui-checkbox-input]:checked
+	+ [data-ui-checkbox-control]
+	[data-ui-checkbox-icon] {
+	transform: scale(1);
+}
+[data-ui-checkbox-input]:focus-visible + [data-ui-checkbox-control] {
+	outline: 2px solid var(--ui-focus, #2563eb);
+	outline-offset: 2px;
+}
+[data-ui-checkbox-input]:disabled + [data-ui-checkbox-control] {
+	cursor: not-allowed;
+}
+[data-ui-checkbox-content] {
+	display: grid;
+	gap: 0.125rem;
+	min-width: 0;
+}
+[data-ui-checkbox-label] {
+	font-size: 0.875rem;
+	font-weight: 500;
+	line-height: 1.5;
+}
+[data-ui-checkbox-description] {
+	color: color-mix(in srgb, var(--ui-text), transparent 30%);
+	font-size: 0.875rem;
+	line-height: 1.5;
+}
+</style>
+
+<script setup>
+const root = useRoot().querySelector("[data-ui-checkbox]");
+const input = root && root.querySelector("[data-ui-checkbox-input]");
+if (!root || !input) return;
+const onChange = () =>
+	root.dispatchEvent(
+		new CustomEvent("ui:checkbox-change", {
+			bubbles: true,
+			detail: { checked: input.checked, value: input.value, input },
+		}),
+	);
+input.addEventListener("change", onChange);
+onUnmounted(() => input.removeEventListener("change", onChange));
+</script>

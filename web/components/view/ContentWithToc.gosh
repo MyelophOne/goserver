@@ -1,0 +1,28 @@
+<!-- @server ./system/logic/universal_components.go#UniversalComponentData -->
+<template>
+	<div :id="id" :class="class" data-view-content-toc>
+		<aside aria-label="Table of contents"><slot name="toc" /></aside>
+		<article><slot /></article>
+	</div>
+</template>
+<style>
+[data-view-content-toc] {
+	display: grid;
+	grid-template-columns: minmax(12rem, 20rem) minmax(0, 1fr);
+	gap: 2rem;
+}
+[data-view-content-toc] aside {
+	align-self: start;
+	position: sticky;
+	top: 1rem;
+}
+@media (max-width: 48rem) {
+	[data-view-content-toc] {
+		display: block;
+	}
+	[data-view-content-toc] aside {
+		position: static;
+		margin-bottom: 1.5rem;
+	}
+}
+</style>

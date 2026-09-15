@@ -2,6 +2,7 @@ package goserver
 
 import (
 	"context"
+	"crypto/subtle"
 	"errors"
 	"html/template"
 	"log"
@@ -11,6 +12,7 @@ import (
 	"os/signal"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -42,6 +44,7 @@ type Server struct {
 	errorTmpl       *template.Template
 	ErrorNotifier   func(statusCode int, r *http.Request, message string)
 	wsHub           *WebSocketHub
+	wsAuthorize     func(*http.Request) error
 	I18n            *I18n
 	JWT             *JWTManager
 	Cron            *CronManager
@@ -51,6 +54,12 @@ type Server struct {
 	middlewares     []Middleware
 	Config          Config
 	backgroundWg    sync.WaitGroup
+	workMu          sync.Mutex
+	stopping        bool
+	webMu           sync.RWMutex
+	web             *WebApp
+	cpuQuota        float64
+	cpuQuotaDefined bool
 }
 
 func NewServer(addr string) *Server {
@@ -59,12 +68,16 @@ func NewServer(addr string) *Server {
 	safeWriter := &SanitizedWriter{
 		Target: os.Stdout,
 	}
+	logWriter := &levelWriter{
+		Target:  safeWriter,
+		Minimum: ParseLogLevel(GetEnv("LOG_LEVEL", "info")),
+	}
 	s := &Server{
 		addr:        addr,
 		router:      r,
 		fileServer:  http.FileServer(http.Dir("./assets")),
 		middlewares: make([]Middleware, 0),
-		Logger:      log.New(safeWriter, "[goserver] ", log.LstdFlags),
+		Logger:      log.New(logWriter, "[goserver] ", log.LstdFlags),
 		stats: ServerStats{
 			StartTime: time.Now(),
 		},
@@ -90,6 +103,7 @@ func NewServer(addr string) *Server {
 	s.srv.SetKeepAlivesEnabled(true)
 
 	s.loadConfig()
+	s.cpuQuota, s.cpuQuotaDefined = configureMaxProcs()
 
 	s.Cron = NewCronManager(s.Logger)
 	s.JWT = NewJWTManager(s.Config.JWTSecret)
@@ -101,7 +115,7 @@ func NewServer(addr string) *Server {
 		PermitProhibitedCipherSuites: false,
 		IdleTimeout:                  s.Config.IdleTimeout,
 		PingTimeout:                  s.Config.PingTimeout,
-		WriteByteTimeout:             s.Config.WriteTimeout,
+		WriteByteTimeout:             s.Config.WriteByteTimeout,
 		CountError:                   nil,
 	}
 
@@ -139,6 +153,14 @@ func (s *Server) SetLogger(l *log.Logger) {
 	s.Logger = l
 }
 
+func (s *Server) SetWebSocketHub(hub *WebSocketHub) {
+	s.wsHub = hub
+}
+
+func (s *Server) SetWebSocketAuthorizer(authorize func(*http.Request) error) {
+	s.wsAuthorize = authorize
+}
+
 func (s *Server) SetNotFoundHandler(h http.HandlerFunc) {
 	s.notFoundHandler = h
 	s.router.SetNotFoundHandler(h)
@@ -171,15 +193,18 @@ func (s *Server) Start() error {
 		return err
 	}
 
-	s.Logger.Println("goserver is licensed under PolyForm Noncommercial 1.0.0. Copyright (c) 2026 Aliaksandr Ivanou. With ❤️  from @myeloph.one")
+	s.Logger.Println("goserver is licensed under PolyForm Noncommercial 1.0.0. Copyright (c) 2026 Aliaksandr Ivanou. With ❤️ from @aleksivanou (aleksivanov.me)")
 
-	s.Logger.Printf("%s server (ver: %s, %d CPU cores) starting on %s with config: %+v",
-		AppEnv, AppVersion, runtime.NumCPU(), s.addr, s.Config)
-
-	runtime.GOMAXPROCS(runtime.NumCPU())
+	cpuInfo := ""
+	if s.cpuQuotaDefined {
+		cpuInfo = ", CPU quota: " + strconv.FormatFloat(s.cpuQuota, 'f', -1, 2)
+	}
+	s.Logger.Printf("%s server (ver: %s, %d CPU cores%s) starting on %s with config: %s",
+		AppEnv, AppVersion, runtime.GOMAXPROCS(0), cpuInfo, s.addr, s.startupConfig())
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
+	defer signal.Stop(stop)
 
 	var currentHTTP *http.Server
 
@@ -196,29 +221,9 @@ func (s *Server) Start() error {
 		case os.Interrupt, syscall.SIGTERM:
 			s.Logger.Println("shutting down server gracefully...")
 
-			applyShutdownHooks()
-
 			ctx, cancel := context.WithTimeout(context.Background(), s.Config.ShutdownTimeout)
 			defer cancel()
-
-			if err := currentHTTP.Shutdown(ctx); err != nil {
-				s.Logger.Printf("http shutdown error: %v", err)
-			}
-
-			s.Cron.Stop()
-
-			bgDone := make(chan struct{})
-			go func() {
-				s.backgroundWg.Wait()
-				close(bgDone)
-			}()
-
-			select {
-			case <-bgDone:
-				s.Logger.Println("[background] tasks finished")
-			case <-ctx.Done():
-				s.Logger.Println("timeout waiting for background tasks (forced exit)")
-			}
+			shutdownErr := s.shutdown(ctx, currentHTTP, applyShutdownHooks)
 
 			stats := s.GetStats()
 			uptime := time.Since(stats.StartTime)
@@ -226,7 +231,7 @@ func (s *Server) Start() error {
 				uptime, stats.TotalRequests, stats.Errors4xx, stats.Errors5xx)
 
 			s.Logger.Println("server stopped")
-			return nil
+			return shutdownErr
 
 		case syscall.SIGHUP:
 			s.Logger.Println("received SIGHUP — reloading server...")
@@ -248,13 +253,30 @@ func (s *Server) Start() error {
 				if err := oldHTTP.Shutdown(ctx); err != nil {
 					s.Logger.Printf("old server shutdown error: %v", err)
 				}
-				s.Cron.Stop()
 				s.Logger.Println("old server stopped gracefully")
 			}()
 
 			s.Logger.Println("reload completed successfully")
 		}
 	}
+}
+
+func (s *Server) startupConfig() string {
+	sections := make([]string, 0, 2)
+	if config := s.Config.String(); config != "" {
+		sections = append(sections, "Goserver:"+config)
+	}
+
+	s.webMu.RLock()
+	web := s.web
+	s.webMu.RUnlock()
+	if web != nil {
+		if config := formatConfiguredValues(web.config); config != "" {
+			sections = append(sections, "Web:"+config)
+		}
+	}
+
+	return "{" + strings.Join(sections, " ") + "}"
 }
 
 func (s *Server) bootServer(cfg Config) (*http.Server, net.Listener, error) {
@@ -275,6 +297,12 @@ func (s *Server) bootServer(cfg Config) (*http.Server, net.Listener, error) {
 
 		finalHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/ws" {
+				if s.wsAuthorize != nil {
+					if err := s.wsAuthorize(r); err != nil {
+						s.rejectRequest(w, r, http.StatusUnauthorized, "WebSocket unauthorized")
+						return
+					}
+				}
 				origin := r.Header.Get("Origin")
 
 				if origin != "" {
@@ -318,7 +346,7 @@ func (s *Server) bootServer(cfg Config) (*http.Server, net.Listener, error) {
 		PermitProhibitedCipherSuites: false,
 		IdleTimeout:                  cfg.IdleTimeout,
 		PingTimeout:                  cfg.PingTimeout,
-		WriteByteTimeout:             cfg.WriteTimeout,
+		WriteByteTimeout:             cfg.WriteByteTimeout,
 		CountError:                   nil,
 	}
 	if err := http2.ConfigureServer(srv, h2s); err != nil {
@@ -347,31 +375,45 @@ func (s *Server) buildHandler(cfg Config) http.Handler {
 	compiledHandler := s.compileMiddlewareChain(handler)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !s.beginWork() {
+			http.Error(w, "Server shutting down", http.StatusServiceUnavailable)
+			return
+		}
+		defer s.backgroundWg.Done()
 		atomic.AddInt64(&s.stats.TotalRequests, 1)
+		response := newStatusWriter(w)
+		defer func() {
+			switch {
+			case response.status >= 400 && response.status < 500:
+				atomic.AddInt64(&s.stats.Errors4xx, 1)
+			case response.status >= 500:
+				atomic.AddInt64(&s.stats.Errors5xx, 1)
+			}
+		}()
 
 		if len(r.URL.String()) > cfg.MaxURLLength {
-			s.rejectRequest(w, r, http.StatusRequestURITooLong, "URL too long")
+			s.rejectRequest(response, r, http.StatusRequestURITooLong, "URL too long")
 			return
 		}
 
 		if len(r.Header) > cfg.MaxHeaders {
-			s.rejectRequest(w, r, http.StatusRequestHeaderFieldsTooLarge, "Too many headers")
+			s.rejectRequest(response, r, http.StatusRequestHeaderFieldsTooLarge, "Too many headers")
 			return
 		}
 
 		if !isRequestMethod(r.Method) {
-			s.rejectRequest(w, r, http.StatusMethodNotAllowed, http.StatusText(http.StatusMethodNotAllowed))
+			s.rejectRequest(response, r, http.StatusMethodNotAllowed, http.StatusText(http.StatusMethodNotAllowed))
 			return
 		}
 
 		if cfg.MaxBodySize > 0 && r.ContentLength > cfg.MaxBodySize {
-			s.rejectRequest(w, r, http.StatusRequestEntityTooLarge, "Request body too large")
+			s.rejectRequest(response, r, http.StatusRequestEntityTooLarge, "Request body too large")
 			return
 		}
 
-		applyBeforeHooks(w, r)
-		compiledHandler.ServeHTTP(w, r)
-		applyAfterHooks(w, r)
+		applyBeforeHooks(response, r)
+		compiledHandler.ServeHTTP(response, r)
+		applyAfterHooks(response, r)
 	})
 }
 
@@ -428,22 +470,23 @@ func (s *Server) newConnStateCallback(cfg Config) func(net.Conn, http.ConnState)
 }
 
 func (s *Server) Run() {
+	s.GET("/readyz", func(w http.ResponseWriter, r *http.Request) {
+		if s.isStopping() {
+			s.RenderErrorJSON(w, r, http.StatusServiceUnavailable, "Server shutting down")
+			return
+		}
+		s.RespondJSON(w, r, map[string]string{"status": "ready"})
+	})
 	s.GET("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		stats := s.GetStats()
 		uptime := time.Since(stats.StartTime).Seconds()
 
-		token := r.Header.Get("X-Metrics-Token")
-		isAuthorized := token == s.Config.metricsToken || IsDev()
+		response := map[string]any{"status": "ok"}
 
-		response := map[string]any{
-			"status":  "ok",
-			"env":     AppEnv,
-			"version": AppVersion,
-		}
-
-		response["uptime_seconds"] = uptime
-
-		if isAuthorized {
+		if s.metricsAuthorized(r) {
+			response["env"] = AppEnv
+			response["version"] = AppVersion
+			response["uptime_seconds"] = uptime
 			var m runtime.MemStats
 			runtime.ReadMemStats(&m)
 
@@ -455,10 +498,6 @@ func (s *Server) Run() {
 			response["memory_alloc_mb"] = float64(m.Alloc) / 1024 / 1024
 			response["memory_sys_mb"] = float64(m.Sys) / 1024 / 1024
 			response["num_gc"] = m.NumGC
-			response["metrics_authorized"] = true
-		} else {
-			response["metrics_authorized"] = false
-			response["message"] = "Use X-Metrics-Token header for detailed metrics"
 		}
 
 		s.RespondJSON(w, r, response)
@@ -466,8 +505,7 @@ func (s *Server) Run() {
 
 	s.GET("/metricz", func(w http.ResponseWriter, r *http.Request) {
 		if s.Config.metricsEnabled {
-			token := r.Header.Get("X-Metrics-Token")
-			if token != s.Config.metricsToken && !IsDev() {
+			if !s.metricsAuthorized(r) {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
@@ -526,4 +564,12 @@ func (s *Server) Run() {
 	if err := s.Start(); err != nil {
 		log.Fatalf("[goserver] server start failed: %v", err)
 	}
+}
+
+func (s *Server) metricsAuthorized(r *http.Request) bool {
+	if r == nil || s.Config.metricsToken == "" {
+		return false
+	}
+	token := r.Header.Get("X-Metrics-Token")
+	return token != "" && subtle.ConstantTimeCompare([]byte(token), []byte(s.Config.metricsToken)) == 1
 }

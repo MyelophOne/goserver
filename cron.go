@@ -167,7 +167,11 @@ func (c *CronManager) executeSafely(t task) {
 }
 
 func (s *Server) RunAsync(task func()) {
-	s.backgroundWg.Go(func() {
+	if !s.beginWork() {
+		return
+	}
+	go func() {
+		defer s.backgroundWg.Done()
 		defer func() {
 			if rec := recover(); rec != nil {
 				s.Logger.Printf("CRITICAL: Panic in background task: %v", rec)
@@ -183,5 +187,5 @@ func (s *Server) RunAsync(task func()) {
 		}()
 
 		task()
-	})
+	}()
 }

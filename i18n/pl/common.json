@@ -1,5 +1,57 @@
 {
   "hello": {
     "world": "Hello, World!"
+  },
+  "web": {
+    "language": "Język",
+    "title": "Przykład I18n",
+    "heading": "Zmieniaj języki bez pełnego przeładowania",
+    "description": "Ta strona jest renderowana przez Go i tłumaczona przez goserver I18n."
+  },
+  "myelophone": {
+    "welcome": "Witamy w",
+    "experiment": "Eksperymentuj, dostosowuj i ciesz się szybkością i wydajnością!",
+    "poweredBy": "Zasilane przez",
+    "goserverVersion": "Wersja GoServer",
+    "toggleTheme": "Przełącz motyw"
+  },
+  "errors": {
+    "home": "Wróć na stronę główną",
+    "homeLabel": "Strona główna MyelophOne GoServer",
+    "toggleTheme": "Przełącz motyw",
+    "copyright": "Wszelkie prawa zastrzeżone.",
+    "notFound": { "title": "Nie znaleziono strony", "description": "Adres może zawierać błąd, strona mogła zostać przeniesiona lub nie jest już dostępna." },
+    "server": { "title": "Coś poszło nie tak", "description": "Serwer nie mógł zrealizować żądania. Twoje dane nie zostały zmienione — spróbuj ponownie za chwilę." }
+  },
+  "cookies": {
+    "weUseCookies": "Używamy plików cookie do działania witryny i analityki.",
+    "customize": "Dostosuj",
+    "decline": "Odrzuć",
+    "changePrefs": "Zmień ustawienia",
+    "acceptAll": "Zaakceptuj wszystkie",
+    "close": "Zamknij",
+    "privacyTitle": "Ustawienia prywatności",
+    "cookieNote": "Wybierz kategorie plików cookie, na które zezwalasz.",
+    "necessary": "Niezbędne",
+    "analytics": "Analityczne",
+    "marketing": "Marketingowe",
+    "functional": "Funkcjonalne",
+    "necessaryDesc": "Są wymagane do działania witryny i nie można ich wyłączyć.",
+    "analyticsDesc": "Pomagają zrozumieć sposób korzystania z witryny.",
+    "marketingDesc": "Włączają reklamy i treści zewnętrzne.",
+    "functionalDesc": "Włączają opcjonalne funkcje i osadzone usługi.",
+    "alwaysOn": "Zawsze aktywne",
+    "usedServices": "Używane usługi",
+    "cookiesList": "Pliki cookie zapisane w przeglądarce",
+    "emptyList": "Nie znaleziono dostępnych plików cookie.",
+    "declineAll": "Odrzuć opcjonalne",
+    "savePrefs": "Zapisz ustawienia",
+    "contentHidden": "Treść ukryta",
+    "setPrefs": "Ustaw preferencje",
+    "policyTitle": "Pliki cookie i podobne technologie",
+    "privacyPolicy": "Polityka prywatności",
+    "officialDocs": "Oficjalna dokumentacja",
+    "allowCategory": "Zezwól na kategorię „%s”, aby wyświetlić tę treść.",
+    "allowService": "Zezwól na kategorię „%s”, aby korzystać z %s."
   }
 }

@@ -1,10 +1,25 @@
 package goserver
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
+
+type workLeaseKey struct{}
+
+type workLease struct {
+	refs    atomic.Int32
+	release func()
+}
+
+func (l *workLease) done() {
+	if l.refs.Add(-1) == 0 {
+		l.release()
+	}
+}
 
 var (
 	shedderSemaphore chan struct{}
@@ -28,7 +43,10 @@ func (s *Server) LoadSheddingMiddleware(next http.Handler) http.Handler {
 
 		select {
 		case shedderSemaphore <- struct{}{}:
-			defer func() { <-shedderSemaphore }()
+			lease := &workLease{release: func() { <-shedderSemaphore }}
+			lease.refs.Store(1)
+			defer lease.done()
+			r = r.WithContext(context.WithValue(r.Context(), workLeaseKey{}, lease))
 
 			next.ServeHTTP(w, r)
 

@@ -11,6 +11,7 @@ import (
 
 type timeoutWriter struct {
 	w           http.ResponseWriter
+	header      http.Header
 	mu          sync.Mutex
 	timedOut    bool
 	wroteHeader bool
@@ -18,7 +19,24 @@ type timeoutWriter struct {
 }
 
 func (tw *timeoutWriter) Header() http.Header {
-	return tw.w.Header()
+	return tw.header
+}
+
+func newTimeoutWriter(w http.ResponseWriter) *timeoutWriter {
+	return &timeoutWriter{
+		w:      w,
+		header: w.Header().Clone(),
+	}
+}
+
+func (tw *timeoutWriter) syncHeader() {
+	dst := tw.w.Header()
+	for key := range dst {
+		delete(dst, key)
+	}
+	for key, values := range tw.header {
+		dst[key] = append([]string(nil), values...)
+	}
 }
 
 func (tw *timeoutWriter) Write(p []byte) (int, error) {
@@ -29,6 +47,7 @@ func (tw *timeoutWriter) Write(p []byte) (int, error) {
 		return 0, http.ErrHandlerTimeout
 	}
 
+	tw.syncHeader()
 	tw.wroteHeader = true
 	return tw.w.Write(p)
 }
@@ -37,12 +56,22 @@ func (tw *timeoutWriter) WriteHeader(statusCode int) {
 	tw.mu.Lock()
 	defer tw.mu.Unlock()
 
+	if statusCode >= 100 && statusCode < 200 {
+		if tw.timedOut {
+			return
+		}
+		tw.syncHeader()
+		tw.w.WriteHeader(statusCode)
+		return
+	}
+
 	if tw.timedOut || tw.wroteHeader {
 		return
 	}
 
 	tw.wroteHeader = true
 	tw.code = statusCode
+	tw.syncHeader()
 	tw.w.WriteHeader(statusCode)
 }
 
@@ -54,6 +83,8 @@ func (tw *timeoutWriter) Flush() {
 		return
 	}
 
+	tw.syncHeader()
+	tw.wroteHeader = true
 	if flusher, ok := tw.w.(http.Flusher); ok {
 		flusher.Flush()
 	}
@@ -76,12 +107,24 @@ func (s *Server) TimeoutMiddleware(timeout time.Duration) func(http.Handler) htt
 
 			r = r.WithContext(ctx)
 
-			tw := &timeoutWriter{w: w}
+			tw := newTimeoutWriter(w)
 
 			done := make(chan struct{})
 			panicChan := make(chan any, 1)
+			if !s.beginWork() {
+				http.Error(w, "Server shutting down", http.StatusServiceUnavailable)
+				return
+			}
+			lease, _ := r.Context().Value(workLeaseKey{}).(*workLease)
+			if lease != nil {
+				lease.refs.Add(1)
+			}
 
 			go func() {
+				defer s.backgroundWg.Done()
+				if lease != nil {
+					defer lease.done()
+				}
 				defer func() {
 					if p := recover(); p != nil {
 						panicChan <- p

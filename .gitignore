@@ -515,3 +515,7 @@ coverage.html
 
 # local resources
 .local/
+# GOSH-generated Go bindings. Keep only the empty package stub versioned so a
+# clean checkout compiles before the first `web generate`.
+web/system/generated/*
+!web/system/generated/stub.go

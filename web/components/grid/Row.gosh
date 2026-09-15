@@ -1,0 +1,186 @@
+<!-- @server ./system/logic/grid.go#GridBackground -->
+<template>
+	<div
+		:id="id"
+		:class="class"
+		:data-size="size"
+		:data-align="align"
+		:data-justify="justify"
+		:data-equal-height="equalHeight"
+		:data-hide-mobile="hideOnMobile"
+		:data-hide-desktop="hideOnDesktop"
+		data-grid-row
+	>
+		<div m-if="bgImage" data-layout-background>
+			<img :src="bgImage" alt="" aria-hidden="true" />
+		</div>
+		<div
+			m-if="bgImageSm"
+			data-layout-background
+			data-layout-background-mobile
+		>
+			<img :src="bgImageSm" alt="" aria-hidden="true" />
+		</div>
+		<video
+			m-if="bgVideo"
+			data-layout-background
+			autoplay
+			muted
+			loop
+			playsinline
+			:poster="bgVideoPoster"
+		>
+			<source :src="bgVideo" />
+		</video>
+		<video
+			m-if="bgVideoSm"
+			data-layout-background
+			data-layout-background-mobile
+			autoplay
+			muted
+			loop
+			playsinline
+			:poster="bgVideoPosterSm"
+		>
+			<source :src="bgVideoSm" />
+		</video>
+		<iframe
+			m-if="youtubeEmbed"
+			data-layout-background
+			:data-youtube-src="youtubeEmbed"
+			:data-youtube-zoom="youtubeZoom"
+			title="Background video"
+			allow="autoplay; encrypted-media; picture-in-picture"
+			referrerpolicy="no-referrer-when-downgrade"
+			loading="lazy"
+		></iframe>
+		<iframe
+			m-if="youtubeEmbedSm"
+			data-layout-background
+			data-layout-background-mobile
+			:data-youtube-src="youtubeEmbedSm"
+			:data-youtube-zoom="youtubeZoom"
+			title="Background video"
+			allow="autoplay; encrypted-media; picture-in-picture"
+			referrerpolicy="no-referrer-when-downgrade"
+			loading="lazy"
+		></iframe>
+		<slot />
+	</div>
+</template>
+
+<style scoped>
+[data-grid-row] {
+	position: relative;
+	display: flex;
+	flex-wrap: wrap;
+	width: 100%;
+}
+[data-grid-row][data-size="content"] {
+	max-width: 67.5rem;
+	margin-inline: auto;
+}
+[data-grid-row][data-size="tablet"] {
+	max-width: 37.5rem;
+	margin-inline: auto;
+}
+[data-grid-row][data-size="boxed"] {
+	max-width: min(90%, 93.75rem);
+	margin-inline: auto;
+}
+[data-grid-row][data-size="laptop"] {
+	max-width: 85.4375rem;
+	margin-inline: auto;
+}
+[data-grid-row][data-size="medium"] {
+	max-width: 57.5rem;
+	margin-inline: auto;
+}
+[data-grid-row][data-size="mobile"] {
+	max-width: 30rem;
+	margin-inline: auto;
+}
+[data-grid-row][data-size="text"] {
+	max-width: 45.5rem;
+	margin-inline: auto;
+}
+[data-grid-row][data-size="fullwidth"],
+[data-grid-row][data-size="full"] {
+	max-width: none;
+}
+[data-grid-row][data-align="center"] {
+	align-items: center;
+}
+[data-grid-row][data-align="end"] {
+	align-items: flex-end;
+}
+[data-grid-row][data-align="stretch"],
+[data-grid-row][data-equal-height] {
+	align-items: stretch;
+}
+[data-grid-row][data-justify="center"] {
+	justify-content: center;
+}
+[data-grid-row][data-justify="end"] {
+	justify-content: flex-end;
+}
+[data-grid-row][data-justify="between"] {
+	justify-content: space-between;
+}
+[data-grid-row][data-justify="around"] {
+	justify-content: space-around;
+}
+[data-grid-row][data-justify="evenly"] {
+	justify-content: space-evenly;
+}
+[data-grid-row][data-hide-mobile] {
+	display: none;
+}
+[data-grid-row] > :not([data-layout-background]) {
+	position: relative;
+	z-index: 1;
+}
+[data-layout-background] {
+	position: absolute;
+	z-index: 0;
+	inset: 0;
+	display: block;
+	width: 100%;
+	height: 100%;
+	border: 0;
+	pointer-events: none;
+}
+[data-layout-background] img,
+[data-layout-background] video {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+[data-layout-background] iframe {
+	width: 115vw;
+	height: 64.68vw;
+	min-width: 204.44vh;
+	min-height: 115vh;
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+}
+[data-layout-background] iframe[data-youtube-zoom] {
+	transform: translate(-50%, -50%) scale(1.12);
+}
+[data-layout-background-mobile] {
+	display: block;
+}
+@media (min-width: 768px) {
+	[data-grid-row][data-hide-mobile] {
+		display: flex;
+	}
+	[data-grid-row][data-hide-desktop] {
+		display: none;
+	}
+	[data-layout-background-mobile] {
+		display: none;
+	}
+}
+</style>

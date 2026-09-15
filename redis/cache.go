@@ -3,6 +3,7 @@ package goredis
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/myelophone/goserver"
@@ -14,6 +15,17 @@ import (
 type RedisCache struct {
 	client *redis.Client
 	group  singleflight.Group
+}
+
+func (r *RedisCache) get(ctx context.Context, key string) ([]byte, error) {
+	value, err := r.client.Get(ctx, key).Bytes()
+	if err == redis.Nil {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("redis get %q: %w", key, err)
+	}
+	return value, nil
 }
 
 type CacheConfig struct {
@@ -49,13 +61,19 @@ func NewCache(cfg CacheConfig) goserver.CacheStore {
 }
 
 func (r *RedisCache) GetOrSetSWR(ctx context.Context, key string, maxAge time.Duration, generate func(ctx context.Context) ([]byte, error)) ([]byte, error) {
-	val, err := r.client.Get(ctx, key).Bytes()
+	val, err := r.get(ctx, key)
 	if err == nil {
-		return val, nil
+		if val != nil {
+			return val, nil
+		}
+	} else {
+		return nil, err
 	}
 
 	v, err, _ := r.group.Do(key, func() (any, error) {
-		if val, err := r.client.Get(ctx, key).Bytes(); err == nil {
+		if val, err := r.get(ctx, key); err != nil {
+			return nil, err
+		} else if val != nil {
 			return val, nil
 		}
 
@@ -65,7 +83,9 @@ func (r *RedisCache) GetOrSetSWR(ctx context.Context, key string, maxAge time.Du
 		}
 
 		if len(newData) > 0 {
-			r.client.Set(ctx, key, newData, maxAge)
+			if err := r.client.Set(ctx, key, newData, maxAge).Err(); err != nil {
+				return nil, fmt.Errorf("redis set %q: %w", key, err)
+			}
 		}
 		return newData, nil
 	})
@@ -77,13 +97,19 @@ func (r *RedisCache) GetOrSetSWR(ctx context.Context, key string, maxAge time.Du
 }
 
 func (r *RedisCache) GetOrSet(ctx context.Context, key string, maxAge time.Duration, generate func(ctx context.Context) ([]byte, error)) ([]byte, error) {
-	val, err := r.client.Get(ctx, key).Bytes()
+	val, err := r.get(ctx, key)
 	if err == nil {
-		return val, nil
+		if val != nil {
+			return val, nil
+		}
+	} else {
+		return nil, err
 	}
 
 	v, err, _ := r.group.Do(key, func() (any, error) {
-		if val, err := r.client.Get(ctx, key).Bytes(); err == nil {
+		if val, err := r.get(ctx, key); err != nil {
+			return nil, err
+		} else if val != nil {
 			return val, nil
 		}
 
@@ -93,7 +119,9 @@ func (r *RedisCache) GetOrSet(ctx context.Context, key string, maxAge time.Durat
 		}
 
 		if len(newData) > 0 {
-			r.client.Set(ctx, key, newData, maxAge)
+			if err := r.client.Set(ctx, key, newData, maxAge).Err(); err != nil {
+				return nil, fmt.Errorf("redis set %q: %w", key, err)
+			}
 		}
 		return newData, nil
 	})

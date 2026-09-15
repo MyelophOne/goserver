@@ -1,19 +1,21 @@
 module github.com/myelophone/goserver
 
-go 1.27
+go 1.27.1
 
 retract v1.0.0
 
 require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/hashicorp/golang-lru v1.0.2
-	github.com/jackc/pgx/v5 v5.10.0
+	github.com/jackc/pgx/v5 v5.11.0
 	github.com/redis/go-redis/v9 v9.22.0
 	github.com/rs/xid v1.6.0
-	golang.org/x/net v0.58.0
-	golang.org/x/sync v0.22.0
-	golang.org/x/sys v0.47.0
-	golang.org/x/text v0.41.0
+	github.com/tdewolff/minify/v2 v2.24.17
+	github.com/tdewolff/parse/v2 v2.8.16
+	golang.org/x/net v0.59.0
+	golang.org/x/sync v0.23.0
+	golang.org/x/sys v0.48.0
+	golang.org/x/text v0.42.0
 )
 
 require (

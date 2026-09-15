@@ -1,0 +1,57 @@
+<!-- @server ./system/logic/cookies.go#DefaultLayoutCookieData -->
+<template>
+	<div
+		class="site-shell min-h-dvh bg-[var(--ui-bg)] text-[var(--ui-text)] antialiased transition-colors duration-300"
+	>
+		<slot />
+		<span
+			m-if="cookieControlEnabled"
+			hidden
+			:data-cookie-config="cookieConfigJSON"
+		></span>
+		<CookieBanner
+			m-if="cookieBannerMounted"
+			:cookie-banner-position="cookieBannerPosition"
+			:cookie-texts="cookieTexts"
+		/>
+		<CookieSettingsModal
+			m-if="cookieSettingsMounted"
+			:cookie-show-cookie-list="cookieShowCookieList"
+			:cookie-texts="cookieTexts"
+		/>
+		<UiGlobalShortcuts
+			:site-search-enabled="siteSearchEnabled"
+			:quick-commands-enabled="quickCommandsEnabled"
+			:site-search-key="siteSearchKey"
+			:site-search-ctrl-or-meta="siteSearchCtrlOrMeta"
+			:site-search-shift="siteSearchShift"
+			:quick-commands-key="quickCommandsKey"
+			:quick-commands-ctrl-or-meta="quickCommandsCtrlOrMeta"
+			:quick-commands-shift="quickCommandsShift"
+		/>
+		<ClientOnly hydrate="manual"
+			><UiSiteSearch
+				m-if="siteSearchEnabled"
+				:min-query-length="siteSearchMinQueryLength"
+				:limit="siteSearchLimit"
+				:max-pages="siteSearchMaxPages"
+				:cache-ttl="siteSearchCacheTTL"
+				:server-search="siteSearchServerSearch"
+		/></ClientOnly>
+		<ClientOnly hydrate="manual"
+			><UiCommandPalette
+				m-if="quickCommandsEnabled"
+				placeholder="Введите / для страниц или # для команд..."
+				:items-json="quickCommandItemsJSON"
+		/></ClientOnly>
+		<PageFullscreenPreloader
+			m-if="preloaderEnabled"
+			:transparent="preloaderTransparent"
+			:background="preloaderBackground"
+			:background-dark="preloaderBackgroundDark"
+			:z-index="preloaderZIndex"
+			:aria-label="preloaderAriaLabel"
+			:minimum-duration="preloaderMinimumDuration"
+		/>
+	</div>
+</template>

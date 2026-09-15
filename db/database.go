@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"reflect"
@@ -82,17 +83,20 @@ func (c *DBStatsCollector) RecordIdleConnection() {
 }
 
 func (c *DBStatsCollector) GetStats() DBStats {
-	return DBStats{
-		TotalQueries:      atomic.Int64{},
-		SuccessfulQueries: atomic.Int64{},
-		FailedQueries:     atomic.Int64{},
-		SlowQueries:       atomic.Int64{},
-		ActiveConnections: atomic.Int64{},
-		PoolAcquired:      atomic.Int64{},
-		PoolIdle:          atomic.Int64{},
-		TotalConnections:  atomic.Int64{},
-		LastResetTime:     atomic.Pointer[time.Time]{},
+	snapshot := DBStats{}
+	snapshot.TotalQueries.Store(c.stats.TotalQueries.Load())
+	snapshot.SuccessfulQueries.Store(c.stats.SuccessfulQueries.Load())
+	snapshot.FailedQueries.Store(c.stats.FailedQueries.Load())
+	snapshot.SlowQueries.Store(c.stats.SlowQueries.Load())
+	snapshot.ActiveConnections.Store(c.stats.ActiveConnections.Load())
+	snapshot.PoolAcquired.Store(c.stats.PoolAcquired.Load())
+	snapshot.PoolIdle.Store(c.stats.PoolIdle.Load())
+	snapshot.TotalConnections.Store(c.stats.TotalConnections.Load())
+	if resetTime := c.stats.LastResetTime.Load(); resetTime != nil {
+		value := *resetTime
+		snapshot.LastResetTime.Store(&value)
 	}
+	return snapshot
 }
 
 func (c *DBStatsCollector) Reset() {
@@ -123,7 +127,7 @@ func NewDatabase(s *goserver.Server) (*Database, error) {
 		server: s,
 	}
 
-	pool, err := ConnectDB(s)
+	pool, err := connectDB(s, db.stats)
 	if err != nil {
 		return nil, err
 	}
@@ -151,6 +155,10 @@ func (db *Database) ResetStats() {
 }
 
 func ConnectDB(s *goserver.Server) (pool *pgxpool.Pool, err error) {
+	return connectDB(s, NewDBStatsCollector())
+}
+
+func connectDB(s *goserver.Server, stats *DBStatsCollector) (pool *pgxpool.Pool, err error) {
 	dsn := s.Config.DatabaseUrl
 	if dsn == "" {
 		host := s.Config.PostgresHost
@@ -189,7 +197,13 @@ func ConnectDB(s *goserver.Server) (pool *pgxpool.Pool, err error) {
 		return nil, errMsg
 	}
 
-	maxConns := int32(runtime.NumCPU() * 8)
+	maxConns := int32(runtime.NumCPU() * 2)
+	if maxConns < 4 {
+		maxConns = 4
+	}
+	if maxConns > 32 {
+		maxConns = 32
+	}
 	if envMax := s.Config.DbMaxConns; envMax != "" {
 		if v, err := strconv.Atoi(envMax); err == nil {
 			maxConns = int32(v)
@@ -197,7 +211,19 @@ func ConnectDB(s *goserver.Server) (pool *pgxpool.Pool, err error) {
 	}
 
 	config.MaxConns = maxConns
-	config.MinConns = int32(float64(maxConns) * 0.5)
+	minConns := maxConns / 4
+	if minConns < 1 {
+		minConns = 1
+	}
+	if envMin := s.Config.DbMinConns; envMin != "" {
+		if v, err := strconv.Atoi(envMin); err == nil {
+			minConns = int32(v)
+		}
+	}
+	if minConns > maxConns {
+		minConns = maxConns
+	}
+	config.MinConns = minConns
 
 	jitter := time.Duration(rand.Intn(600)) * time.Second
 	config.MaxConnLifetime = 2*time.Hour + jitter
@@ -223,7 +249,7 @@ func ConnectDB(s *goserver.Server) (pool *pgxpool.Pool, err error) {
 			logger:        s.Logger,
 			slowThreshold: 100 * time.Millisecond,
 			mode:          logMode,
-			stats:         NewDBStatsCollector(),
+			stats:         stats,
 		}
 	}
 
@@ -395,31 +421,19 @@ func RunInTx(ctx context.Context, s *goserver.Server, pool *pgxpool.Pool, opts T
 			if attempt == maxRetries {
 				return fmt.Errorf("begin tx failed after %d attempts: %w", maxRetries, beginErr)
 			}
-			time.Sleep(time.Duration(attempt) * 100 * time.Millisecond)
+			if err := waitRetry(ctx, time.Duration(attempt)*100*time.Millisecond); err != nil {
+				return err
+			}
 			continue
 		}
 
-		err = func() error {
-			defer func() {
-				if p := recover(); p != nil {
-					_ = tx.Rollback(ctx)
-					panic(p)
-				} else if err != nil {
-					_ = tx.Rollback(ctx)
-				} else {
-					commitErr := tx.Commit(ctx)
-					if commitErr != nil {
-						err = fmt.Errorf("commit failed: %w", commitErr)
-					}
-				}
-			}()
-
-			return fn(tx)
-		}()
+		err = finishTransaction(ctx, tx, fn)
 
 		if err != nil && isRetryableError(err) && attempt < maxRetries {
 			s.Logger.Printf("Retryable error in transaction (attempt %d/%d): %v", attempt, maxRetries, err)
-			time.Sleep(time.Duration(attempt) * 200 * time.Millisecond)
+			if err := waitRetry(ctx, time.Duration(attempt)*200*time.Millisecond); err != nil {
+				return err
+			}
 			continue
 		}
 
@@ -430,16 +444,34 @@ func RunInTx(ctx context.Context, s *goserver.Server, pool *pgxpool.Pool, opts T
 }
 
 func isRetryableError(err error) bool {
-	if err == nil {
-		return false
-	}
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && (pgErr.Code == "40001" || pgErr.Code == "40P01")
+}
 
-	errStr := err.Error()
-	return contains(errStr, "serialization_failure") ||
-		contains(errStr, "deadlock_detected") ||
-		contains(errStr, "lock_not_available") ||
-		contains(errStr, "connection_failure") ||
-		contains(errStr, "could not serialize")
+func finishTransaction(ctx context.Context, tx pgx.Tx, fn func(pgx.Tx) error) error {
+	defer func() {
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		_ = tx.Rollback(cleanupCtx)
+	}()
+	if err := fn(tx); err != nil {
+		return err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit failed: %w", err)
+	}
+	return nil
+}
+
+func waitRetry(ctx context.Context, delay time.Duration) error {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 func contains(s, substr string) bool {

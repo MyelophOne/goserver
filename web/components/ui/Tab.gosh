@@ -1,0 +1,21 @@
+<template>
+	<div
+		:id="id"
+		:class="class"
+		:data-active="defaultActive"
+		:data-disabled="disabled"
+		data-ui-tab
+	>
+		<button
+			type="button"
+			:disabled="disabled"
+			role="tab"
+			data-ui-tab-button
+		>
+			{{ label }}
+		</button>
+		<div role="tabpanel" tabindex="0" data-ui-tab-panel>
+			<slot>{{ content }}</slot>
+		</div>
+	</div>
+</template>

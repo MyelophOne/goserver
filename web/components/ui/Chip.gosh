@@ -1,0 +1,143 @@
+<!-- @server ./system/logic/icons.go#UiChipData -->
+<template>
+	<span
+		:id="id"
+		:class="class"
+		:data-standalone="chipStandalone"
+		data-ui-chip
+	>
+		<slot />
+		<span
+			m-if="chipShow"
+			:data-color="chipColor"
+			:data-size="chipSize"
+			:data-position="chipPosition"
+			:data-inset="chipInset"
+			:data-long="chipLongText"
+			data-ui-chip-badge
+		>
+			<span m-if="chipPing" data-ui-chip-ping></span>
+			<span data-ui-chip-text>{{ chipText }}</span>
+		</span>
+	</span>
+</template>
+
+<style scoped>
+[data-ui-chip] {
+	position: relative;
+	display: inline-flex;
+	line-height: 1;
+	vertical-align: middle;
+}
+[data-ui-chip][data-standalone] {
+	position: static;
+}
+[data-ui-chip-badge] {
+	position: absolute;
+	z-index: 1;
+	display: inline-flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	border-radius: 999px;
+	color: #fff;
+	box-shadow:
+		0 0 0 1px var(--ui-bg),
+		0 1px 2px color-mix(in srgb, #000, transparent 75%);
+	font-weight: 500;
+	line-height: 1;
+	letter-spacing: -0.03em;
+	white-space: nowrap;
+}
+[data-ui-chip][data-standalone] [data-ui-chip-badge] {
+	position: relative;
+	inset: auto;
+	margin-inline: 0.375rem;
+	transform: none;
+}
+[data-ui-chip-badge][data-position="top-right"] {
+	top: 0;
+	right: 0;
+	transform: translate(50%, -50%);
+}
+[data-ui-chip-badge][data-position="top-left"] {
+	top: 0;
+	left: 0;
+	transform: translate(-50%, -50%);
+}
+[data-ui-chip-badge][data-position="bottom-right"] {
+	right: 0;
+	bottom: 0;
+	transform: translate(50%, 50%);
+}
+[data-ui-chip-badge][data-position="bottom-left"] {
+	bottom: 0;
+	left: 0;
+	transform: translate(-50%, 50%);
+}
+[data-ui-chip-badge][data-inset] {
+	transform: none;
+}
+[data-ui-chip-badge][data-size="xs"] {
+	width: 0.375rem;
+	height: 0.375rem;
+	font-size: 8px;
+}
+[data-ui-chip-badge][data-size="sm"] {
+	width: 0.625rem;
+	height: 0.625rem;
+	font-size: 9px;
+}
+[data-ui-chip-badge][data-size="md"] {
+	width: 1rem;
+	height: 1rem;
+	font-size: 10px;
+}
+[data-ui-chip-badge][data-size="lg"] {
+	width: 1.25rem;
+	height: 1.25rem;
+	font-size: 11px;
+}
+[data-ui-chip-badge][data-long] {
+	width: auto;
+	padding-inline: 0.375rem;
+}
+[data-ui-chip-badge][data-color="primary"] {
+	background: #6366f1;
+}
+[data-ui-chip-badge][data-color="red"] {
+	background: #ef4444;
+}
+[data-ui-chip-badge][data-color="green"] {
+	background: #22c55e;
+}
+[data-ui-chip-badge][data-color="blue"] {
+	background: #3b82f6;
+}
+[data-ui-chip-badge][data-color="gray"] {
+	background: #6b7280;
+}
+[data-ui-chip-badge][data-color="neutral"] {
+	background: #64748b;
+}
+[data-ui-chip-ping] {
+	position: absolute;
+	inset: 0;
+	z-index: -1;
+	border-radius: inherit;
+	background: inherit;
+	pointer-events: none;
+	animation: ui-chip-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+@keyframes ui-chip-ping {
+	0% {
+		transform: scale(1);
+		opacity: 0.8;
+	}
+	70%,
+	100% {
+		transform: scale(2.5);
+		opacity: 0;
+	}
+}
+</style>

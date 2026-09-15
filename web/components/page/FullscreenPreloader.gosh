@@ -1,0 +1,128 @@
+<!-- @server ./system/logic/preloader.go#PageFullscreenPreloaderData -->
+<template>
+	<div
+		:id="id"
+		:class="pagePreloaderClasses"
+		:style="pagePreloaderStyle"
+		:data-minimum-duration="pagePreloaderDuration"
+		role="status"
+		aria-live="polite"
+		aria-busy="true"
+		:aria-label="pagePreloaderLabel"
+		data-page-fullscreen-preloader
+	>
+		<div data-page-fullscreen-preloader-content>
+			<span
+				aria-hidden="true"
+				data-page-fullscreen-preloader-spinner
+			></span
+			><slot />
+		</div>
+	</div>
+</template>
+
+<style>
+[data-page-fullscreen-preloader] {
+	position: fixed;
+	z-index: var(--page-fullscreen-preloader-z-index);
+	inset: 0;
+	display: none;
+	width: 100%;
+	height: 100vh;
+	height: 100dvh;
+	overflow: hidden;
+	overscroll-behavior: contain;
+	place-items: center;
+	background: var(--page-fullscreen-preloader-background-light);
+}
+html.js [data-page-fullscreen-preloader].is-visible {
+	display: grid;
+}
+[data-page-fullscreen-preloader-content] {
+	display: flex;
+	max-width: 100%;
+	max-height: 100%;
+	align-items: center;
+	justify-content: center;
+	gap: 0.75rem;
+	padding: 1rem;
+	color: var(--ui-text);
+}
+[data-page-fullscreen-preloader-spinner] {
+	width: 2rem;
+	height: 2rem;
+	border: 2px solid color-mix(in srgb, var(--ui-text), transparent 75%);
+	border-top-color: var(--ui-text);
+	border-radius: 999px;
+	animation: page-fullscreen-preloader-spin 0.65s linear infinite;
+}
+[data-page-fullscreen-preloader].is-hiding {
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity 0.16s ease-out;
+}
+@keyframes page-fullscreen-preloader-spin {
+	to {
+		transform: rotate(1turn);
+	}
+}
+[data-theme="dark"] [data-page-fullscreen-preloader] {
+	background: var(--page-fullscreen-preloader-background-dark);
+}
+@media (prefers-color-scheme: dark) {
+	[data-page-fullscreen-preloader] {
+		background: var(--page-fullscreen-preloader-background-dark);
+	}
+	[data-theme="light"] [data-page-fullscreen-preloader] {
+		background: var(--page-fullscreen-preloader-background-light);
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	[data-page-fullscreen-preloader-spinner] {
+		animation-duration: 1.5s;
+	}
+	[data-page-fullscreen-preloader].is-hiding {
+		transition: none;
+	}
+}
+</style>
+
+<script setup>
+const root = useRoot().querySelector("[data-page-fullscreen-preloader]");
+if (!root) return;
+const minimum = Math.max(0, Number(root.dataset.minimumDuration) || 0);
+let shownAt = performance.now(),
+	timer;
+const show = () => {
+	window.clearTimeout(timer);
+	root.classList.remove("is-hiding");
+	root.classList.add("is-visible");
+	shownAt = performance.now();
+};
+const hide = () => {
+	const wait = Math.max(0, minimum - (performance.now() - shownAt));
+	window.clearTimeout(timer);
+	timer = window.setTimeout(() => {
+		root.classList.add("is-hiding");
+		window.setTimeout(
+			() => root.classList.remove("is-visible", "is-hiding"),
+			170,
+		);
+	}, wait);
+};
+const onLoad = () => hide();
+const onStart = () => show();
+const onEnd = () => hide();
+if (document.readyState === "complete") hide();
+else window.addEventListener("load", onLoad, { once: true });
+document.addEventListener("runtime:navigation-start", onStart);
+document.addEventListener("runtime:navigation-end", onEnd);
+document.addEventListener("runtime:navigation-error", onEnd);
+onUnmounted(() => {
+	window.clearTimeout(timer);
+	window.removeEventListener("load", onLoad);
+	document.removeEventListener("runtime:navigation-start", onStart);
+	document.removeEventListener("runtime:navigation-end", onEnd);
+	document.removeEventListener("runtime:navigation-error", onEnd);
+});
+</script>

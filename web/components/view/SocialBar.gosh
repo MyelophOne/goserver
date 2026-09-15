@@ -1,0 +1,91 @@
+<!-- @server ./system/logic/social_bar.go#ViewSocialBarData -->
+<template>
+	<nav
+		:id="id"
+		:class="socialBarClasses"
+		:style="socialBarStyle"
+		:data-variant="socialBarVariant"
+		:data-icon-class="socialBarIconClass"
+		:aria-label="socialBarLabel"
+		data-view-social-bar
+	>
+		<slot />
+	</nav>
+</template>
+
+<style>
+[data-view-social-bar] {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--view-social-bar-gap);
+}
+[data-view-social-bar] [data-ui-link] {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	color: color-mix(in srgb, var(--ui-text), transparent 45%);
+	text-decoration: none;
+	transition:
+		color 0.2s ease,
+		opacity 0.2s ease,
+		background-color 0.2s ease,
+		border-color 0.2s ease;
+}
+[data-view-social-bar] [data-ui-link] gosh-component,
+[data-view-social-bar] [data-ui-link] [data-ui-icon] {
+	display: block;
+	width: var(--view-social-bar-size);
+	height: var(--view-social-bar-size);
+}
+[data-view-social-bar][data-variant="simple"] [data-ui-link],
+[data-view-social-bar][data-variant="colored"] [data-ui-link] {
+	padding: 0.25rem;
+}
+[data-view-social-bar][data-variant="simple"] [data-ui-link]:hover {
+	color: var(--ui-text);
+}
+[data-view-social-bar][data-variant="colored"] [data-ui-link]:hover {
+	opacity: 0.8;
+}
+[data-view-social-bar][data-variant="circle"] [data-ui-link],
+[data-view-social-bar][data-variant="solid"] [data-ui-link],
+[data-view-social-bar][data-variant="glass"] [data-ui-link] {
+	width: 2.5rem;
+	height: 2.5rem;
+	border-radius: 999px;
+}
+[data-view-social-bar][data-variant="circle"] [data-ui-link] {
+	border: 1px solid var(--ui-border);
+}
+[data-view-social-bar][data-variant="circle"] [data-ui-link]:hover {
+	color: var(--ui-bg);
+	border-color: var(--ui-text);
+	background: var(--ui-text);
+}
+[data-view-social-bar][data-variant="solid"] [data-ui-link] {
+	background: color-mix(in srgb, var(--ui-text), transparent 92%);
+}
+[data-view-social-bar][data-variant="solid"] [data-ui-link]:hover {
+	color: var(--ui-bg);
+	background: var(--ui-text);
+}
+[data-view-social-bar][data-variant="glass"] [data-ui-link] {
+	border: 1px solid color-mix(in srgb, #fff, transparent 80%);
+	background: color-mix(in srgb, #fff, transparent 70%);
+	backdrop-filter: blur(8px);
+}
+[data-view-social-bar][data-variant="glass"] [data-ui-link]:hover {
+	background: color-mix(in srgb, #fff, transparent 45%);
+}
+[data-theme="dark"]
+	[data-view-social-bar][data-variant="glass"]
+	[data-ui-link] {
+	border-color: color-mix(in srgb, #fff, transparent 90%);
+	background: color-mix(in srgb, #fff, transparent 95%);
+}
+[data-view-social-bar] [data-ui-link]::after {
+	display: none !important;
+	content: none !important;
+}
+</style>

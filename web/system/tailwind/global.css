@@ -1,0 +1,15 @@
+@theme {
+	--font-sans:
+		-apple-system, system-ui, BlinkMacSystemFont, 'Segoe UI', Roboto,
+		Oxygen, Ubuntu, 'Helvetica Neue', Arial, sans-serif, color-emoji;
+	--default-font-feature-settings: normal;
+	--default-font-variation-settings: normal;
+}
+
+html {
+	font-family: var(--font-sans) !important;
+	font-feature-settings: normal !important;
+	font-variation-settings: normal !important;
+}
+
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));

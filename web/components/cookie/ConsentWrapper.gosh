@@ -1,0 +1,103 @@
+<!-- @server ./system/logic/cookies.go#CookieConsentWrapperData -->
+<template>
+	<div m-if="!cookieControlEnabled" data-cookie-consent-wrapper><slot /></div>
+	<div
+		m-else
+		:data-category="cookieConsentCategory"
+		:data-service="cookieConsentService"
+		data-cookie-consent-wrapper
+	>
+		<div data-cookie-consent-content></div>
+		<script type="text/plain" data-cookie-consent-template>
+			<slot />
+		</script>
+		<div data-cookie-consent-placeholder>
+			<div aria-hidden="true" data-cookie-consent-icon>🍪</div>
+			<strong>{{ cookieContentHidden }}</strong>
+			<p>{{ cookieConsentMessage }}</p>
+			<button type="button" data-cookie-consent-request>
+				{{ cookieSetPrefs }}
+			</button>
+		</div>
+	</div>
+</template>
+<style>
+[data-cookie-consent-wrapper] {
+	width: 100%;
+	height: 100%;
+	position: relative;
+	isolation: isolate;
+}
+[data-cookie-consent-placeholder] {
+	display: flex;
+	min-height: 12.5rem;
+	width: 100%;
+	height: 100%;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 1.5rem;
+	text-align: center;
+	border: 1px solid var(--ui-border, #e5e7eb);
+	border-radius: 0.75rem;
+	background: var(--ui-control-bg, #f8fafc);
+}
+[data-cookie-consent-placeholder] p {
+	max-width: 22rem;
+	margin: 0.5rem auto 1rem;
+	font-size: 0.875rem;
+	opacity: 0.7;
+}
+[data-cookie-consent-icon] {
+	margin-bottom: 0.5rem;
+	font-size: 2rem;
+}
+[data-cookie-consent-request] {
+	padding: 0.55rem 0.85rem;
+	border: 0;
+	border-radius: 0.5rem;
+	background: var(--ui-text, #111827);
+	color: var(--ui-bg, #fff);
+	font-weight: 650;
+	cursor: pointer;
+}
+[data-cookie-consent-content] {
+	width: 100%;
+	height: 100%;
+}
+</style>
+<script setup>
+const root = useRoot().querySelector(
+	"[data-cookie-consent-wrapper][data-category]",
+);
+if (!root) return;
+const store = useStore("cookies"),
+	template = root.querySelector("[data-cookie-consent-template]"),
+	content = root.querySelector("[data-cookie-consent-content]"),
+	placeholder = root.querySelector("[data-cookie-consent-placeholder]"),
+	button = root.querySelector("[data-cookie-consent-request]");
+if (!store || !template || !content) return;
+const source = template.textContent || "";
+let mounted = false;
+const render = () => {
+	const allowed = store.getState().hasConsent(root.dataset.category);
+	if (allowed && !mounted) {
+		content.replaceChildren();
+		content.insertAdjacentHTML("beforeend", source);
+		mounted = true;
+	} else if (!allowed && mounted) {
+		content.replaceChildren();
+		mounted = false;
+	}
+	content.hidden = !allowed;
+	placeholder.hidden = allowed;
+};
+const request = () => store.getState().requestConsent(root.dataset.category);
+button.addEventListener("click", request);
+const unsubscribe = store.subscribe(render);
+render();
+onUnmounted(() => {
+	unsubscribe();
+	button.removeEventListener("click", request);
+});
+</script>

@@ -1,0 +1,281 @@
+<!-- @server ./system/logic/reviews_slider.go#ViewReviewsSliderData -->
+<template>
+	<section
+		:id="id"
+		:class="class"
+		:data-auto-scroll="reviewsAutoScroll"
+		:data-auto-scroll-interval="reviewsInterval"
+		:aria-label="reviewsLabel"
+		role="region"
+		data-view-reviews-slider
+	>
+		<div data-view-reviews-slider-track><slot /></div>
+		<div
+			aria-label="Review pages"
+			role="tablist"
+			data-view-reviews-slider-pagination
+		></div>
+	</section>
+</template>
+
+<style>
+[data-view-reviews-slider] {
+	--view-review-slide-width: 100%;
+	width: 100%;
+	overflow: hidden;
+	padding-block: 1rem;
+}
+[data-view-reviews-slider-track] {
+	display: flex;
+	align-items: stretch;
+	cursor: grab;
+	touch-action: pan-y;
+	transition: transform 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+	will-change: transform;
+}
+[data-view-reviews-slider-track].is-dragging {
+	cursor: grabbing;
+	transition: none;
+}
+[data-view-review-slide] {
+	display: flex;
+	width: var(--view-review-slide-width);
+	flex: 0 0 var(--view-review-slide-width);
+	padding-inline: 0.375rem;
+	user-select: none;
+}
+[data-view-review-card] {
+	display: flex;
+	width: 100%;
+	min-height: 100%;
+	flex-direction: column;
+	padding: 1.25rem;
+	border: 1px solid color-mix(in srgb, var(--ui-border), transparent 40%);
+	border-radius: 1rem;
+	color: var(--ui-text);
+	background: var(--ui-bg);
+	box-shadow: 0 1px 2px color-mix(in srgb, #000, transparent 94%);
+}
+[data-view-review-text] {
+	flex-grow: 1;
+	margin: 0;
+	color: color-mix(in srgb, var(--ui-text), transparent 26%);
+	font-size: 0.875rem;
+	line-height: 1.45;
+}
+[data-view-review-footer] {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-top: 1rem;
+	padding-top: 1rem;
+	border-top: 1px solid color-mix(in srgb, var(--ui-border), transparent 55%);
+}
+[data-view-review-person] {
+	display: flex;
+	min-width: 0;
+	align-items: center;
+	gap: 0.75rem;
+}
+[data-view-review-avatar] {
+	display: block;
+	width: 2.5rem;
+	height: 2.5rem;
+	flex: none;
+	overflow: hidden;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--ui-text), transparent 92%);
+}
+[data-view-review-avatar] gosh-component,
+[data-view-review-avatar] [data-ui-image-loader] {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+.view-review-avatar-image {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+[data-view-review-name] {
+	display: block;
+	color: var(--ui-text);
+	font-size: 0.875rem;
+	font-weight: 700;
+	line-height: 1.2;
+}
+[data-view-review-city] {
+	display: block;
+	margin-top: 0.125rem;
+	color: color-mix(in srgb, var(--ui-text), transparent 55%);
+	font-size: 0.75rem;
+}
+[data-view-review-link] {
+	flex: none;
+	margin-left: 1rem;
+	color: #3b82f6;
+	font-size: 0.75rem;
+	font-weight: 500;
+	text-decoration: none;
+}
+[data-view-review-link]:hover {
+	text-decoration: underline;
+}
+[data-view-reviews-slider-pagination] {
+	display: flex;
+	height: 0.25rem;
+	justify-content: center;
+	gap: 0.375rem;
+	margin-top: 1.5rem;
+	opacity: 0;
+	transition: opacity 0.5s ease;
+}
+[data-view-reviews-slider-pagination].is-ready {
+	opacity: 1;
+}
+[data-view-reviews-slider-pagination] button {
+	width: 0.375rem;
+	height: 100%;
+	padding: 0;
+	border: 0;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--ui-text), transparent 85%);
+	cursor: pointer;
+	transition:
+		width 0.3s ease,
+		background-color 0.3s ease;
+}
+[data-view-reviews-slider-pagination] button[aria-selected="true"] {
+	width: 1.5rem;
+	background: var(--ui-text);
+}
+[data-view-reviews-slider-pagination] button:focus-visible {
+	outline: 2px solid var(--ui-focus);
+	outline-offset: 2px;
+}
+@media (min-width: 768px) {
+	[data-view-reviews-slider] {
+		--view-review-slide-width: 25%;
+	}
+	[data-view-review-card] {
+		padding: 1.5rem;
+	}
+	[data-view-review-text] {
+		font-size: 0.9375rem;
+	}
+}
+[data-view-reviews-slider-track] > gosh-component {
+	display: block;
+	width: var(--view-review-slide-width);
+	flex: 0 0 var(--view-review-slide-width);
+}
+[data-view-reviews-slider-track] > gosh-component [data-view-review-slide] {
+	width: 100%;
+	min-height: 100%;
+}
+</style>
+
+<script setup>
+const root = useRoot().querySelector("[data-view-reviews-slider]");
+if (!root) return;
+const track = root.querySelector("[data-view-reviews-slider-track]"),
+	pagination = root.querySelector("[data-view-reviews-slider-pagination]"),
+	css = window._gosh.setStyleProperty;
+let index = 0,
+	visible = window.innerWidth < 768 ? 1 : 4,
+	startX = 0,
+	offset = 0,
+	dragging = false,
+	paused = false,
+	timer;
+const slides = () =>
+	Array.from(track.querySelectorAll("[data-view-review-slide]"));
+const max = () => Math.max(0, slides().length - visible);
+const render = () => {
+	index = Math.min(index, max());
+	css(
+		track,
+		"transform",
+		`translateX(calc(-${index} * var(--view-review-slide-width) + ${offset}px))`,
+	);
+	Array.from(pagination.children).forEach((button, item) =>
+		button.setAttribute("aria-selected", String(item === index)),
+	);
+};
+const go = (next, manual) => {
+	if (manual) {
+		paused = true;
+		window.clearInterval(timer);
+	}
+	index = Math.max(0, Math.min(max(), next));
+	offset = 0;
+	render();
+};
+const build = () => {
+	pagination.replaceChildren();
+	const count = max() + 1;
+	for (let item = 0; item < count; item += 1) {
+		const button = document.createElement("button");
+		button.type = "button";
+		button.setAttribute("role", "tab");
+		button.setAttribute("aria-label", `Go to review page ${item + 1}`);
+		button.addEventListener("click", () => go(item, true));
+		pagination.appendChild(button);
+	}
+	pagination.classList.toggle("is-ready", count > 1);
+	render();
+};
+const start = (event) => {
+	paused = true;
+	window.clearInterval(timer);
+	dragging = true;
+	startX = event.clientX;
+	track.classList.add("is-dragging");
+};
+const move = (event) => {
+	if (!dragging) return;
+	const diff = event.clientX - startX;
+	offset =
+		(index === 0 && diff > 0) || (index >= max() && diff < 0)
+			? diff * 0.2
+			: diff;
+	render();
+};
+const end = () => {
+	if (!dragging) return;
+	if (offset < -50) index = Math.min(max(), index + 1);
+	if (offset > 50) index = Math.max(0, index - 1);
+	dragging = false;
+	offset = 0;
+	track.classList.remove("is-dragging");
+	render();
+};
+const resize = () => {
+	visible = window.innerWidth < 768 ? 1 : 4;
+	build();
+};
+const auto = () => {
+	if (!root.hasAttribute("data-auto-scroll") || slides().length < 2 || paused)
+		return;
+	timer = window.setInterval(
+		() => {
+			index = index >= max() ? 0 : index + 1;
+			render();
+		},
+		Math.max(1000, Number(root.dataset.autoScrollInterval) || 4000),
+	);
+};
+track.addEventListener("pointerdown", start);
+track.addEventListener("pointermove", move);
+track.addEventListener("pointerup", end);
+track.addEventListener("pointercancel", end);
+track.addEventListener("pointerleave", end);
+window.addEventListener("resize", resize);
+build();
+auto();
+onUnmounted(() => {
+	window.clearInterval(timer);
+	window.removeEventListener("resize", resize);
+});
+</script>

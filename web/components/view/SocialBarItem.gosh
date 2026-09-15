@@ -1,0 +1,11 @@
+<!-- @server ./system/logic/social_bar.go#ViewSocialBarItemData -->
+<template>
+	<UiLink
+		:class="socialItemColorClass"
+		:to="socialItemTo"
+		:target="socialItemTarget"
+		:aria-label="socialItemLabel"
+		external
+		><UiIcon :name="socialItemName" size="var(--view-social-bar-size)"
+	/></UiLink>
+</template>

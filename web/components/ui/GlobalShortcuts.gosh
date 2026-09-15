@@ -1,0 +1,91 @@
+<!-- @server ./system/logic/universal_components.go#UniversalComponentData -->
+<template>
+	<span
+		hidden
+		data-ui-global-shortcuts
+		:data-site-search-enabled="siteSearchEnabled"
+		:data-quick-commands-enabled="quickCommandsEnabled"
+		:data-site-search-key="siteSearchKey"
+		:data-site-search-ctrl-or-meta="siteSearchCtrlOrMeta"
+		:data-site-search-shift="siteSearchShift"
+		:data-quick-commands-key="quickCommandsKey"
+		:data-quick-commands-ctrl-or-meta="quickCommandsCtrlOrMeta"
+		:data-quick-commands-shift="quickCommandsShift"
+	></span>
+</template>
+<script setup>
+const root = useRoot().querySelector("[data-ui-global-shortcuts]");
+if (!root) return;
+const truth = (value) => value !== undefined && value !== "false";
+const matches = (event, prefix) => {
+	const key = (root.dataset[prefix + "Key"] || "").toLowerCase();
+	if (!key || event.key.toLowerCase() !== key) return false;
+	if (
+		truth(root.dataset[prefix + "CtrlOrMeta"]) &&
+		!(event.ctrlKey || event.metaKey)
+	)
+		return false;
+	return event.shiftKey === truth(root.dataset[prefix + "Shift"]);
+};
+const activate = (name, eventName) => {
+	const lazy = document.querySelector(
+		'[data-gosh-component="' + name + '"][data-gosh-lazy="1"]',
+	);
+	const open = () => document.dispatchEvent(new CustomEvent(eventName));
+	if (!lazy) {
+		open();
+		return;
+	}
+	const loaded = (event) => {
+		if (event.detail && event.detail.element === lazy) {
+			document.removeEventListener("runtime:lazy-loaded", loaded);
+			open();
+		}
+	};
+	document.addEventListener("runtime:lazy-loaded", loaded);
+	window._gosh.loadLazy(lazy);
+};
+const openSearch = () => activate("UiSiteSearch", "gosh:site-search-open"),
+	openCommands = () =>
+		activate("UiCommandPalette", "gosh:command-palette-open");
+window._gosh.openSiteSearch = openSearch;
+window._gosh.openCommandPalette = openCommands;
+const key = (event) => {
+	if (truth(root.dataset.siteSearchEnabled) && matches(event, "siteSearch")) {
+		event.preventDefault();
+		openSearch();
+	} else if (
+		truth(root.dataset.quickCommandsEnabled) &&
+		matches(event, "quickCommands")
+	) {
+		event.preventDefault();
+		openCommands();
+	}
+};
+const click = (event) => {
+	const link = event.target.closest("[data-gosh-open]");
+	if (!link) return;
+	const target = link.getAttribute("data-gosh-open");
+	if (target === "site-search" && truth(root.dataset.siteSearchEnabled)) {
+		event.preventDefault();
+		openSearch();
+	}
+	if (
+		target === "command-palette" &&
+		truth(root.dataset.quickCommandsEnabled)
+	) {
+		event.preventDefault();
+		openCommands();
+	}
+};
+document.addEventListener("keydown", key);
+document.addEventListener("click", click);
+onUnmounted(() => {
+	document.removeEventListener("keydown", key);
+	document.removeEventListener("click", click);
+	if (window._gosh.openSiteSearch === openSearch)
+		delete window._gosh.openSiteSearch;
+	if (window._gosh.openCommandPalette === openCommands)
+		delete window._gosh.openCommandPalette;
+});
+</script>

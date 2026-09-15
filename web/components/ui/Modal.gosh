@@ -1,0 +1,219 @@
+<!-- @server ./system/logic/universal_components.go#UniversalComponentData -->
+<template>
+	<div :id="id" :class="class" hidden aria-hidden="true" data-ui-modal>
+		<div data-ui-modal-backdrop></div>
+		<div data-ui-modal-viewport>
+			<section
+				aria-modal="true"
+				role="dialog"
+				:aria-label="title"
+				tabindex="-1"
+				data-ui-modal-card
+			>
+				<header m-if="title" data-ui-modal-header>
+					<h3>{{ title }}</h3>
+					<button
+						type="button"
+						aria-label="Close"
+						data-ui-modal-close
+					>
+						<svg
+							aria-hidden="true"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+						>
+							<path d="m6 6 12 12M18 6 6 18" />
+						</svg>
+					</button>
+				</header>
+				<div data-ui-modal-body><slot /></div>
+			</section>
+		</div>
+	</div>
+</template>
+<style>
+[data-ui-modal] {
+	position: fixed;
+	z-index: 80;
+	inset: 0;
+}
+[data-ui-modal-backdrop] {
+	position: absolute;
+	inset: 0;
+	background: rgb(0 0 0/0.4);
+	backdrop-filter: blur(4px);
+	opacity: 0;
+	transition: opacity 0.2s ease;
+}
+[data-ui-modal-viewport] {
+	position: absolute;
+	z-index: 1;
+	inset: 0;
+	display: flex;
+	width: 100vw;
+	min-height: 100%;
+	align-items: center;
+	justify-content: center;
+	padding: 1rem;
+	text-align: center;
+	pointer-events: none;
+}
+[data-ui-modal-card] {
+	position: relative;
+	width: 100%;
+	max-width: 28rem;
+	max-height: calc(100dvh - 2rem);
+	overflow: auto;
+	border: 1px solid #e5e7eb;
+	border-radius: 0.75rem;
+	color: var(--ui-text);
+	background: var(--ui-bg);
+	box-shadow: 0 1.25rem 1.5rem rgb(0 0 0/0.18);
+	text-align: left;
+	pointer-events: auto;
+	opacity: 0;
+	transform: translateY(1rem) scale(0.95);
+	transition:
+		opacity 0.3s ease,
+		transform 0.3s ease;
+}
+[data-ui-modal][data-open] [data-ui-modal-backdrop],
+[data-ui-modal][data-open] [data-ui-modal-card] {
+	opacity: 1;
+}
+[data-ui-modal][data-open] [data-ui-modal-card] {
+	transform: translateY(0) scale(1);
+}
+[data-ui-modal-header] {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 1rem 1.5rem;
+	border-bottom: 1px solid rgb(229 231 235/0.5);
+}
+[data-ui-modal-header] h3 {
+	margin: 0;
+	font-size: 1.125rem;
+	font-weight: 600;
+	line-height: 1.5rem;
+	opacity: 0.9;
+}
+[data-ui-modal-close] {
+	width: 2rem;
+	height: 2rem;
+	margin-right: -0.25rem;
+	padding: 0.25rem;
+	border: 0;
+	border-radius: 0.375rem;
+	color: var(--ui-text);
+	background: transparent;
+	cursor: pointer;
+	opacity: 0.5;
+	transition:
+		background-color 0.2s,
+		opacity 0.2s;
+}
+[data-ui-modal-close]:hover {
+	background: rgb(0 0 0/0.05);
+	opacity: 1;
+}
+[data-ui-modal-close]:focus-visible {
+	outline: 2px solid var(--ui-focus, #6366f1);
+	outline-offset: 2px;
+}
+[data-ui-modal-close] svg {
+	display: block;
+	width: 100%;
+	height: 100%;
+	stroke-width: 2;
+}
+[data-ui-modal-body] {
+	max-height: 70vh;
+	padding: 1.25rem 1.5rem;
+	overflow-y: auto;
+}
+[data-theme="dark"] [data-ui-modal-card] {
+	border-color: #262626;
+}
+[data-theme="dark"] [data-ui-modal-header] {
+	border-color: rgb(38 38 38/0.5);
+}
+[data-theme="dark"] [data-ui-modal-close]:hover {
+	background: rgb(255 255 255/0.1);
+}
+@media (prefers-reduced-motion: reduce) {
+	[data-ui-modal-backdrop],
+	[data-ui-modal-card] {
+		transition: none;
+	}
+}
+</style>
+<script setup>
+const root = useRoot().querySelector("[data-ui-modal]");
+if (!root) return;
+const store = useStore("ui"),
+	key = root.id,
+	parent = root.parentNode,
+	next = root.nextSibling,
+	card = root.querySelector("[data-ui-modal-card]"),
+	button = root.querySelector("[data-ui-modal-close]"),
+	backdrop = root.querySelector("[data-ui-modal-backdrop]");
+let focus,
+	locked = false;
+document.body.append(root);
+const unlock = () => {
+	if (!locked) return;
+	document.documentElement.style.overflow = "";
+	document.body.style.overflow = "";
+	locked = false;
+};
+const close = () => {
+	if (root.hidden) return;
+	delete root.dataset.open;
+	root.setAttribute("aria-hidden", "true");
+	setTimeout(() => {
+		if (!root.hasAttribute("data-open")) root.hidden = true;
+	}, 200);
+	unlock();
+	store && store.getState().closeModal();
+	if (focus && focus.focus) focus.focus();
+	focus = null;
+};
+const open = () => {
+	if (!root.hidden) return;
+	focus = document.activeElement;
+	root.hidden = false;
+	root.setAttribute("aria-hidden", "false");
+	document.documentElement.style.overflow = "hidden";
+	document.body.style.overflow = "hidden";
+	locked = true;
+	requestAnimationFrame(() => {
+		root.dataset.open = "";
+		card.focus();
+	});
+};
+const render = () => {
+	if (store && store.getState().modal === key) open();
+	else close();
+};
+const outside = (e) => {
+	if (e.target === backdrop) close();
+};
+const keydown = (e) => {
+	if (e.key === "Escape") close();
+};
+button && button.addEventListener("click", close);
+backdrop.addEventListener("click", outside);
+document.addEventListener("keydown", keydown);
+const unsubscribe = store && store.subscribe(render);
+render();
+onUnmounted(() => {
+	unlock();
+	button && button.removeEventListener("click", close);
+	backdrop.removeEventListener("click", outside);
+	document.removeEventListener("keydown", keydown);
+	unsubscribe && unsubscribe();
+	if (parent) parent.insertBefore(root, next);
+});
+</script>

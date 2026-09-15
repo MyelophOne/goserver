@@ -1,0 +1,40 @@
+@media print {
+	:root {
+		--ui-bg: #f7f7f7;
+		--ui-text: #1a1a1b;
+		--loader-fill-color: #000;
+		--ui-border: #374151;
+	}
+
+	body {
+		font-size: 12pt;
+		background: none;
+		max-width: 210mm;
+		margin: auto;
+	}
+
+	nav,
+	.sidebar,
+	.ads,
+	.button {
+		display: none;
+	}
+
+	a {
+		color: black;
+		text-decoration: underline;
+	}
+
+	a::after {
+		content: ' (' attr(href) ')';
+		font-size: 10pt;
+		color: gray;
+	}
+
+	h1,
+	h2,
+	h3,
+	p {
+		break-inside: avoid;
+	}
+}

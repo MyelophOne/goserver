@@ -1,0 +1,207 @@
+<!-- @server ./system/logic/image_compare.go#ViewImageCompareData -->
+<template>
+	<div
+		:id="id"
+		:class="class"
+		:style="compareStyle"
+		:data-position="comparePosition"
+		:aria-label="compareAriaLabel"
+		role="slider"
+		aria-valuemin="0"
+		aria-valuemax="100"
+		:aria-valuenow="comparePosition"
+		tabindex="0"
+		data-view-image-compare
+	>
+		<div data-view-image-compare-after>
+			<UiImageWithLoader
+				:src="compareAfterImage"
+				:alt="compareAfterAlt"
+				img-class="view-image-compare-image"
+				loading="eager"
+			/>
+		</div>
+		<div data-view-image-compare-before>
+			<UiImageWithLoader
+				:src="compareBeforeImage"
+				:alt="compareBeforeAlt"
+				img-class="view-image-compare-image"
+				loading="eager"
+			/><span data-view-image-compare-label data-side="before">{{
+				compareBeforeLabel
+			}}</span>
+		</div>
+		<span data-view-image-compare-label data-side="after">{{
+			compareAfterLabel
+		}}</span>
+		<span aria-hidden="true" data-view-image-compare-handle
+			><span data-view-image-compare-handle-button
+				><span>‹</span><span>›</span></span
+			></span
+		>
+		<span aria-hidden="true" data-view-image-compare-ring></span>
+	</div>
+</template>
+
+<style>
+[data-view-image-compare] {
+	position: relative;
+	width: 100%;
+	height: var(--view-image-compare-height);
+	overflow: hidden;
+	isolation: isolate;
+	border-radius: 0.75rem;
+	background: var(--ui-bg);
+	cursor: ew-resize;
+	touch-action: none;
+	user-select: none;
+}
+[data-view-image-compare-after],
+[data-view-image-compare-before] {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+}
+[data-view-image-compare-before] {
+	z-index: 1;
+	overflow: hidden;
+	clip-path: inset(0 calc(100% - var(--view-image-compare-position)) 0 0);
+	will-change: clip-path;
+}
+[data-view-image-compare] gosh-component,
+[data-view-image-compare] [data-ui-image-loader] {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+.view-image-compare-image {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	pointer-events: none;
+}
+[data-view-image-compare-label] {
+	position: absolute;
+	z-index: 4;
+	bottom: 1rem;
+	padding: 0.25rem 0.75rem;
+	border-radius: 0.25rem;
+	color: #fff;
+	background: rgba(0, 0, 0, 0.6);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+	backdrop-filter: blur(8px);
+	font-size: 0.75rem;
+	font-weight: 700;
+	line-height: 1.25;
+	white-space: nowrap;
+	pointer-events: none;
+}
+[data-view-image-compare-label][data-side="before"] {
+	left: 1rem;
+}
+[data-view-image-compare-label][data-side="after"] {
+	right: 1rem;
+}
+[data-view-image-compare-handle] {
+	position: absolute;
+	z-index: 3;
+	top: 0;
+	bottom: 0;
+	left: var(--view-image-compare-position);
+	width: 2px;
+	background: #fff;
+	box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+	pointer-events: none;
+}
+[data-view-image-compare-handle-button] {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	display: flex;
+	width: 2rem;
+	height: 2rem;
+	align-items: center;
+	justify-content: center;
+	gap: 0.125rem;
+	border-radius: 999px;
+	color: #111827;
+	background: #fff;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+	font-size: 1.25rem;
+	font-weight: 700;
+	line-height: 1;
+	transform: translate(-50%, -50%);
+	transition: transform 0.15s ease;
+}
+[data-view-image-compare]:active [data-view-image-compare-handle-button] {
+	transform: translate(-50%, -50%) scale(1.1);
+}
+[data-view-image-compare-ring] {
+	position: absolute;
+	z-index: 5;
+	inset: 0;
+	border: 1px solid color-mix(in srgb, var(--ui-text), transparent 80%);
+	border-radius: inherit;
+	pointer-events: none;
+}
+[data-view-image-compare]:focus-visible {
+	outline: 2px solid var(--ui-focus);
+	outline-offset: 3px;
+}
+[data-view-image-compare] > [data-view-image-compare-label][data-side="after"] {
+	z-index: 0;
+}
+</style>
+
+<script setup>
+const root = useRoot().querySelector("[data-view-image-compare]");
+if (!root) return;
+const css = window._gosh.setStyleProperty;
+let dragging = false;
+const set = (value) => {
+	const position = Math.max(0, Math.min(100, value));
+	css(root, "--view-image-compare-position", `${position}%`);
+	root.dataset.position = String(Math.round(position));
+	root.setAttribute("aria-valuenow", String(Math.round(position)));
+};
+const fromEvent = (event) => {
+	const rect = root.getBoundingClientRect();
+	if (!rect.width) return;
+	set(((event.clientX - rect.left) / rect.width) * 100);
+};
+const start = (event) => {
+	dragging = true;
+	root.setPointerCapture && root.setPointerCapture(event.pointerId);
+	fromEvent(event);
+};
+const move = (event) => {
+	if (dragging) fromEvent(event);
+};
+const stop = (event) => {
+	dragging = false;
+	if (root.hasPointerCapture && root.hasPointerCapture(event.pointerId))
+		root.releasePointerCapture(event.pointerId);
+};
+const keydown = (event) => {
+	const current = Number(root.dataset.position) || 0;
+	if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+	event.preventDefault();
+	if (event.key === "Home") set(0);
+	else if (event.key === "End") set(100);
+	else set(current + (event.key === "ArrowRight" ? 5 : -5));
+};
+root.addEventListener("pointerdown", start);
+root.addEventListener("pointermove", move);
+root.addEventListener("pointerup", stop);
+root.addEventListener("pointercancel", stop);
+root.addEventListener("keydown", keydown);
+onUnmounted(() => {
+	root.removeEventListener("pointerdown", start);
+	root.removeEventListener("pointermove", move);
+	root.removeEventListener("pointerup", stop);
+	root.removeEventListener("pointercancel", stop);
+	root.removeEventListener("keydown", keydown);
+});
+</script>

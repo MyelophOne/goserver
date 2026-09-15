@@ -1,6 +1,6 @@
 {
 	"analyzer": {
-		"pre_major": true,
+		"pre_goshajor": true,
 		"rules": [
 			{
 				"match": "^BREAKING CHANGE",

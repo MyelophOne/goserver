@@ -1,0 +1,40 @@
+<!-- @server ./system/logic/icons.go#UiSmartContrastData -->
+<template>
+	<section
+		:id="id"
+		:class="class"
+		:style="smartContrastStyle"
+		:data-auto="smartContrastAuto"
+		data-ui-smart-contrast
+	>
+		<slot />
+	</section>
+</template>
+
+<style scoped>
+[data-ui-smart-contrast] {
+	position: relative;
+	z-index: 0;
+	display: flex;
+	width: 100%;
+	min-height: var(--ui-smart-contrast-height);
+	align-items: center;
+	justify-content: center;
+	overflow: hidden;
+	isolation: isolate;
+	text-align: center;
+	color: #fff;
+	background-color: color-mix(in srgb, var(--ui-text), var(--ui-bg) 45%);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: cover;
+}
+[data-ui-smart-contrast][data-auto] :is(h1, h2, h3, p, span, a),
+[data-ui-smart-contrast] .invert-text {
+	color: #fff !important;
+	mix-blend-mode: difference;
+}
+[data-ui-smart-contrast][data-auto] a {
+	text-decoration: underline;
+}
+</style>

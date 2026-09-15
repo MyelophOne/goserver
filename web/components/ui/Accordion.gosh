@@ -1,0 +1,33 @@
+<template>
+	<div :id="id" :class="class" :data-multiple="multiple" data-ui-accordion>
+		<slot />
+	</div>
+</template>
+
+<style scoped>
+[data-ui-accordion] {
+	display: grid;
+	gap: 1rem;
+	width: 100%;
+}
+</style>
+
+<script setup>
+const root = useRoot().querySelector("[data-ui-accordion]");
+if (!root || root.hasAttribute("data-multiple")) return;
+const onToggle = (event) => {
+	const item = event.target;
+	if (!item.matches("[data-ui-accordion-item]") || !item.open) return;
+	root.querySelectorAll("[data-ui-accordion-item][open]").forEach((other) => {
+		if (other !== item) other.open = false;
+	});
+	root.dispatchEvent(
+		new CustomEvent("ui:accordion-change", {
+			bubbles: true,
+			detail: { item },
+		}),
+	);
+};
+root.addEventListener("toggle", onToggle, true);
+onUnmounted(() => root.removeEventListener("toggle", onToggle, true));
+</script>

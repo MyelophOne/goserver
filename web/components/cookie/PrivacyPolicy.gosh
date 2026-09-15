@@ -1,0 +1,104 @@
+<!-- @server ./system/logic/cookies.go#CookiePrivacyPolicyData -->
+<template>
+	<section
+		:data-cookie-config="cookieConfigJSON"
+		:data-show-sources="cookiePolicyShowSources"
+		:data-privacy-label="cookieTexts.privacyPolicy"
+		:data-docs-label="cookieTexts.officialDocs"
+		data-cookie-privacy-policy
+	>
+		<h2>{{ cookiePolicyTitle }}</h2>
+		<p>{{ cookieTexts.cookieNote }}</p>
+		<div data-cookie-policy-content></div>
+	</section>
+</template>
+<style>
+[data-cookie-privacy-policy] {
+	max-width: 48rem;
+	font-size: 0.9rem;
+	line-height: 1.65;
+}
+[data-cookie-privacy-policy] > h2 {
+	font-size: 1.25rem;
+}
+[data-cookie-policy-category] {
+	margin-top: 1.5rem;
+}
+[data-cookie-policy-service] {
+	margin-top: 0.75rem;
+	padding-left: 1rem;
+	border-left: 1px solid var(--ui-border, #d1d5db);
+}
+[data-cookie-policy-service] p {
+	margin: 0.15rem 0;
+	opacity: 0.75;
+}
+[data-cookie-policy-service] a {
+	margin-right: 0.75rem;
+	text-decoration: underline;
+}
+</style>
+<script setup>
+const root = useRoot().querySelector("[data-cookie-privacy-policy]"),
+	target = root && root.querySelector("[data-cookie-policy-content]");
+if (!root || !target) return;
+let config = {};
+try {
+	config = JSON.parse(root.dataset.cookieConfig || "{}");
+} catch (_) {}
+const scripts = config.scripts || {},
+	order = ["notices", "necessary", "analytics", "marketing", "functional"];
+order.forEach((category) => {
+	const items = scripts[category] || [];
+	if (!items.length) return;
+	const section = document.createElement("section");
+	section.dataset.cookiePolicyCategory = "";
+	const heading = document.createElement("h3");
+	heading.textContent =
+		category === "notices" ? "Privacy-friendly services" : category;
+	section.append(heading);
+	items.forEach((service) => {
+		const item = document.createElement("article");
+		item.dataset.cookiePolicyService = "";
+		const title = document.createElement("strong");
+		title.textContent = service.name || service.id;
+		item.append(title);
+		if (service.description) {
+			const description = document.createElement("p");
+			description.textContent = service.description;
+			item.append(description);
+		}
+		const legal = service.legal || {};
+		["purpose", "cookiesDescription", "retention", "notes"].forEach(
+			(key) => {
+				if (!legal[key]) return;
+				const line = document.createElement("p");
+				line.textContent = legal[key];
+				item.append(line);
+			},
+		);
+		if (root.dataset.showSources === "true") {
+			[
+				[
+					"privacyPolicyUrl",
+					root.dataset.privacyLabel || "Privacy policy",
+				],
+				[
+					"officialDocsUrl",
+					root.dataset.docsLabel || "Official documentation",
+				],
+			].forEach(([key, label]) => {
+				if (!legal[key]) return;
+				const link = document.createElement("a");
+				link.href = legal[key];
+				link.target = "_blank";
+				link.rel = "noopener noreferrer";
+				link.textContent = label;
+				item.append(link);
+			});
+		}
+		section.append(item);
+	});
+	target.append(section);
+});
+</script>

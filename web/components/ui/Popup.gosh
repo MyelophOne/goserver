@@ -1,0 +1,111 @@
+<!-- @server ./system/logic/universal_components.go#UniversalComponentData -->
+<template>
+	<div
+		:id="id"
+		:class="class"
+		:data-delay="triggerDelay"
+		data-ui-popup
+		hidden
+	>
+		<div data-ui-popup-backdrop>
+			<section role="dialog" aria-modal="true" data-ui-popup-card>
+				<button type="button" aria-label="Close" data-ui-popup-close>
+					×
+				</button>
+				<h3>{{ title }}</h3>
+				<p>{{ description }}</p>
+				<slot />
+			</section>
+		</div>
+	</div>
+</template>
+<style>
+[data-ui-popup] {
+	position: fixed;
+	inset: 0;
+	z-index: 50;
+	padding: 1rem;
+}
+[data-ui-popup-backdrop] {
+	display: flex;
+	min-height: 100%;
+	align-items: center;
+	justify-content: center;
+	background: rgb(17 24 39/0.75);
+}
+[data-ui-popup-card] {
+	position: relative;
+	width: min(100%, 32rem);
+	max-height: calc(100dvh - 2rem);
+	overflow: auto;
+	border-radius: 1rem;
+	background: #fff;
+	padding: 1.5rem;
+	box-shadow: 0 1.25rem 3rem #0008;
+}
+[data-ui-popup-card] h3 {
+	margin: 0;
+	color: #111827;
+	font-size: 1.5rem;
+}
+[data-ui-popup-card] p {
+	color: #6b7280;
+}
+[data-ui-popup-close] {
+	position: absolute;
+	top: 1rem;
+	right: 1rem;
+	width: 2rem;
+	height: 2rem;
+	border: 0;
+	border-radius: 999px;
+	background: transparent;
+	color: #9ca3af;
+	font-size: 1.5rem;
+	cursor: pointer;
+}
+[data-ui-popup-close]:hover {
+	background: #f3f4f6;
+	color: #6b7280;
+}
+@media (prefers-color-scheme: dark) {
+	[data-ui-popup-card] {
+		background: #1f2937;
+	}
+	[data-ui-popup-card] h3 {
+		color: #fff;
+	}
+	[data-ui-popup-card] p {
+		color: #9ca3af;
+	}
+	[data-ui-popup-close]:hover {
+		background: #374151;
+		color: #fff;
+	}
+}
+</style>
+<script setup>
+const r = useRoot().querySelector("[data-ui-popup]");
+if (!r) return;
+const close = () => (r.hidden = true),
+	open = () => (r.hidden = false),
+	b = r.querySelector("[data-ui-popup-backdrop]"),
+	x = r.querySelector("[data-ui-popup-close]"),
+	delay = Math.max(0, Number(r.dataset.delay) || 2000);
+const timer = setTimeout(open, delay);
+const outside = (e) => {
+	if (e.target === b) close();
+};
+const key = (e) => {
+	if (e.key === "Escape") close();
+};
+x.addEventListener("click", close);
+b.addEventListener("click", outside);
+document.addEventListener("keydown", key);
+onUnmounted(() => {
+	clearTimeout(timer);
+	x.removeEventListener("click", close);
+	b.removeEventListener("click", outside);
+	document.removeEventListener("keydown", key);
+});
+</script>

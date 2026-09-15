@@ -1,0 +1,19 @@
+<!-- @server ./system/logic/error_page.go#ErrorPageData -->
+<template>
+	<main
+		class="min-h-dvh flex flex-col items-center justify-center bg-[var(--ui-bg)] px-4 text-center text-[var(--ui-text)] transition-colors duration-300"
+	>
+		<p
+			class="mb-2 font-mono text-7xl font-semibold tracking-tight text-[#00dc82]"
+		>
+			{{ errorCode }}
+		</p>
+		<h1 class="mb-3 text-2xl font-semibold">{{ errorTitle }}</h1>
+		<p class="mb-6 max-w-xl dark:opacity-70">{{ errorDescription }}</p>
+		<a
+			href="/"
+			class="inline-flex items-center rounded-md bg-[#00dc82] px-4 py-2 font-semibold text-[#07110d] transition-opacity hover:opacity-90"
+			>{{ errorHome }}</a
+		>
+	</main>
+</template>

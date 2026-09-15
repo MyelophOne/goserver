@@ -3,6 +3,7 @@ package goserver
 import (
 	"net/http"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -13,9 +14,26 @@ import (
 type RateLimiter struct {
 	group    singleflight.Group
 	cache    *lru.Cache
+	cacheMu  sync.Mutex
 	limitStr string
 	rate     int
 	window   time.Duration
+}
+
+func (rl *RateLimiter) getClient(key string) (*ClientData, bool) {
+	rl.cacheMu.Lock()
+	defer rl.cacheMu.Unlock()
+	value, ok := rl.cache.Get(key)
+	if !ok {
+		return nil, false
+	}
+	return value.(*ClientData), true
+}
+
+func (rl *RateLimiter) addClient(key string, value *ClientData) {
+	rl.cacheMu.Lock()
+	defer rl.cacheMu.Unlock()
+	rl.cache.Add(key, value)
 }
 
 type ClientData struct {
@@ -55,11 +73,11 @@ func (s *Server) WithRateLimiter(size int, rate int, window time.Duration) func(
 
 			var clientData *ClientData
 
-			if data, exists := rl.cache.Get(clientIP); exists {
-				clientData = data.(*ClientData)
+			if data, exists := rl.getClient(clientIP); exists {
+				clientData = data
 			} else {
 				val, _, _ := rl.group.Do(clientIP, func() (any, error) {
-					if d, ok := rl.cache.Get(clientIP); ok {
+					if d, ok := rl.getClient(clientIP); ok {
 						return d, nil
 					}
 
@@ -67,7 +85,7 @@ func (s *Server) WithRateLimiter(size int, rate int, window time.Duration) func(
 						count:       0,
 						windowStart: now.UnixNano(),
 					}
-					rl.cache.Add(clientIP, newData)
+					rl.addClient(clientIP, newData)
 					return newData, nil
 				})
 				clientData = val.(*ClientData)

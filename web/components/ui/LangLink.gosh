@@ -1,0 +1,36 @@
+<!-- @server ./system/logic/universal_components.go#UniversalComponentData -->
+<template>
+	<a
+		:id="id"
+		:class="class"
+		:href="to"
+		:data-to="to"
+		:hreflang="lang"
+		data-ui-lang-link
+		><slot
+	/></a>
+</template>
+<script setup>
+const e = useRoot().querySelector("[data-ui-lang-link]"),
+	store = useStore("ui");
+if (!e) return;
+const render = () => {
+	const language =
+			(store && store.getState().language) ||
+			document.documentElement.lang ||
+			"",
+		raw = e.dataset.to || "/";
+	if (!language || language === "en") {
+		e.href = raw;
+		return;
+	}
+	const path = raw.startsWith("/") ? raw : "/" + raw;
+	e.href =
+		path === "/" + language || path.startsWith("/" + language + "/")
+			? path
+			: "/" + language + path;
+};
+const unsubscribe = store && store.subscribe(render);
+render();
+onUnmounted(() => unsubscribe && unsubscribe());
+</script>

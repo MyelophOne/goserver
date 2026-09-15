@@ -1,0 +1,32 @@
+<!-- @server ./system/logic/universal_components.go#UniversalComponentData -->
+<template>
+	<time
+		:id="id"
+		:class="class"
+		:datetime="datetime"
+		:data-date="datetime"
+		data-ui-relative-time
+		><slot>{{ datetime }}</slot></time
+	>
+</template>
+<script setup>
+const e = useRoot().querySelector("[data-ui-relative-time]");
+if (!e) return;
+const d = new Date(e.dataset.date);
+if (!Number.isNaN(+d) && Intl.RelativeTimeFormat) {
+	const s = (+d - Date.now()) / 1000,
+		a = Math.abs(s),
+		[n, u] =
+			a < 60
+				? [s, "second"]
+				: a < 3600
+					? [s / 60, "minute"]
+					: a < 86400
+						? [s / 3600, "hour"]
+						: [s / 86400, "day"];
+	e.textContent = new Intl.RelativeTimeFormat(
+		document.documentElement.lang || undefined,
+		{ numeric: "auto" },
+	).format(Math.round(n), u);
+}
+</script>

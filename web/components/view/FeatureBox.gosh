@@ -1,0 +1,60 @@
+<!-- @server ./system/logic/feature_box_grid.go#ViewFeatureBoxData -->
+<template>
+	<a
+		m-if="featureBoxIsLink"
+		:class="class"
+		:href="featureBoxHref"
+		data-view-feature-box
+	>
+		<div m-if="featureBoxHasHeading" data-view-feature-box-heading>
+			<span
+				m-if="featureBoxHasIcon"
+				:class="featureBoxIconClass"
+				data-view-feature-box-icon
+				><UiIcon :name="featureBoxIcon" size="100%" /></span
+			><span m-if="featureBoxHasTitle" data-view-feature-box-title-wrap
+				><strong data-view-feature-box-title>{{
+					featureBoxTitle
+				}}</strong
+				><span
+					m-if="featureBoxHasSubtitle"
+					data-view-feature-box-subtitle
+					>{{ featureBoxSubtitle }}</span
+				></span
+			>
+		</div>
+		<hr
+			m-if="featureBoxHasDescription && featureBoxHasHeading"
+			data-view-feature-box-divider
+		/>
+		<div m-if="featureBoxHasDescription" data-view-feature-box-description>
+			<slot>{{ featureBoxDescription }}</slot>
+		</div>
+	</a>
+	<div m-if="featureBoxIsDiv" :class="class" data-view-feature-box>
+		<div m-if="featureBoxHasHeading" data-view-feature-box-heading>
+			<span
+				m-if="featureBoxHasIcon"
+				:class="featureBoxIconClass"
+				data-view-feature-box-icon
+				><UiIcon :name="featureBoxIcon" size="100%" /></span
+			><span m-if="featureBoxHasTitle" data-view-feature-box-title-wrap
+				><strong data-view-feature-box-title>{{
+					featureBoxTitle
+				}}</strong
+				><span
+					m-if="featureBoxHasSubtitle"
+					data-view-feature-box-subtitle
+					>{{ featureBoxSubtitle }}</span
+				></span
+			>
+		</div>
+		<hr
+			m-if="featureBoxHasDescription && featureBoxHasHeading"
+			data-view-feature-box-divider
+		/>
+		<div m-if="featureBoxHasDescription" data-view-feature-box-description>
+			<slot>{{ featureBoxDescription }}</slot>
+		</div>
+	</div>
+</template>

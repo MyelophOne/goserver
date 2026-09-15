@@ -20,7 +20,7 @@ services:
         max_attempts: 5
         window: 300s
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${HTTP_PORT:-8080}/healthz"]
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:${HTTP_PORT:-8080}/healthz"]
       interval: 30s
       timeout: 5s
       retries: 3

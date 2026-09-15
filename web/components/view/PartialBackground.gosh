@@ -1,0 +1,224 @@
+<!-- @server ./system/logic/partial_background.go#ViewPartialBackgroundData -->
+<template>
+	<section
+		m-if="partialBackgroundIsSection"
+		:id="id"
+		:class="partialBackgroundRootClasses"
+		:style="partialBackgroundStyle"
+		:data-before="partialBackgroundBefore"
+		:data-after="partialBackgroundAfter"
+		:data-align="partialBackgroundAlign"
+		data-view-partial-background
+	>
+		<div
+			m-if="partialBackgroundBefore"
+			:class="partialBackgroundLayerClasses"
+			data-view-partial-background-layer="before"
+		></div>
+		<GridContainer
+			:size="partialBackgroundContainerSize"
+			:class="partialBackgroundContentClasses"
+			><slot
+		/></GridContainer>
+		<div
+			m-if="partialBackgroundAfter"
+			:class="partialBackgroundLayerClasses"
+			data-view-partial-background-layer="after"
+		></div>
+		<div
+			m-if="!partialBackgroundBefore && !partialBackgroundAfter"
+			:class="partialBackgroundLayerClasses"
+			aria-hidden="true"
+			data-view-partial-background-layer="behind"
+		></div>
+	</section>
+	<div
+		m-if="partialBackgroundIsDiv"
+		:id="id"
+		:class="partialBackgroundRootClasses"
+		:style="partialBackgroundStyle"
+		:data-before="partialBackgroundBefore"
+		:data-after="partialBackgroundAfter"
+		:data-align="partialBackgroundAlign"
+		data-view-partial-background
+	>
+		<div
+			m-if="partialBackgroundBefore"
+			:class="partialBackgroundLayerClasses"
+			data-view-partial-background-layer="before"
+		></div>
+		<GridContainer
+			:size="partialBackgroundContainerSize"
+			:class="partialBackgroundContentClasses"
+			><slot
+		/></GridContainer>
+		<div
+			m-if="partialBackgroundAfter"
+			:class="partialBackgroundLayerClasses"
+			data-view-partial-background-layer="after"
+		></div>
+		<div
+			m-if="!partialBackgroundBefore && !partialBackgroundAfter"
+			:class="partialBackgroundLayerClasses"
+			aria-hidden="true"
+			data-view-partial-background-layer="behind"
+		></div>
+	</div>
+	<article
+		m-if="partialBackgroundIsArticle"
+		:id="id"
+		:class="partialBackgroundRootClasses"
+		:style="partialBackgroundStyle"
+		:data-before="partialBackgroundBefore"
+		:data-after="partialBackgroundAfter"
+		:data-align="partialBackgroundAlign"
+		data-view-partial-background
+	>
+		<div
+			m-if="partialBackgroundBefore"
+			:class="partialBackgroundLayerClasses"
+			data-view-partial-background-layer="before"
+		></div>
+		<GridContainer
+			:size="partialBackgroundContainerSize"
+			:class="partialBackgroundContentClasses"
+			><slot
+		/></GridContainer>
+		<div
+			m-if="partialBackgroundAfter"
+			:class="partialBackgroundLayerClasses"
+			data-view-partial-background-layer="after"
+		></div>
+		<div
+			m-if="!partialBackgroundBefore && !partialBackgroundAfter"
+			:class="partialBackgroundLayerClasses"
+			aria-hidden="true"
+			data-view-partial-background-layer="behind"
+		></div>
+	</article>
+</template>
+
+<style>
+[data-view-partial-background] {
+	position: relative;
+	isolation: isolate;
+	display: flex;
+	width: 100%;
+	min-height: var(--partial-background-min-height);
+	flex-direction: column;
+}
+[data-view-partial-background-layer] {
+	overflow: hidden;
+	pointer-events: none;
+	background: var(--partial-background-light);
+	background-color: var(--partial-background-color-light);
+	background-position: var(--partial-background-position);
+	background-repeat: var(--partial-background-repeat);
+	background-size: var(--partial-background-size);
+	-webkit-mask: var(--partial-background-mask-light);
+	mask: var(--partial-background-mask-light);
+	-webkit-mask-position: var(--partial-background-mask-position);
+	mask-position: var(--partial-background-mask-position);
+	-webkit-mask-repeat: var(--partial-background-mask-repeat);
+	mask-repeat: var(--partial-background-mask-repeat);
+	-webkit-mask-size: var(--partial-background-mask-size);
+	mask-size: var(--partial-background-mask-size);
+}
+[data-view-partial-background-layer="behind"] {
+	position: absolute;
+	z-index: -1;
+	inset: 0;
+	clip-path: polygon(
+		0 0,
+		100% 0,
+		100% var(--partial-background-right),
+		0 var(--partial-background-left)
+	);
+}
+[data-view-partial-background-layer="before"],
+[data-view-partial-background-layer="after"] {
+	z-index: 0;
+	width: 100%;
+	flex: none;
+}
+[data-view-partial-background-layer="before"] {
+	height: var(--partial-background-before-content-height);
+	clip-path: polygon(
+		0 calc(100% - var(--partial-background-left)),
+		100% calc(100% - var(--partial-background-right)),
+		100% 100%,
+		0 100%
+	);
+}
+[data-view-partial-background-layer="after"] {
+	height: var(--partial-background-after-content-height);
+	clip-path: polygon(
+		0 0,
+		100% 0,
+		100% var(--partial-background-right),
+		0 var(--partial-background-left)
+	);
+}
+[data-view-partial-background] [data-grid-container] {
+	position: relative;
+	z-index: 1;
+	display: flex;
+	min-height: inherit;
+	flex-direction: column;
+}
+[data-view-partial-background][data-align="top"] [data-grid-container] {
+	justify-content: flex-start;
+}
+[data-view-partial-background][data-align="center"] [data-grid-container] {
+	justify-content: center;
+}
+[data-view-partial-background][data-align="bottom"] [data-grid-container] {
+	justify-content: flex-end;
+}
+[data-view-partial-background][data-before]::before,
+[data-view-partial-background][data-after]::before {
+	position: absolute;
+	z-index: -1;
+	right: 0;
+	left: 0;
+	content: "";
+	pointer-events: none;
+	background: var(--partial-background-color-light);
+}
+[data-view-partial-background][data-before]::before {
+	top: var(--partial-background-before-content-height);
+	bottom: 0;
+}
+[data-view-partial-background][data-after]::before {
+	top: 0;
+	bottom: var(--partial-background-after-content-height);
+}
+[data-view-partial-background][data-before][data-after]::before {
+	top: var(--partial-background-before-content-height);
+	bottom: var(--partial-background-after-content-height);
+}
+[data-theme="dark"] [data-view-partial-background-layer] {
+	background: var(--partial-background-dark);
+	background-color: var(--partial-background-color-dark);
+	-webkit-mask: var(--partial-background-mask-dark);
+	mask: var(--partial-background-mask-dark);
+}
+[data-theme="dark"] [data-view-partial-background][data-before]::before,
+[data-theme="dark"] [data-view-partial-background][data-after]::before {
+	background: var(--partial-background-color-dark);
+}
+@media (prefers-color-scheme: dark) {
+	[data-view-partial-background-layer] {
+		background: var(--partial-background-dark);
+		background-color: var(--partial-background-color-dark);
+		-webkit-mask: var(--partial-background-mask-dark);
+		mask: var(--partial-background-mask-dark);
+	}
+	[data-theme="light"] [data-view-partial-background-layer] {
+		background: var(--partial-background-light);
+		background-color: var(--partial-background-color-light);
+		-webkit-mask: var(--partial-background-mask-light);
+		mask: var(--partial-background-mask-light);
+	}
+}
+</style>

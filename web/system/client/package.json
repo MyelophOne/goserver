@@ -1,0 +1,14 @@
+{
+  "name": "@myelophone/client-toolchain",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "esbuild": "esbuild --version"
+  },
+  "devDependencies": {
+    "esbuild": "latest",
+    "fuse.js": "^7.5.0",
+    "zustand": "latest"
+  },
+  "packageManager": "yarn@4.18.0"
+}

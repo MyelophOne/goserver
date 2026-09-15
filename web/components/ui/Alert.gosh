@@ -1,0 +1,240 @@
+<!-- @server ./system/logic/icons.go#UiAlertData -->
+<template>
+	<div
+		:id="id"
+		:class="class"
+		role="alert"
+		:data-variant="alertVariant"
+		:data-size="alertSize"
+		:data-rounded="alertRounded"
+		:data-avatar="alertHasAvatar"
+		data-ui-alert
+	>
+		<div
+			m-if="alertHasAvatar"
+			:data-size="alertAvatarSize"
+			data-ui-alert-avatar
+		>
+			<img
+				m-if="alertAvatarSrc"
+				:src="alertAvatarSrc"
+				:alt="alertAvatarAlt"
+				data-ui-alert-avatar-image
+			/>
+			<UiIcon
+				m-if="alertAvatarIcon"
+				:name="alertAvatarIcon"
+				class="ui-alert-avatar-icon"
+			/>
+		</div>
+		<div data-ui-alert-copy>
+			<div m-if="alertHasTitle" data-ui-alert-title>
+				<UiIcon
+					m-if="alertIcon"
+					:name="alertIcon"
+					class="ui-alert-icon"
+				/>
+				<span>{{ alertTitle }}</span>
+			</div>
+			<div m-if="alertHasDescription" data-ui-alert-description>
+				{{ alertDescription }}
+			</div>
+			<slot />
+		</div>
+		<button
+			m-if="alertClosable"
+			type="button"
+			aria-label="Close alert"
+			data-ui-alert-close
+		>
+			<span aria-hidden="true">×</span>
+		</button>
+	</div>
+</template>
+
+<style scoped>
+[data-ui-alert] {
+	--alert-bg: #eff6ff;
+	--alert-text: #1e3a8a;
+	--alert-border: #bfdbfe;
+	--alert-accent: #2563eb;
+	position: relative;
+	display: block;
+	border: 1px solid var(--alert-border);
+	background: var(--alert-bg);
+	color: var(--alert-text);
+}
+[data-ui-alert][data-avatar] {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+}
+[data-ui-alert][data-variant="success"] {
+	--alert-bg: #ecfdf5;
+	--alert-text: #065f46;
+	--alert-border: #a7f3d0;
+	--alert-accent: #059669;
+}
+[data-ui-alert][data-variant="warning"] {
+	--alert-bg: #fffbeb;
+	--alert-text: #92400e;
+	--alert-border: #fde68a;
+	--alert-accent: #d97706;
+}
+[data-ui-alert][data-variant="error"] {
+	--alert-bg: #fef2f2;
+	--alert-text: #991b1b;
+	--alert-border: #fecaca;
+	--alert-accent: #dc2626;
+}
+[data-ui-alert][data-rounded] {
+	border-radius: 0.75rem;
+}
+[data-ui-alert][data-size="sm"] {
+	gap: 0.75rem;
+	padding: 0.75rem;
+	font-size: 0.875rem;
+}
+[data-ui-alert][data-size="md"] {
+	gap: 1rem;
+	padding: 1rem;
+	font-size: 0.875rem;
+}
+[data-ui-alert][data-size="lg"] {
+	gap: 1.25rem;
+	padding: 1.25rem;
+	font-size: 1rem;
+}
+[data-ui-alert-avatar] {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	align-self: stretch;
+}
+[data-ui-alert-avatar][data-size="sm"] {
+	width: 2rem;
+}
+[data-ui-alert-avatar][data-size="md"] {
+	width: 2.5rem;
+}
+[data-ui-alert-avatar][data-size="lg"] {
+	width: 3.5rem;
+}
+[data-ui-alert-avatar-image] {
+	width: 100%;
+	aspect-ratio: 1;
+	border-radius: 9999px;
+	object-fit: contain;
+}
+.ui-alert-avatar-icon {
+	display: inline-flex;
+	width: 100%;
+	aspect-ratio: 1;
+	color: var(--alert-accent);
+}
+.ui-alert-avatar-icon gosh-component,
+.ui-alert-avatar-icon img {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+[data-ui-alert-copy] {
+	display: flex;
+	min-width: 0;
+	flex-direction: column;
+	justify-content: center;
+	gap: 0.25rem;
+}
+[data-ui-alert-title] {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	font-weight: 600;
+	line-height: 1.25;
+}
+.ui-alert-icon {
+	display: inline-flex;
+	width: 1.25rem;
+	height: 1.25rem;
+	flex: none;
+	color: var(--alert-accent);
+}
+.ui-alert-icon gosh-component,
+.ui-alert-icon img {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+[data-ui-alert-description] {
+	line-height: 1.625;
+	opacity: 0.9;
+}
+[data-ui-alert-close] {
+	position: absolute;
+	top: 0.75rem;
+	inset-inline-end: 0.75rem;
+	display: inline-grid;
+	width: 1.75rem;
+	height: 1.75rem;
+	place-items: center;
+	border: 0;
+	border-radius: 0.375rem;
+	background: transparent;
+	color: currentColor;
+	font-size: 1.4rem;
+	line-height: 1;
+	opacity: 0.6;
+	cursor: pointer;
+	transition:
+		opacity 0.15s ease,
+		background-color 0.15s ease;
+}
+[data-ui-alert-close]:hover {
+	background: color-mix(in srgb, currentColor, transparent 92%);
+	opacity: 1;
+}
+[data-ui-alert-close]:focus-visible {
+	outline: 2px solid var(--alert-accent);
+	outline-offset: 2px;
+}
+[data-theme="dark"] [data-ui-alert] {
+	--alert-bg: #172554;
+	--alert-text: #dbeafe;
+	--alert-border: #1e40af;
+	--alert-accent: #60a5fa;
+}
+[data-theme="dark"] [data-ui-alert][data-variant="success"] {
+	--alert-bg: #052e24;
+	--alert-text: #d1fae5;
+	--alert-border: #047857;
+	--alert-accent: #34d399;
+}
+[data-theme="dark"] [data-ui-alert][data-variant="warning"] {
+	--alert-bg: #451a03;
+	--alert-text: #fef3c7;
+	--alert-border: #b45309;
+	--alert-accent: #fbbf24;
+}
+[data-theme="dark"] [data-ui-alert][data-variant="error"] {
+	--alert-bg: #450a0a;
+	--alert-text: #fee2e2;
+	--alert-border: #b91c1c;
+	--alert-accent: #f87171;
+}
+</style>
+
+<script setup>
+const root = useRoot().querySelector("[data-ui-alert]");
+const close = root && root.querySelector("[data-ui-alert-close]");
+if (!root || !close) return;
+const onClose = () => {
+	root.hidden = true;
+	root.dispatchEvent(
+		new CustomEvent("ui:alert-close", {
+			bubbles: true,
+			detail: { alert: root },
+		}),
+	);
+};
+close.addEventListener("click", onClose);
+onUnmounted(() => close.removeEventListener("click", onClose));
+</script>

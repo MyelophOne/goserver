@@ -1,0 +1,16 @@
+<template>
+	<img
+		:id="id"
+		:class="class"
+		:src="src"
+		:alt="alt"
+		:width="width"
+		:height="height"
+		:sizes="sizes"
+		:loading="loading"
+		:decoding="decoding"
+		:fetchpriority="fetchpriority"
+		:referrerpolicy="referrerpolicy"
+		:crossorigin="crossorigin"
+	/>
+</template>

@@ -1,0 +1,25 @@
+<!-- @server ./system/logic/universal_components.go#UniversalComponentData -->
+<template>
+	<aside
+		:id="id"
+		:class="class"
+		hidden
+		role="alert"
+		data-view-warning-outdated
+	>
+		<slot>{{ message }}</slot>
+	</aside>
+</template>
+<style>
+[data-view-warning-outdated] {
+	padding: 0.75rem 1rem;
+	color: #78350f;
+	background: #fef3c7;
+}
+</style>
+<script setup>
+const e = useRoot().querySelector("[data-view-warning-outdated]");
+if (!e) return;
+const old = !("fetch" in window) || !("IntersectionObserver" in window);
+e.hidden = !old;
+</script>

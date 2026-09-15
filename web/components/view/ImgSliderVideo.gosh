@@ -1,0 +1,15 @@
+<!-- @server ./system/logic/img_slider.go#ViewImgSliderVideoData -->
+<template>
+	<div data-view-img-slider-slide>
+		<video
+			:src="imgSliderVideoSrc"
+			:poster="imgSliderVideoPoster"
+			:aria-label="imgSliderVideoLabel"
+			class="view-img-slider-media"
+			playsinline
+			loop
+			muted
+			preload="metadata"
+		></video>
+	</div>
+</template>

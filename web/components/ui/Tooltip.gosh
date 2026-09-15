@@ -1,0 +1,333 @@
+<!-- @server ./system/logic/icons.go#UiTooltipData -->
+<template>
+	<div
+		m-if="tooltipAsDiv"
+		:id="id"
+		:class="triggerClass"
+		:tabindex="tooltipTabindex"
+		:data-trigger="tooltipTrigger"
+		:data-placement="tooltipPlacement"
+		:data-offset="tooltipOffset"
+		:data-padding="tooltipViewportPadding"
+		:data-open-delay="tooltipOpenDelay"
+		:data-close-delay="tooltipCloseDelay"
+		:data-disabled="tooltipDisabled"
+		:data-interactive="tooltipInteractive"
+		:data-role="tooltipRole"
+		:data-max-width="tooltipMaxWidth"
+		data-ui-tooltip-trigger
+	>
+		<slot />
+	</div>
+	<span
+		m-if="!tooltipAsDiv"
+		:id="id"
+		:class="triggerClass"
+		:tabindex="tooltipTabindex"
+		:data-trigger="tooltipTrigger"
+		:data-placement="tooltipPlacement"
+		:data-offset="tooltipOffset"
+		:data-padding="tooltipViewportPadding"
+		:data-open-delay="tooltipOpenDelay"
+		:data-close-delay="tooltipCloseDelay"
+		:data-disabled="tooltipDisabled"
+		:data-interactive="tooltipInteractive"
+		:data-role="tooltipRole"
+		:data-max-width="tooltipMaxWidth"
+		data-ui-tooltip-trigger
+		><slot
+	/></span>
+	<div
+		hidden
+		:class="contentClass"
+		:role="tooltipRole"
+		data-ui-tooltip-content
+	>
+		<span data-ui-tooltip-body>{{ tooltipContent }}</span
+		><span aria-hidden="true" data-ui-tooltip-arrow></span>
+	</div>
+</template>
+
+<style scoped>
+[data-ui-tooltip-trigger] {
+	display: inline-flex;
+	max-width: 100%;
+}
+[data-ui-tooltip-trigger][data-disabled] {
+	cursor: not-allowed;
+	opacity: 0.55;
+}
+[data-ui-tooltip-trigger]:focus-visible {
+	outline: 2px solid var(--ui-focus, #2563eb);
+	outline-offset: 2px;
+}
+[data-ui-tooltip-content] {
+	position: fixed;
+	z-index: 100;
+	box-sizing: border-box;
+	max-height: calc(100dvh - 1rem);
+	overflow: visible;
+	border: 1px solid rgb(255 255 255 / 0.12);
+	border-radius: 0.5rem;
+	background: #171717;
+	color: #fff;
+	font-size: 0.875rem;
+	line-height: 1.35;
+	overflow-wrap: anywhere;
+	box-shadow: 0 10px 30px rgb(0 0 0 / 0.22);
+}
+[data-ui-tooltip-body] {
+	position: relative;
+	z-index: 1;
+	display: block;
+	box-sizing: border-box;
+	max-height: inherit;
+	padding: 0.5rem 0.75rem;
+	overflow: auto;
+	border-radius: inherit;
+	background: inherit;
+}
+[data-ui-tooltip-content]:not([data-interactive]) {
+	pointer-events: none;
+}
+[data-ui-tooltip-arrow] {
+	position: absolute;
+	width: 0.625rem;
+	height: 0.625rem;
+	border: inherit;
+	background: inherit;
+	transform: translate(-50%, -50%) rotate(45deg);
+}
+[data-ui-tooltip-content][data-side="top"] [data-ui-tooltip-arrow] {
+	top: 100%;
+	border-top: 0;
+	border-left: 0;
+}
+[data-ui-tooltip-content][data-side="bottom"] [data-ui-tooltip-arrow] {
+	top: 0;
+	border-right: 0;
+	border-bottom: 0;
+}
+[data-ui-tooltip-content][data-side="left"] [data-ui-tooltip-arrow] {
+	left: 100%;
+	border-bottom: 0;
+	border-left: 0;
+}
+[data-ui-tooltip-content][data-side="right"] [data-ui-tooltip-arrow] {
+	left: 0;
+	border-top: 0;
+	border-right: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+	[data-ui-tooltip-content] {
+		transition: none;
+	}
+}
+</style>
+
+<script setup>
+{
+	const trigger = useRoot().querySelector("[data-ui-tooltip-trigger]");
+	const tip = useRoot().querySelector("[data-ui-tooltip-content]");
+	if (!trigger || !tip) return;
+	const css = window._gosh.setStyleProperty;
+	document.body.append(tip);
+	let open = false,
+		openTimer,
+		closeTimer,
+		frame;
+	const id = "ui-tooltip-" + Math.random().toString(36).slice(2, 10);
+	const number = (name, fallback) =>
+		Number(trigger.dataset[name] || fallback);
+	const clear = () => {
+		clearTimeout(openTimer);
+		clearTimeout(closeTimer);
+	};
+	const position = () => {
+		if (!open) return;
+		const source = trigger.getBoundingClientRect(),
+			box = tip.getBoundingClientRect();
+		const pad = number("padding", 8),
+			gap = number("offset", 10);
+		const preferred = (trigger.dataset.placement || "auto").split("-");
+		const align = preferred[1] || "center";
+		const space = {
+			top: source.top - pad - gap,
+			bottom: innerHeight - source.bottom - pad - gap,
+			left: source.left - pad - gap,
+			right: innerWidth - source.right - pad - gap,
+		};
+		const sides = ["top", "bottom", "right", "left"];
+		const side =
+			preferred[0] !== "auto" &&
+			space[preferred[0]] >=
+				(preferred[0] === "top" || preferred[0] === "bottom"
+					? box.height
+					: box.width)
+				? preferred[0]
+				: sides.find(
+						(item) =>
+							space[item] >=
+							(item === "top" || item === "bottom"
+								? box.height
+								: box.width),
+					) || "bottom";
+		let x =
+			side === "left"
+				? source.left - box.width - gap
+				: side === "right"
+					? source.right + gap
+					: align === "start"
+						? source.left
+						: align === "end"
+							? source.right - box.width
+							: source.left + (source.width - box.width) / 2;
+		let y =
+			side === "top"
+				? source.top - box.height - gap
+				: side === "bottom"
+					? source.bottom + gap
+					: align === "start"
+						? source.top
+						: align === "end"
+							? source.bottom - box.height
+							: source.top + (source.height - box.height) / 2;
+		x = Math.max(pad, Math.min(x, innerWidth - box.width - pad));
+		y = Math.max(pad, Math.min(y, innerHeight - box.height - pad));
+		css(tip, "left", Math.round(x) + "px");
+		css(tip, "top", Math.round(y) + "px");
+		tip.dataset.side = side;
+		const arrow = tip.querySelector("[data-ui-tooltip-arrow]");
+		if (side === "top" || side === "bottom")
+			css(
+				arrow,
+				"left",
+				Math.max(
+					10,
+					Math.min(
+						source.left + source.width / 2 - x,
+						box.width - 10,
+					),
+				) + "px",
+			);
+		else
+			css(
+				arrow,
+				"top",
+				Math.max(
+					10,
+					Math.min(
+						source.top + source.height / 2 - y,
+						box.height - 10,
+					),
+				) + "px",
+			);
+	};
+	const update = () => {
+		cancelAnimationFrame(frame);
+		frame = requestAnimationFrame(position);
+	};
+	const set = (value) => {
+		if ((value && trigger.hasAttribute("data-disabled")) || open === value)
+			return;
+		open = value;
+		tip.hidden = !value;
+		if (value) {
+			css(
+				tip,
+				"max-width",
+				"min(" +
+					(trigger.dataset.maxWidth || "24rem") +
+					", calc(100vw - " +
+					number("padding", 8) * 2 +
+					"px))",
+			);
+			update();
+		}
+		if (value && tip.getAttribute("role") === "tooltip")
+			trigger.setAttribute("aria-describedby", id);
+		else trigger.removeAttribute("aria-describedby");
+		if (tip.getAttribute("role") === "dialog")
+			trigger.setAttribute("aria-expanded", String(value));
+		trigger.dispatchEvent(
+			new CustomEvent(value ? "ui:tooltip-open" : "ui:tooltip-close", {
+				bubbles: true,
+				detail: { tooltip: tip },
+			}),
+		);
+	};
+	tip.id = id;
+	const show = (delay) => {
+		clearTimeout(closeTimer);
+		openTimer = setTimeout(() => set(true), delay);
+	};
+	const hide = (delay) => {
+		clearTimeout(openTimer);
+		closeTimer = setTimeout(() => set(false), delay);
+	};
+	const enter = (event) => {
+		if (
+			trigger.dataset.trigger === "hover" &&
+			event.pointerType === "mouse"
+		)
+			show(number("openDelay", 100));
+	};
+	const leave = (event) => {
+		if (
+			trigger.dataset.trigger === "hover" &&
+			event.pointerType === "mouse"
+		)
+			hide(number("closeDelay", 120));
+	};
+	const click = () => {
+		if (trigger.dataset.trigger === "click") {
+			clear();
+			set(!open);
+		}
+	};
+	const outside = (event) => {
+		if (
+			open &&
+			!trigger.contains(event.target) &&
+			!tip.contains(event.target)
+		)
+			set(false);
+	};
+	const keydown = (event) => {
+		if (event.key === "Escape" && open) {
+			set(false);
+			trigger.focus();
+		}
+	};
+	trigger.addEventListener("pointerenter", enter);
+	trigger.addEventListener("pointerleave", leave);
+	trigger.addEventListener("pointermove", () => {});
+	trigger.addEventListener("click", click);
+	trigger.addEventListener("focusin", () => {
+		if (trigger.dataset.trigger === "hover") show(0);
+	});
+	trigger.addEventListener("focusout", (event) => {
+		if (!tip.contains(event.relatedTarget)) hide(number("closeDelay", 120));
+	});
+	tip.addEventListener("pointerenter", () => {
+		if (tip.hasAttribute("data-interactive")) clearTimeout(closeTimer);
+	});
+	tip.addEventListener("pointerleave", () => {
+		if (tip.hasAttribute("data-interactive"))
+			hide(number("closeDelay", 120));
+	});
+	document.addEventListener("pointerdown", outside);
+	document.addEventListener("keydown", keydown);
+	addEventListener("resize", update, { passive: true });
+	addEventListener("scroll", update, { passive: true, capture: true });
+	onUnmounted(() => {
+		clear();
+		cancelAnimationFrame(frame);
+		tip.remove();
+		document.removeEventListener("pointerdown", outside);
+		document.removeEventListener("keydown", keydown);
+		removeEventListener("resize", update);
+		removeEventListener("scroll", update, true);
+	});
+}
+</script>

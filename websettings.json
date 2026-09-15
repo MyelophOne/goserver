@@ -1,0 +1,77 @@
+{
+  "runtime": {
+    "enabled": false,
+    "cacheTTL": 0,
+    "webVitals": false,
+    "prefetchDelay": 65,
+    "prefetchMaxConcurrent": 2,
+    "prefetchOnHover": false,
+    "viewTransitions": true
+  },
+  "render": {
+    "defaultLayout": "default",
+    "earlyHints": false,
+    "serverTiming": false,
+    "preloadRuntime": true,
+    "preloadPageStyles": true,
+    "splitCss": false,
+    "cssMinChunkSize": 4096,
+    "cssMaxChunkSize": 65536,
+    "spaLoadingTemplate": false
+  },
+  "tailwind": { "minify": true },
+  "quickCommands": {
+    "enabled": true,
+    "shortcut": { "key": "k", "ctrlOrMeta": true, "shift": true },
+    "items": [
+      {
+        "id": "theme-dark",
+        "name": "Set dark theme",
+        "hint": "Dark Mode",
+        "action": "preferences.setTheme",
+        "args": ["dark"],
+        "keywords": ["dark", "ночь", "theme", "skin", "тема"]
+      },
+      {
+        "id": "theme-light",
+        "name": "Set light theme",
+        "hint": "Light Mode",
+        "action": "preferences.setTheme",
+        "args": ["light"],
+        "keywords": ["light", "день", "theme", "skin", "тема"]
+      }
+    ]
+  },
+  "siteSearch": {
+    "enabled": true,
+    "shortcut": { "key": "k", "ctrlOrMeta": true, "shift": false },
+    "minQueryLength": 2,
+    "limit": 10,
+    "maxPages": 500,
+    "cacheTtl": 1800000,
+    "serverSearch": false
+  },
+  "content": { "layout": "" },
+  "preloader": {
+    "enabled": false,
+    "background": "var(--ui-bg)",
+    "backgroundDark": "var(--ui-bg)",
+    "zIndex": 9999,
+    "ariaLabel": "Page loading",
+    "minimumDuration": 250
+  },
+  "cookieControl": {
+    "enabled": false
+  },
+  "routeRules": {},
+  "componentRules": {},
+  "seo": {
+    "image": "/assets/seo/goserver-cat.jpg"
+  },
+  "images": { "optimize": true, "jpegQuality": 82 },
+  "build": {
+    "includeFiles": []
+  },
+  "locales": [],
+  "defaultLocale": "en"
+}

@@ -1,0 +1,52 @@
+{
+  "hello": { "world": "¡Hola, mundo!" },
+  "web": {
+    "language": "Idioma",
+    "title": "Ejemplo de I18n",
+    "heading": "Cambia de idioma sin recargar toda la página",
+    "description": "Esta página se renderiza con Go y se traduce mediante goserver I18n."
+  },
+  "myelophone": {
+    "welcome": "Bienvenido a",
+    "experiment": "¡Experimenta, personaliza y disfruta de la velocidad y el rendimiento!",
+    "poweredBy": "Desarrollado por",
+    "goserverVersion": "Versión de GoServer",
+    "toggleTheme": "Cambiar tema"
+  },
+  "errors": {
+    "home": "Volver al inicio", "homeLabel": "Inicio de MyelophOne GoServer", "toggleTheme": "Cambiar tema", "copyright": "Todos los derechos reservados.",
+    "notFound": { "title": "Página no encontrada", "description": "La dirección puede ser incorrecta, la página se ha movido o ya no está disponible." },
+    "server": { "title": "Algo salió mal", "description": "El servidor no pudo completar esta solicitud. Tus datos no han cambiado; inténtalo de nuevo en breve." }
+  },
+  "cookies": {
+    "weUseCookies": "Usamos cookies para la funcionalidad del sitio y la analítica.",
+    "customize": "Personalizar",
+    "decline": "Rechazar",
+    "changePrefs": "Cambiar preferencias",
+    "acceptAll": "Aceptar todas",
+    "close": "Cerrar",
+    "privacyTitle": "Configuración de privacidad",
+    "cookieNote": "Elige las categorías de cookies que deseas permitir.",
+    "necessary": "Necesarias",
+    "analytics": "Analíticas",
+    "marketing": "Marketing",
+    "functional": "Funcionales",
+    "necessaryDesc": "Necesarias para que el sitio funcione. No se pueden desactivar.",
+    "analyticsDesc": "Nos ayuda a entender cómo usan el sitio los visitantes.",
+    "marketingDesc": "Habilitan publicidad y medios de terceros.",
+    "functionalDesc": "Habilitan funciones opcionales y servicios incrustados.",
+    "alwaysOn": "Siempre activas",
+    "usedServices": "Servicios utilizados",
+    "cookiesList": "Cookies almacenadas en este navegador",
+    "emptyList": "No se encontraron cookies legibles.",
+    "declineAll": "Rechazar opcionales",
+    "savePrefs": "Guardar preferencias",
+    "contentHidden": "Contenido oculto",
+    "setPrefs": "Configurar preferencias",
+    "policyTitle": "Cookies y tecnologías similares",
+    "privacyPolicy": "Política de privacidad",
+    "officialDocs": "Documentación oficial",
+    "allowCategory": "Permite las cookies de la categoría %s para mostrar este contenido.",
+    "allowService": "Permite las cookies de la categoría %s para usar %s."
+  }
+}

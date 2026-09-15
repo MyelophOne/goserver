@@ -1,0 +1,288 @@
+<!-- @server ./system/logic/img_slider.go#ViewImgSliderData -->
+<template>
+	<div
+		:id="id"
+		:class="class"
+		:data-auto-scroll="imgSliderAutoScroll"
+		:data-auto-scroll-interval="imgSliderInterval"
+		:data-vertical="imgSliderVertical"
+		:aria-label="imgSliderLabel"
+		role="region"
+		tabindex="0"
+		data-view-img-slider
+	>
+		<div data-view-img-slider-scroller><slot /></div>
+		<button
+			:aria-label="imgSliderPrevious"
+			type="button"
+			data-view-img-slider-nav="previous"
+		>
+			<span aria-hidden="true">‹</span>
+		</button>
+		<button
+			:aria-label="imgSliderNext"
+			type="button"
+			data-view-img-slider-nav="next"
+		>
+			<span aria-hidden="true">›</span>
+		</button>
+		<div
+			aria-label="Slider navigation"
+			role="tablist"
+			data-view-img-slider-dots
+		></div>
+	</div>
+</template>
+
+<style>
+[data-view-img-slider] {
+	position: relative;
+	width: 100%;
+	height: 14.375rem;
+	max-height: 90vh;
+	overflow: hidden;
+	border-radius: 0.5rem;
+	touch-action: pan-x;
+	outline: none;
+}
+[data-view-img-slider][data-vertical] {
+	width: min(100%, 31.25rem);
+	height: 90vh;
+	margin-inline: auto;
+}
+[data-view-img-slider-scroller] {
+	display: flex;
+	width: 100%;
+	height: 100%;
+	overflow-x: auto;
+	overflow-y: hidden;
+	scroll-behavior: smooth;
+	scroll-snap-type: x mandatory;
+	scrollbar-width: none;
+}
+[data-view-img-slider-scroller]::-webkit-scrollbar {
+	display: none;
+}
+[data-view-img-slider-slide] {
+	position: relative;
+	width: 100%;
+	height: 100%;
+	flex: 0 0 100%;
+	overflow: hidden;
+	scroll-snap-align: center;
+	scroll-snap-stop: always;
+}
+[data-view-img-slider] gosh-component,
+[data-view-img-slider] [data-ui-image-loader],
+[data-view-img-slider] video {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+.view-img-slider-media {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+[data-view-img-slider-nav] {
+	position: absolute;
+	z-index: 2;
+	top: 50%;
+	display: inline-flex;
+	width: 2.75rem;
+	height: 2.75rem;
+	align-items: center;
+	justify-content: center;
+	border: 0;
+	border-radius: 999px;
+	color: #fff;
+	background: rgba(0, 0, 0, 0.45);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+	font-size: 2rem;
+	line-height: 1;
+	opacity: 0;
+	cursor: pointer;
+	transform: translateY(-50%);
+	transition:
+		opacity 0.2s ease,
+		background-color 0.2s ease;
+}
+[data-view-img-slider-nav="previous"] {
+	left: 1rem;
+}
+[data-view-img-slider-nav="next"] {
+	right: 1rem;
+}
+[data-view-img-slider]:hover [data-view-img-slider-nav],
+[data-view-img-slider-nav]:focus-visible {
+	opacity: 1;
+}
+[data-view-img-slider-nav]:hover {
+	background: rgba(0, 0, 0, 0.7);
+}
+[data-view-img-slider-nav]:focus-visible {
+	outline: 2px solid var(--ui-focus);
+	outline-offset: 2px;
+}
+[data-view-img-slider][data-single] [data-view-img-slider-nav],
+[data-view-img-slider][data-single] [data-view-img-slider-dots] {
+	display: none;
+}
+[data-view-img-slider-dots] {
+	position: absolute;
+	z-index: 2;
+	right: 0;
+	bottom: 1rem;
+	left: 0;
+	display: flex;
+	justify-content: center;
+	gap: 0.5rem;
+	pointer-events: none;
+}
+[data-view-img-slider-dots] button {
+	width: 0.375rem;
+	height: 0.375rem;
+	padding: 0;
+	border: 0;
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.5);
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+	pointer-events: auto;
+	cursor: pointer;
+	transition:
+		width 0.3s ease,
+		background-color 0.3s ease;
+}
+[data-view-img-slider-dots] button[aria-selected="true"] {
+	width: 1rem;
+	background: #fff;
+}
+[data-view-img-slider-dots] button:focus-visible {
+	outline: 2px solid var(--ui-focus);
+	outline-offset: 2px;
+}
+@media (min-width: 769px) {
+	[data-view-img-slider] {
+		height: 31.25rem;
+	}
+	[data-view-img-slider][data-vertical] {
+		height: min(45rem, 90vh);
+	}
+}
+@media (max-width: 768px) {
+	[data-view-img-slider-nav] {
+		display: none;
+	}
+}
+[data-view-img-slider-scroller] > gosh-component {
+	display: block;
+	width: 100%;
+	height: 100%;
+	flex: 0 0 100%;
+}
+</style>
+
+<script setup>
+const root = useRoot().querySelector("[data-view-img-slider]");
+if (!root) return;
+const scroller = root.querySelector("[data-view-img-slider-scroller]"),
+	dots = root.querySelector("[data-view-img-slider-dots]"),
+	previous = root.querySelector('[data-view-img-slider-nav="previous"]'),
+	next = root.querySelector('[data-view-img-slider-nav="next"]');
+const slides = () =>
+	Array.from(scroller.querySelectorAll("[data-view-img-slider-slide]"));
+let active = 0,
+	timer,
+	manuallyStopped = false;
+const stopAuto = () => {
+	manuallyStopped = true;
+	window.clearInterval(timer);
+};
+const manageVideos = () =>
+	slides().forEach((slide, index) => {
+		const video = slide.querySelector("video");
+		if (!video) return;
+		if (index === active && document.visibilityState === "visible")
+			video.play().catch(() => {});
+		else {
+			video.pause();
+			video.currentTime = 0;
+		}
+	});
+const render = () => {
+	Array.from(dots.children).forEach((dot, index) =>
+		dot.setAttribute("aria-selected", String(index === active)),
+	);
+	manageVideos();
+};
+const go = (index, manual) => {
+	const items = slides();
+	if (!items.length) return;
+	if (manual) stopAuto();
+	active = (index + items.length) % items.length;
+	scroller.scrollTo({
+		left: active * scroller.clientWidth,
+		behavior: "smooth",
+	});
+	render();
+};
+const onScroll = () => {
+	const width = scroller.clientWidth;
+	if (!width) return;
+	const index = Math.round(scroller.scrollLeft / width);
+	if (index >= 0 && index < slides().length && index !== active) {
+		active = index;
+		render();
+	}
+};
+const buildDots = () => {
+	const items = slides();
+	if (items.length < 2) root.setAttribute("data-single", "");
+	items.forEach((_, index) => {
+		const dot = document.createElement("button");
+		dot.type = "button";
+		dot.setAttribute("role", "tab");
+		dot.setAttribute("aria-label", `Go to slide ${index + 1}`);
+		dot.addEventListener("click", () => go(index, true));
+		dots.appendChild(dot);
+	});
+	render();
+};
+const beginAuto = () => {
+	if (
+		!root.hasAttribute("data-auto-scroll") ||
+		slides().length < 2 ||
+		manuallyStopped
+	)
+		return;
+	timer = window.setInterval(
+		() => go(active + 1, false),
+		Math.max(1000, Number(root.dataset.autoScrollInterval) || 4000),
+	);
+};
+const onPointer = () => stopAuto();
+const onKey = (event) => {
+	if (event.key === "ArrowLeft") {
+		event.preventDefault();
+		go(active - 1, true);
+	}
+	if (event.key === "ArrowRight") {
+		event.preventDefault();
+		go(active + 1, true);
+	}
+};
+scroller.addEventListener("scroll", onScroll, { passive: true });
+root.addEventListener("pointerdown", onPointer);
+root.addEventListener("keydown", onKey);
+previous.addEventListener("click", () => go(active - 1, true));
+next.addEventListener("click", () => go(active + 1, true));
+buildDots();
+beginAuto();
+onUnmounted(() => {
+	window.clearInterval(timer);
+	scroller.removeEventListener("scroll", onScroll);
+	root.removeEventListener("pointerdown", onPointer);
+	root.removeEventListener("keydown", onKey);
+});
+</script>

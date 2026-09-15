@@ -1,0 +1,15 @@
+<!-- @server ./system/logic/icons.go#UiSegmentedControlItemData -->
+<template>
+	<button
+		:value="segmentedItemValue"
+		:data-value="segmentedItemValue"
+		:aria-label="segmentedItemLabel"
+		:aria-pressed="segmentedItemPressed"
+		:disabled="segmentedItemDisabled"
+		type="button"
+		data-ui-segmented-control-item
+	>
+		<UiIcon m-if="segmentedItemIcon" :name="segmentedItemIcon" size="1em" />
+		<slot>{{ segmentedItemLabel }}</slot>
+	</button>
+</template>

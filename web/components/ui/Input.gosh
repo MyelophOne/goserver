@@ -1,0 +1,135 @@
+<!-- @server ./system/logic/icons.go#UiInputData -->
+<template>
+	<label :class="class" data-ui-input-wrap>
+		<input
+			:id="id"
+			:name="name"
+			:type="inputType"
+			:value="inputValue"
+			:placeholder="inputPlaceholder"
+			:disabled="disabled"
+			:readonly="readonly"
+			:required="required"
+			:autocomplete="autocomplete"
+			:inputmode="inputmode"
+			:maxlength="maxlength"
+			:minlength="minlength"
+			:min="min"
+			:max="max"
+			:step="step"
+			:pattern="pattern"
+			:aria-describedby="ariaDescribedby"
+			:aria-invalid="ariaInvalid"
+			:data-icon-position="inputIconPosition"
+			data-ui-input
+		/>
+		<span m-if="label" data-ui-input-label>{{ label }}</span>
+		<span m-if="icon" :data-position="inputIconPosition" data-ui-input-icon
+			><UiIcon :name="icon" class="ui-input-icon"
+		/></span>
+	</label>
+</template>
+
+<style scoped>
+[data-ui-input-wrap] {
+	position: relative;
+	display: block;
+	color: var(--ui-text);
+}
+[data-ui-input] {
+	box-sizing: border-box;
+	display: block;
+	width: 100%;
+	height: 2.75rem;
+	margin-bottom: 0.5rem;
+	padding: 0.625rem 0.75rem;
+	border: 1px solid var(--ui-border, #cbd5e1);
+	border-radius: 0.375rem;
+	outline: none;
+	background: var(--ui-control-bg, var(--ui-surface, var(--ui-bg)));
+	color: var(--ui-text);
+	font: inherit;
+	font-size: 0.875rem;
+	line-height: 1.5;
+	transition:
+		border-color 0.15s ease,
+		box-shadow 0.15s ease;
+}
+[data-ui-input]::placeholder {
+	color: transparent;
+}
+[data-ui-input][data-icon-position="start"] {
+	padding-inline-start: 2.25rem;
+}
+[data-ui-input][data-icon-position="end"] {
+	padding-inline-end: 2.25rem;
+}
+[data-ui-input]:focus {
+	border-color: var(--ui-focus, #2563eb);
+	box-shadow: none;
+}
+[data-ui-input]:disabled {
+	cursor: not-allowed;
+	opacity: 0.6;
+}
+[data-ui-input-label] {
+	position: absolute;
+	top: 0.75rem;
+	inset-inline-start: 0.75rem;
+	z-index: 1;
+	max-width: calc(100% - 1.5rem);
+	padding: 0 0.5rem;
+	overflow: hidden;
+	background: var(--ui-control-bg, var(--ui-surface, var(--ui-bg)));
+	color: var(--ui-text);
+	font-size: 0.875rem;
+	font-weight: 500;
+	line-height: 1.1rem;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	pointer-events: none;
+	transform-origin: left center;
+	transition:
+		color 0.15s ease,
+		transform 0.15s ease,
+		inset-inline-start 0.15s ease;
+}
+[data-ui-input][data-icon-position="start"]:placeholder-shown
+	+ [data-ui-input-label] {
+	inset-inline-start: 2.25rem;
+}
+[data-ui-input]:focus + [data-ui-input-label],
+[data-ui-input]:not(:placeholder-shown) + [data-ui-input-label] {
+	inset-inline-start: 0.75rem;
+	color: var(--ui-focus, #2563eb);
+	transform: translateY(-1.25rem) scale(0.85);
+}
+[data-ui-input]:focus + [data-ui-input-label] {
+	color: var(--ui-focus, #2563eb);
+}
+[data-ui-input-icon] {
+	position: absolute;
+	top: 0;
+	bottom: 0.5rem;
+	display: flex;
+	align-items: center;
+	color: var(--ui-text);
+	pointer-events: none;
+}
+[data-ui-input-icon][data-position="start"] {
+	inset-inline-start: 0.75rem;
+}
+[data-ui-input-icon][data-position="end"] {
+	inset-inline-end: 0.75rem;
+}
+[data-ui-input-icon] gosh-component {
+	display: inline-flex;
+	width: 1rem;
+	height: 1rem;
+}
+[data-ui-input-icon] img {
+	display: block;
+	width: 1rem;
+	height: 1rem;
+}
+</style>

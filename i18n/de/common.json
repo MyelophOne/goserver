@@ -1,5 +1,52 @@
 {
-  "hello": {
-    "world": "Hello, World!"
+  "hello": { "world": "Hallo, Welt!" },
+  "web": {
+    "language": "Sprache",
+    "title": "I18n-Beispiel",
+    "heading": "Sprachen ohne vollständiges Neuladen wechseln",
+    "description": "Diese Seite wird von Go gerendert und über goserver I18n übersetzt."
+  },
+  "myelophone": {
+    "welcome": "Willkommen bei",
+    "experiment": "Experimentieren Sie, passen Sie an und genießen Sie Geschwindigkeit und Leistung!",
+    "poweredBy": "Bereitgestellt von",
+    "goserverVersion": "GoServer-Version",
+    "toggleTheme": "Design wechseln"
+  },
+  "errors": {
+    "home": "Zur Startseite", "homeLabel": "MyelophOne GoServer-Startseite", "toggleTheme": "Design wechseln", "copyright": "Alle Rechte vorbehalten.",
+    "notFound": { "title": "Seite nicht gefunden", "description": "Die Adresse könnte fehlerhaft sein, die Seite wurde verschoben oder ist nicht mehr verfügbar." },
+    "server": { "title": "Etwas ist schiefgelaufen", "description": "Der Server konnte diese Anfrage nicht abschließen. Ihre Daten wurden nicht geändert; versuchen Sie es bitte in Kürze erneut." }
+  },
+  "cookies": {
+    "weUseCookies": "Wir verwenden Cookies für die Funktionalität der Website und Analysen.",
+    "customize": "Anpassen",
+    "decline": "Ablehnen",
+    "changePrefs": "Einstellungen ändern",
+    "acceptAll": "Alle akzeptieren",
+    "close": "Schließen",
+    "privacyTitle": "Datenschutzeinstellungen",
+    "cookieNote": "Wählen Sie die Cookie-Kategorien aus, die Sie zulassen möchten.",
+    "necessary": "Notwendig",
+    "analytics": "Analyse",
+    "marketing": "Marketing",
+    "functional": "Funktional",
+    "necessaryDesc": "Für den Betrieb der Website erforderlich. Kann nicht deaktiviert werden.",
+    "analyticsDesc": "Hilft uns zu verstehen, wie Besucher die Website nutzen.",
+    "marketingDesc": "Ermöglicht Werbung und Medien von Drittanbietern.",
+    "functionalDesc": "Ermöglicht optionale Funktionen und eingebettete Dienste.",
+    "alwaysOn": "Immer aktiv",
+    "usedServices": "Verwendete Dienste",
+    "cookiesList": "In diesem Browser gespeicherte Cookies",
+    "emptyList": "Keine lesbaren Cookies gefunden.",
+    "declineAll": "Optionale ablehnen",
+    "savePrefs": "Einstellungen speichern",
+    "contentHidden": "Inhalt ausgeblendet",
+    "setPrefs": "Einstellungen festlegen",
+    "policyTitle": "Cookies und ähnliche Technologien",
+    "privacyPolicy": "Datenschutzerklärung",
+    "officialDocs": "Offizielle Dokumentation",
+    "allowCategory": "Erlauben Sie Cookies der Kategorie %s, um diesen Inhalt anzuzeigen.",
+    "allowService": "Erlauben Sie Cookies der Kategorie %s, um %s zu verwenden."
   }
 }

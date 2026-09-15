@@ -94,7 +94,11 @@ func (g *RouteGroup) ANY(p string, handler http.HandlerFunc) {
 }
 
 func (s *Server) rejectRequest(w http.ResponseWriter, r *http.Request, code int, msg string) {
-	s.Logger.Printf("request rejected: %s (code %d) from %s", msg, code, GetRealIP(r))
+	if mode := ParseClientIPLogMode(s.Config.LogClientIP); mode != LogClientIPOff {
+		s.Logger.Printf("request rejected: %s (code %d) from %s", msg, code, formatLogClient(GetRealIP(r), mode))
+	} else {
+		s.Logger.Printf("request rejected: %s (code %d)", msg, code)
+	}
 	if s.ResponseMode == "json" {
 		s.RenderErrorJSON(w, r, code, msg)
 	} else {

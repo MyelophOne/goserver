@@ -1,0 +1,153 @@
+<!-- @server ./system/logic/icons.go#UiSnapContainerData -->
+<template>
+	<div
+		:id="id"
+		:class="class"
+		:data-direction="snapDirection"
+		data-ui-snap-container
+	>
+		<div aria-label="Навигация по секциям" data-ui-snap-controls></div>
+		<div data-ui-snap-track><slot /></div>
+	</div>
+</template>
+
+<style scoped>
+[data-ui-snap-container] {
+	position: relative;
+	width: 100%;
+	height: 100dvh;
+	overflow: hidden;
+	color: var(--ui-text);
+	background: var(--ui-bg);
+}
+[data-ui-snap-track] {
+	display: flex;
+	width: 100%;
+	height: 100%;
+	transition: transform 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+	will-change: transform;
+}
+[data-ui-snap-container][data-direction="vertical"] [data-ui-snap-track] {
+	flex-direction: column;
+}
+[data-ui-snap-controls] {
+	position: absolute;
+	z-index: 3;
+	top: 50%;
+	right: 1.5rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	transform: translateY(-50%);
+}
+[data-ui-snap-container][data-direction="horizontal"] [data-ui-snap-controls] {
+	top: auto;
+	right: auto;
+	bottom: 1.5rem;
+	left: 50%;
+	flex-direction: row;
+	transform: translateX(-50%);
+}
+[data-ui-snap-controls] button {
+	width: 0.75rem;
+	height: 0.75rem;
+	padding: 0;
+	border: 0;
+	border-radius: 999px;
+	opacity: 0.3;
+	background: var(--ui-text);
+	cursor: pointer;
+	transition:
+		transform 0.25s ease,
+		opacity 0.25s ease;
+}
+[data-ui-snap-controls] button[aria-current="true"] {
+	transform: scale(1.35);
+	opacity: 1;
+}
+[data-ui-snap-controls] button:focus-visible {
+	outline: 2px solid var(--ui-focus);
+	outline-offset: 3px;
+}
+</style>
+
+<script setup>
+const root = useRoot().querySelector("[data-ui-snap-container]");
+if (!root) return;
+const css = window._gosh.setStyleProperty,
+	track = root.querySelector("[data-ui-snap-track]"),
+	controls = root.querySelector("[data-ui-snap-controls]");
+const vertical = root.dataset.direction !== "horizontal";
+const sections = () =>
+	Array.from(track.querySelectorAll(":scope > [data-ui-snap-section]"));
+let index = 0,
+	locked = false,
+	visible = false;
+const render = (next) => {
+	const items = sections();
+	if (next < 0 || next >= items.length || locked) return;
+	index = next;
+	locked = true;
+	css(
+		track,
+		"transform",
+		vertical
+			? `translateY(-${index * 100}%)`
+			: `translateX(-${index * 100}%)`,
+	);
+	Array.from(controls.children).forEach((button, i) =>
+		button.setAttribute("aria-current", String(i === index)),
+	);
+	items.forEach((section, i) =>
+		section.dispatchEvent(
+			new CustomEvent("ui:snap-active", {
+				detail: {
+					index,
+					active: i === index,
+					axis: vertical ? "vertical" : "horizontal",
+				},
+			}),
+		),
+	);
+	window.setTimeout(() => {
+		locked = false;
+	}, 1200);
+};
+const build = () => {
+	sections().forEach((_, i) => {
+		const button = document.createElement("button");
+		button.type = "button";
+		button.setAttribute("aria-label", `Перейти к секции ${i + 1}`);
+		button.addEventListener("click", () => render(i));
+		controls.appendChild(button);
+	});
+	render(0);
+};
+const wheel = (event) => {
+	if (!visible || locked || Math.abs(event.deltaY) < 20) return;
+	const rect = root.getBoundingClientRect();
+	if (Math.abs(rect.top) > 10) return;
+	const delta = vertical ? event.deltaY : event.deltaX || event.deltaY;
+	if (
+		(index === 0 && delta < 0) ||
+		(index === sections().length - 1 && delta > 0)
+	)
+		return;
+	event.preventDefault();
+	render(index + (delta > 0 ? 1 : -1));
+};
+const observer = new IntersectionObserver(
+	([entry]) => {
+		visible =
+			!!entry && entry.isIntersecting && entry.intersectionRatio > 0.5;
+	},
+	{ threshold: [0.5] },
+);
+observer.observe(root);
+window.addEventListener("wheel", wheel, { passive: false });
+build();
+onUnmounted(() => {
+	observer.disconnect();
+	window.removeEventListener("wheel", wheel);
+});
+</script>

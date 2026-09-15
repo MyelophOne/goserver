@@ -43,7 +43,6 @@ func (s *Server) Defaults() {
 	s.Use(s.TimeoutMiddleware(s.Config.ReadTimeout))
 	s.Use(s.LimitBodyMiddleware(s.Config.MaxBodySize))
 	s.Use(s.BotAndAiDetectionMiddleware)
-	s.Use(s.IdempotencyMiddleware)
 	s.GET("/robots.txt", s.PublicFiles)
 	s.EnablePprof()
 }

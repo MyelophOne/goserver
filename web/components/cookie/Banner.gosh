@@ -1,0 +1,244 @@
+<template>
+	<aside
+		hidden
+		:data-position="cookieBannerPosition"
+		data-cookie-banner
+		data-nosnippet
+		aria-live="polite"
+	>
+		<div data-cookie-banner-copy>
+			<span aria-hidden="true" data-cookie-banner-icon>🍪</span>
+			<p>{{ cookieTexts.weUseCookies }}</p>
+		</div>
+		<div data-cookie-banner-actions>
+			<div data-cookie-banner-primary-actions>
+				<span data-cookie-customize
+					><UiButton size="sm" variant="soft" block>{{
+						cookieTexts.decline
+					}}</UiButton></span
+				>
+				<span data-cookie-accept
+					><UiButton size="sm" variant="solid" block>{{
+						cookieTexts.acceptAll
+					}}</UiButton></span
+				>
+			</div>
+			<span data-cookie-customize-link
+				><UiButton size="xs" variant="ghost" block>{{
+					cookieTexts.changePrefs
+				}}</UiButton></span
+			>
+		</div>
+	</aside>
+</template>
+<style>
+[data-cookie-banner] {
+	position: fixed;
+	z-index: 60;
+	right: 1rem;
+	bottom: 1rem;
+	left: 1rem;
+	max-width: 25rem;
+	margin: auto;
+	padding: 1rem;
+	border: 1px solid var(--ui-border, #e5e7eb);
+	border-radius: 0.75rem;
+	background: color-mix(in srgb, var(--ui-bg, #fff), transparent 5%);
+	box-shadow: 0 1.25rem 2.5rem rgb(0 0 0/0.18);
+	backdrop-filter: blur(12px);
+	opacity: 0;
+	transform: translateY(100%);
+	pointer-events: none;
+	transition:
+		opacity 0.3s ease-in,
+		transform 0.3s ease-in;
+}
+[data-cookie-banner][data-cookie-banner-visible="true"] {
+	opacity: 1;
+	transform: translateY(0);
+	pointer-events: auto;
+	transition:
+		opacity 0.5s ease-out 0.3s,
+		transform 0.5s ease-out 0.3s;
+}
+[data-theme="dark"] [data-cookie-banner] {
+	border-color: #262626;
+	background: color-mix(in srgb, #0a0a0a 90%, transparent);
+}
+[data-theme="dark"] [data-cookie-banner-copy] {
+	color: #d4d4d4;
+}
+[data-theme="dark"] [data-cookie-accept] {
+	--ui-control-bg: #f5f5f5;
+	--ui-text: #0a0a0a;
+	--ui-border: #f5f5f5;
+}
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) [data-cookie-banner] {
+		border-color: #262626;
+		background: color-mix(in srgb, #0a0a0a 90%, transparent);
+	}
+	:root:not([data-theme="light"]) [data-cookie-banner-copy] {
+		color: #d4d4d4;
+	}
+	:root:not([data-theme="light"]) [data-cookie-accept] {
+		--ui-control-bg: #f5f5f5;
+		--ui-text: #0a0a0a;
+		--ui-border: #f5f5f5;
+	}
+}
+[data-cookie-banner][data-position="bottom-left"] {
+	right: auto;
+	margin: 0;
+}
+[data-cookie-banner][data-position="bottom-right"] {
+	left: auto;
+	margin: 0;
+}
+@media (min-width: 48rem) {
+	[data-cookie-banner] {
+		right: auto;
+		bottom: 1.5rem;
+		left: 1.5rem;
+		width: 20.625rem;
+	}
+	[data-cookie-banner][data-position="bottom-right"] {
+		right: 1.5rem;
+		left: auto;
+	}
+}
+[data-cookie-banner-copy] {
+	display: flex;
+	align-items: flex-start;
+	gap: 0.75rem;
+	font-size: 0.875rem;
+	font-weight: 500;
+	line-height: 1.375;
+	letter-spacing: 0;
+}
+[data-cookie-banner-icon] {
+	flex: none;
+	margin-top: 0.125rem;
+	font-size: 1.25rem;
+	line-height: 1;
+}
+[data-cookie-banner-copy] p {
+	margin: 0;
+	font: inherit;
+}
+[data-cookie-banner-actions] {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	margin-top: 1rem;
+}
+[data-cookie-banner-primary-actions] {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 0.5rem;
+}
+[data-cookie-banner-primary-actions] gosh-component,
+[data-cookie-banner-primary-actions] [data-ui-button] {
+	display: block;
+	width: 100%;
+}
+[data-cookie-banner-primary-actions] [data-ui-button] {
+	min-height: 0;
+	padding: 0.5rem 0.75rem;
+	border: 0;
+	border-radius: 0.5rem;
+	font-size: 0.75rem;
+	font-weight: 600;
+}
+[data-cookie-customize] [data-ui-button] {
+	background: color-mix(in srgb, var(--ui-text), transparent 86%);
+	color: var(--ui-text);
+	transition: background-color 0.15s ease;
+}
+[data-cookie-customize] [data-ui-button]:hover {
+	background: color-mix(in srgb, var(--ui-text), transparent 80%);
+}
+[data-cookie-accept] {
+	--ui-control-bg: #171717;
+	--ui-text: #fff;
+	--ui-border: #171717;
+}
+[data-cookie-accept] [data-ui-button] {
+	box-shadow: 0 0.125rem 0.25rem rgb(0 0 0 / 0.08);
+	transition:
+		background-color 0.15s ease,
+		box-shadow 0.15s ease;
+}
+[data-cookie-accept] [data-ui-button]:hover {
+	box-shadow: 0 0.25rem 0.5rem rgb(0 0 0 / 0.12);
+}
+[data-cookie-customize-link] gosh-component,
+[data-cookie-customize-link] [data-ui-button] {
+	display: block;
+	width: 100%;
+}
+[data-cookie-customize-link] [data-ui-button] {
+	padding-block: 0.125rem;
+	border-radius: 0.375rem;
+	color: color-mix(in srgb, var(--ui-text), transparent 45%);
+	font-size: 0.75rem;
+	font-weight: 500;
+	transition: color 0.15s ease;
+}
+[data-cookie-customize-link] [data-ui-button]:hover {
+	color: var(--ui-text);
+}
+</style>
+<script setup>
+const incoming = useRoot().querySelector("[data-cookie-banner]");
+if (!incoming) return;
+const store = useStore("cookies");
+if (!store) return;
+const persisted = document.querySelector(
+	"body > [data-cookie-banner][data-cookie-banner-global]",
+);
+const root = persisted || incoming;
+if (persisted && incoming !== persisted) incoming.remove();
+if (!persisted) {
+	root.dataset.cookieBannerGlobal = "true";
+	document.body.append(root);
+}
+const render = () => {
+	if (store.getState().bannerVisible) {
+		root.hidden = false;
+		if (!root.dataset.cookieBannerVisible)
+			requestAnimationFrame(() => {
+				if (store.getState().bannerVisible)
+					root.dataset.cookieBannerVisible = "true";
+			});
+		return;
+	}
+	delete root.dataset.cookieBannerVisible;
+};
+const accept = root.querySelector("[data-cookie-accept]"),
+	customize = root.querySelector("[data-cookie-customize]"),
+	customizeLink = root.querySelector("[data-cookie-customize-link]");
+const onAccept = () => store.getState().acceptAll(),
+	onCustomize = () => store.getState().openSettings(),
+	onTransitionEnd = (event) => {
+		if (
+			event.target === root &&
+			event.propertyName === "opacity" &&
+			!store.getState().bannerVisible
+		)
+			root.hidden = true;
+	};
+accept.addEventListener("click", onAccept);
+customize.addEventListener("click", onCustomize);
+customizeLink.addEventListener("click", onCustomize);
+root.addEventListener("transitionend", onTransitionEnd);
+const unsubscribe = store.subscribe(render);
+render();
+onUnmounted(() => {
+	unsubscribe();
+	root.removeEventListener("transitionend", onTransitionEnd);
+	accept.removeEventListener("click", onAccept);
+	customize.removeEventListener("click", onCustomize);
+	customizeLink.removeEventListener("click", onCustomize);
+});
+</script>

@@ -1,0 +1,52 @@
+<!-- @server ./system/logic/universal_components.go#UniversalComponentData -->
+<template>
+	<nav :id="id" :class="class" aria-label="Breadcrumb" data-view-breadcrumbs>
+		<ol class="breadcrumb-list">
+			<li class="breadcrumb-item">
+				<a :href="homeHref" class="breadcrumb-link">{{ homeLabel }}</a
+				><span class="separator">{{ separator }}</span>
+			</li>
+			<slot />
+		</ol>
+	</nav>
+</template>
+<style>
+[data-view-breadcrumbs] {
+	padding: 0.75rem 0;
+	font-size: 0.875rem;
+}
+.breadcrumb-list {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+.breadcrumb-item {
+	display: flex;
+	align-items: center;
+	color: var(--ui-text);
+	line-height: 1.2;
+}
+.breadcrumb-link {
+	color: var(--ui-text);
+	opacity: 0.6;
+	text-decoration: none;
+	transition: opacity 0.2s;
+}
+.breadcrumb-link:hover {
+	opacity: 1;
+}
+.separator {
+	margin: 0 0.5rem;
+	user-select: none;
+	font-size: 0.9em;
+	opacity: 0.3;
+}
+@media (max-width: 640px) {
+	[data-view-breadcrumbs] {
+		font-size: 0.8rem;
+	}
+}
+</style>

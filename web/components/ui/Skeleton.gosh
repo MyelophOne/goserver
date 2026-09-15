@@ -1,0 +1,37 @@
+<!-- @server ./system/logic/universal_components.go#UniversalComponentData -->
+<template>
+	<span
+		:id="id"
+		:class="class"
+		:style="style"
+		:aria-label="label"
+		role="status"
+		data-ui-skeleton
+		><slot
+	/></span>
+</template>
+<style>
+[data-ui-skeleton] {
+	display: block;
+	min-height: 1em;
+	border-radius: var(--ui-skeleton-radius, 0.4rem);
+	background: linear-gradient(
+		90deg,
+		color-mix(in srgb, var(--ui-text), transparent 93%) 25%,
+		color-mix(in srgb, var(--ui-text), transparent 87%) 37%,
+		color-mix(in srgb, var(--ui-text), transparent 93%) 63%
+	);
+	background-size: 400% 100%;
+	animation: ui-skeleton 1.4s ease infinite;
+}
+@keyframes ui-skeleton {
+	to {
+		background-position: -100% 0;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	[data-ui-skeleton] {
+		animation: none;
+	}
+}
+</style>

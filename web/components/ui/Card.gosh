@@ -1,0 +1,103 @@
+<!-- @server ./system/logic/icons.go#UiCardData -->
+<template>
+	<a
+		m-if="cardIsLink"
+		:id="id"
+		:class="class"
+		:href="cardHref"
+		:target="cardTarget"
+		:rel="cardRel"
+		:data-bordered="cardBordered"
+		:data-rounded="cardRounded"
+		:data-padded="cardPadded"
+		data-ui-card
+		><slot
+	/></a>
+	<section
+		m-if="cardIsSection"
+		:id="id"
+		:class="class"
+		:data-bordered="cardBordered"
+		:data-rounded="cardRounded"
+		:data-padded="cardPadded"
+		data-ui-card
+	>
+		<slot />
+	</section>
+	<article
+		m-if="cardIsArticle"
+		:id="id"
+		:class="class"
+		:data-bordered="cardBordered"
+		:data-rounded="cardRounded"
+		:data-padded="cardPadded"
+		data-ui-card
+	>
+		<slot />
+	</article>
+	<div
+		m-if="cardIsDiv"
+		:id="id"
+		:class="class"
+		:data-bordered="cardBordered"
+		:data-rounded="cardRounded"
+		:data-padded="cardPadded"
+		data-ui-card
+	>
+		<slot />
+	</div>
+</template>
+
+<style>
+[data-ui-card] {
+	display: block;
+	overflow: hidden;
+	color: var(--ui-text);
+	background: var(--ui-surface, var(--ui-bg));
+	box-shadow: 0 1px 2px color-mix(in srgb, #000, transparent 92%);
+	transition:
+		background-color 0.2s ease,
+		border-color 0.2s ease,
+		transform 0.2s ease,
+		box-shadow 0.2s ease;
+}
+[data-ui-card][data-bordered] {
+	border: 1px solid var(--ui-border);
+}
+[data-ui-card][data-rounded] {
+	border-radius: 1rem;
+}
+a[data-ui-card] {
+	text-decoration: none;
+	cursor: pointer;
+}
+a[data-ui-card]:hover {
+	background: color-mix(
+		in srgb,
+		var(--ui-surface, var(--ui-bg)),
+		var(--ui-text) 5%
+	);
+	box-shadow: 0 0.75rem 2rem color-mix(in srgb, #000, transparent 88%);
+	transform: translateY(-1px);
+}
+a[data-ui-card]:focus-visible {
+	outline: 2px solid var(--ui-focus);
+	outline-offset: 3px;
+}
+[data-ui-card] > [data-ui-card-body] {
+	min-width: 0;
+}
+[data-ui-card][data-padded] > [data-ui-card-body] {
+	padding: 1rem;
+}
+[data-ui-card-header],
+[data-ui-card-footer] {
+	padding: 0.75rem 1rem;
+}
+[data-ui-card-header] {
+	border-bottom: 1px solid var(--ui-border);
+}
+[data-ui-card-footer] {
+	border-top: 1px solid var(--ui-border);
+}
+</style>

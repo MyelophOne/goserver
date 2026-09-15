@@ -1,0 +1,57 @@
+.layout-container-root,
+.layout-row-root,
+.layout-col-root,
+.layout-stack-root {
+	background-repeat: no-repeat;
+	background-position: center;
+}
+
+.layout-container-root.has-gradient-overlay::before,
+.layout-row-root.has-gradient-overlay::before,
+.layout-col-root.has-gradient-overlay::before,
+.layout-stack-root.has-gradient-overlay::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	z-index: 1;
+	pointer-events: none;
+}
+
+.layout-container-root > *:not(video):not(.video-background-container),
+.layout-row-root > *:not(video):not(.video-background-container),
+.layout-col-root > *:not(video):not(.video-background-container),
+.layout-stack-root > *:not(video):not(.video-background-container) {
+	position: relative;
+	z-index: 1;
+}
+
+.video-background-container {
+	position: absolute;
+	inset: 0;
+	z-index: 0;
+	pointer-events: none;
+	overflow: hidden;
+}
+
+.video-background-container iframe {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 115vw;
+	height: 64.68vw;
+	min-height: 115vh;
+	min-width: 204.44vh;
+	transform: translate(-50%, -50%);
+	pointer-events: none;
+	background: transparent;
+}
+
+@media (max-width: 767px) {
+	.video-background-container iframe {
+		height: 115vh;
+		height: 100%;
+		width: 204.44vh;
+		min-width: 115vw;
+		min-height: 64.68vw;
+	}
+}

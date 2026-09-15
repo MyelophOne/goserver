@@ -1,0 +1,100 @@
+<!-- @server ./system/logic/avatar_group.go#ViewAvatarGroupData -->
+<template>
+	<div
+		:id="id"
+		:class="class"
+		:data-size="avatarGroupSize"
+		:data-max="avatarGroupMax"
+		:aria-label="avatarGroupLabel"
+		role="group"
+		data-view-avatar-group
+	>
+		<slot />
+	</div>
+</template>
+
+<style>
+[data-view-avatar-group] {
+	display: flex;
+	flex-direction: row-reverse;
+	align-items: center;
+	justify-content: flex-start;
+	min-width: 0;
+}
+[data-view-avatar-group] [data-ui-avatar],
+[data-view-avatar-group] [data-view-avatar-group-overflow] {
+	position: relative;
+	z-index: 1;
+	margin-left: -0.5rem;
+	box-shadow: 0 0 0 2px var(--ui-bg);
+	transition:
+		transform 0.2s ease,
+		z-index 0.2s ease;
+}
+[data-view-avatar-group] [data-ui-avatar]:hover,
+[data-view-avatar-group] [data-view-avatar-group-overflow]:hover {
+	z-index: 50;
+	transform: translateY(-0.125rem);
+}
+[data-view-avatar-group] [data-ui-avatar]:last-child,
+[data-view-avatar-group] [data-view-avatar-group-overflow]:last-child {
+	margin-left: 0;
+}
+[data-view-avatar-group-overflow] {
+	display: inline-flex;
+	width: 2.5rem;
+	height: 2.5rem;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	border-radius: 999px;
+	color: var(--ui-text);
+	background: color-mix(in srgb, var(--ui-text), transparent 92%);
+	font-size: 0.75rem;
+	font-weight: 600;
+	line-height: 1;
+}
+[data-view-avatar-group][data-size="sm"] [data-view-avatar-group-overflow] {
+	width: 2rem;
+	height: 2rem;
+	font-size: 0.625rem;
+}
+[data-view-avatar-group][data-size="lg"] [data-view-avatar-group-overflow] {
+	width: 3rem;
+	height: 3rem;
+	font-size: 0.875rem;
+}
+[data-view-avatar-group][data-size="xl"] [data-view-avatar-group-overflow] {
+	width: 4rem;
+	height: 4rem;
+	font-size: 1rem;
+}
+</style>
+
+<script setup>
+const root = useRoot().querySelector("[data-view-avatar-group]");
+if (!root) return;
+const children = () =>
+	Array.from(root.children).filter((child) =>
+		child.querySelector("[data-ui-avatar]"),
+	);
+const items = children();
+const max = Math.max(0, Number(root.dataset.max) || 0);
+items.forEach((item, index) => {
+	const avatar = item.querySelector("[data-ui-avatar]");
+	if (avatar) avatar.dataset.size = root.dataset.size || "md";
+	if (max && index >= max) item.hidden = true;
+});
+const visible = max ? items.slice(0, max) : items;
+visible
+	.slice()
+	.reverse()
+	.forEach((item) => root.appendChild(item));
+if (max && items.length > max) {
+	const overflow = document.createElement("span");
+	overflow.textContent = `+${items.length - max}`;
+	overflow.setAttribute("aria-label", `Ещё ${items.length - max}`);
+	overflow.setAttribute("data-view-avatar-group-overflow", "");
+	root.insertBefore(overflow, root.firstChild);
+}
+</script>

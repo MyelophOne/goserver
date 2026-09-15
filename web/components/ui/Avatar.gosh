@@ -1,0 +1,131 @@
+<!-- @server ./system/logic/icons.go#UiAvatarData -->
+<template>
+	<div
+		:id="id"
+		:class="class"
+		:data-size="avatarSize"
+		:aria-label="avatarAlt"
+		role="img"
+		data-ui-avatar
+	>
+		<span data-ui-avatar-content>
+			<span m-if="avatarHasInitials" data-ui-avatar-initials>{{
+				avatarInitials
+			}}</span>
+			<UiIcon
+				m-if="avatarHasIcon"
+				:name="avatarIcon"
+				class="ui-avatar-icon"
+			/>
+			<img
+				m-if="avatarHasImage"
+				:src="avatarSrc"
+				:alt="avatarAlt"
+				loading="lazy"
+				data-ui-avatar-image
+			/>
+			<UiIcon
+				m-if="!avatarHasInitials && !avatarHasIcon && !avatarHasImage"
+				name="heroicons:user"
+				class="ui-avatar-icon ui-avatar-fallback"
+			/>
+		</span>
+		<span
+			m-if="avatarHasChip"
+			:style="'background-color:' + avatarChipColor"
+			:data-position="avatarChipPosition"
+			aria-hidden="true"
+			data-ui-avatar-chip
+		></span>
+	</div>
+</template>
+
+<style scoped>
+[data-ui-avatar] {
+	position: relative;
+	display: inline-flex;
+	width: 2.5rem;
+	height: 2.5rem;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	border-radius: 9999px;
+	color: color-mix(in srgb, var(--ui-text), transparent 38%);
+	font-size: 0.75rem;
+	font-weight: 500;
+	line-height: 1;
+	user-select: none;
+}
+[data-ui-avatar][data-size="sm"] {
+	width: 2rem;
+	height: 2rem;
+	font-size: 0.625rem;
+}
+[data-ui-avatar][data-size="lg"] {
+	width: 3rem;
+	height: 3rem;
+	font-size: 0.875rem;
+}
+[data-ui-avatar][data-size="xl"] {
+	width: 4rem;
+	height: 4rem;
+	font-size: 1rem;
+}
+[data-ui-avatar-content] {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	overflow: hidden;
+	border-radius: inherit;
+	background: color-mix(in srgb, var(--ui-text), transparent 92%);
+}
+[data-ui-avatar-initials] {
+	text-transform: uppercase;
+}
+.ui-avatar-icon {
+	display: inline-flex;
+	width: 50%;
+	height: 50%;
+}
+.ui-avatar-icon gosh-component,
+.ui-avatar-icon [data-ui-icon] {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+[data-ui-avatar-image] {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+[data-ui-avatar-chip] {
+	position: absolute;
+	z-index: 1;
+	width: 0.875rem;
+	height: 0.875rem;
+	border: 2px solid var(--ui-surface, var(--ui-bg));
+	border-radius: 9999px;
+}
+[data-ui-avatar][data-size="sm"] [data-ui-avatar-chip] {
+	width: 0.625rem;
+	height: 0.625rem;
+}
+[data-ui-avatar-chip][data-position="top-right"] {
+	top: -0.125rem;
+	inset-inline-end: -0.125rem;
+}
+[data-ui-avatar-chip][data-position="bottom-right"] {
+	bottom: -0.125rem;
+	inset-inline-end: -0.125rem;
+}
+[data-ui-avatar-chip][data-position="top-left"] {
+	top: -0.125rem;
+	inset-inline-start: -0.125rem;
+}
+[data-ui-avatar-chip][data-position="bottom-left"] {
+	bottom: -0.125rem;
+	inset-inline-start: -0.125rem;
+}
+</style>

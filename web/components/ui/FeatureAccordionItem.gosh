@@ -1,0 +1,148 @@
+<template>
+	<article
+		:id="id"
+		:class="class"
+		:data-title="title"
+		:data-image="image"
+		:data-active="defaultActive"
+		data-ui-feature-accordion-item
+	>
+		<button type="button" data-ui-feature-accordion-header>
+			<span data-ui-feature-accordion-title>{{ title }}</span>
+			<span aria-hidden="true" data-ui-feature-accordion-icon>
+				<svg
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				>
+					<polyline points="6 9 12 15 18 9"></polyline>
+				</svg>
+			</span>
+		</button>
+		<div data-ui-feature-accordion-body>
+			<div data-ui-feature-accordion-body-inner>
+				<slot
+					><p>{{ description }}</p></slot
+				>
+				<a m-if="linkUrl" :href="linkUrl" data-ui-feature-accordion-link
+					>{{ linkText }} <span aria-hidden="true">→</span></a
+				>
+			</div>
+		</div>
+	</article>
+</template>
+
+<style scoped>
+[data-ui-feature-accordion-item] {
+	border-bottom: 1px solid
+		color-mix(in srgb, var(--ui-border, #d4d4d8), transparent 25%);
+	color: var(--ui-text);
+}
+[data-ui-feature-accordion-item]:last-child {
+	border-bottom: 0;
+}
+[data-ui-feature-accordion-header] {
+	display: flex;
+	width: 100%;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	padding-block: 1.5rem;
+	border: 0;
+	background: transparent;
+	color: color-mix(in srgb, var(--ui-text), transparent 55%);
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+	transition: color 0.3s ease;
+}
+[data-ui-feature-accordion-header]:hover,
+[data-ui-feature-accordion-header]:focus-visible,
+[data-ui-feature-accordion-item][data-active]
+	[data-ui-feature-accordion-header] {
+	color: var(--ui-text);
+}
+[data-ui-feature-accordion-header]:focus-visible {
+	outline: 2px solid var(--ui-focus, #2563eb);
+	outline-offset: -2px;
+}
+[data-ui-feature-accordion-title] {
+	padding-inline-end: 1rem;
+	font-size: 1.25rem;
+	font-weight: 600;
+	line-height: 1.3;
+}
+[data-ui-feature-accordion-icon] {
+	display: inline-flex;
+	width: 1.5rem;
+	height: 1.5rem;
+	flex: none;
+	color: color-mix(in srgb, var(--ui-text), transparent 50%);
+	transition: transform 0.3s ease;
+}
+[data-ui-feature-accordion-icon] svg {
+	width: 100%;
+	height: 100%;
+}
+[data-ui-feature-accordion-item][data-active] [data-ui-feature-accordion-icon] {
+	transform: rotate(180deg);
+}
+[data-ui-feature-accordion-body] {
+	display: grid;
+	grid-template-rows: 0fr;
+	transition: grid-template-rows 0.5s ease;
+}
+[data-ui-feature-accordion-item][data-active] [data-ui-feature-accordion-body] {
+	grid-template-rows: 1fr;
+}
+[data-ui-feature-accordion-body-inner] {
+	min-height: 0;
+	overflow: hidden;
+	padding-bottom: 0;
+	color: color-mix(in srgb, var(--ui-text), transparent 25%);
+	line-height: 1.625;
+	transition: padding-bottom 0.5s ease;
+}
+[data-ui-feature-accordion-item][data-active]
+	[data-ui-feature-accordion-body-inner] {
+	padding-bottom: 2rem;
+}
+[data-ui-feature-accordion-body-inner] > :first-child {
+	margin-top: 0;
+}
+[data-ui-feature-accordion-link] {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+	margin-top: 1.25rem;
+	color: var(--ui-focus, #2563eb);
+	font-weight: 600;
+	text-decoration: none;
+}
+[data-ui-feature-accordion-link]:hover {
+	filter: brightness(1.15);
+}
+@media (min-width: 768px) {
+	[data-ui-feature-accordion-title] {
+		font-size: 1.5rem;
+	}
+}
+</style>
+
+<script setup>
+const item = useRoot().querySelector("[data-ui-feature-accordion-item]");
+const button = item && item.querySelector("[data-ui-feature-accordion-header]");
+if (!item || !button) return;
+const onClick = () =>
+	item.dispatchEvent(
+		new CustomEvent("ui:feature-accordion-activate", {
+			bubbles: true,
+			detail: { item },
+		}),
+	);
+button.addEventListener("click", onClick);
+onUnmounted(() => button.removeEventListener("click", onClick));
+</script>

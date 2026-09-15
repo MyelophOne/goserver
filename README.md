@@ -15,7 +15,7 @@
 
 Designed for high-load backend services, REST APIs, web applications, and internal platforms, `@myelophone/goserver` combines a compact API with a complete server lifecycle. Handlers remain ordinary `http.HandlerFunc` values, middleware uses the standard Go signature, and each larger subsystem is optional and replaceable through a narrow interface.
 
-The defaults are intentionally opinionated: request IDs, access logging, load shedding, panic recovery, rate limiting, static assets, redirects, request filtering, URL sanitization, CSRF protection, security headers, timeouts, body limits, client classification, and idempotency are installed together. If those defaults do not fit a service, construct a smaller stack one middleware at a time.
+The defaults are intentionally opinionated: request IDs, access logging, load shedding, panic recovery, rate limiting, static assets, redirects, request filtering, URL sanitization, CSRF protection, security headers, timeouts, body limits, and client classification are installed together. Idempotency must be installed explicitly after route authentication and authorization. If those defaults do not fit a service, construct a smaller stack one middleware at a time.
 
 The implementation is performance-conscious and includes pooled buffers, bounded LRU caches, singleflight request coalescing, connection limits, graceful shutdown, and overload protection. As with any Go HTTP stack, actual allocations and throughput depend on the handlers, middleware, encoders, and deployment; benchmark your own workload before making latency or allocation guarantees.
 
@@ -36,6 +36,7 @@ The implementation is performance-conscious and includes pooled buffers, bounded
 - [PostgreSQL](#postgresql)
 - [Redis](#redis)
 - [Templates, static assets, and i18n](#templates-static-assets-and-i18n)
+- [Nuxt-like web application](#nuxt-like-web-application)
 - [Outbound HTTP, proxies, and HTML parsing](#outbound-http-proxies-and-html-parsing)
 - [WebSockets](#websockets)
 - [Cron, email, Telegram, and multi-tenancy](#cron-email-telegram-and-multi-tenancy)
@@ -163,7 +164,7 @@ s.Run()
 12. CSRF protection and security headers;
 13. handler timeout and body-size limit;
 14. bot/AI detection;
-15. idempotency.
+15. Idempotency is opt-in on authenticated routes (see below).
 
 It also registers `/robots.txt` and, when metrics are enabled, protected pprof routes. `Run()` adds `/healthz`, `/metricz`, server context, optional gzip, and another configured rate-limiter layer before starting the listener.
 
@@ -780,7 +781,7 @@ product, err := goserver.Fetch(r.Context(), cache, "product:42", 5*time.Minute,
 )
 ```
 
-`Fetch[T]` uses cache-aside semantics and singleflight to collapse concurrent misses. `FetchSWR[T]` returns stale data after expiry and triggers a background refresh. Both support structs, strings, and byte slices.
+`Fetch[T]` uses cache-aside semantics and singleflight to collapse concurrent misses. `FetchSWR[T]` returns stale data after expiry and triggers one background refresh per key, even under a concurrent stale-hit burst. Both support structs, strings, and byte slices. For the primary high-load path, pass an empty data directory (`NewCache(size, "")`) so hits remain entirely in process memory. The optional disk layer is useful for restart-tolerant low/medium traffic caches, but a disk write is synchronous with the cache fill and is not intended for a latency-critical hot path.
 
 Direct `CacheStore` operations are also available:
 
@@ -792,7 +793,18 @@ bytes, err := cache.GetOrSet(ctx, "key", time.Minute, generator)
 
 ### Idempotent write endpoints
 
-`Defaults()` installs `IdempotencyMiddleware`. Assign `s.Cache` to persist successful replayable responses for 24 hours; without a cache, concurrent duplicate requests are still coalesced during the in-flight call.
+`Defaults()` no longer installs `IdempotencyMiddleware`. Mount it explicitly after authentication **and authorization** on write routes. Trusted auth middleware must set `r = r.WithContext(goserver.WithIdempotencyScope(r.Context(), tenantID, userID))` on every request before calling the next handler. Missing/empty user scope with an `Idempotency-Key` is rejected with 401. Never derive the scope from unverified headers.
+
+Assign `s.Cache` to retain successful responses for 24 hours. Without a cache, only concurrent requests within the same middleware instance are coalesced. A shared Redis cache does not make execution atomic across replicas: use a database uniqueness constraint/transactional business key for distributed mutations. This middleware is not an exactly-once guarantee after a crash or failed cache write. A cache-write failure is logged without claiming that an already completed mutation failed.
+
+```go
+orders := s.Group("/orders")
+orders.Use(authenticateAndAuthorize) // sets WithIdempotencyScope
+orders.Use(s.IdempotencyMiddleware)
+orders.POST("/", createOrder)
+```
+
+Request keys are limited to 256 bytes; bodies use `MAX_BODY_SIZE` (1 MiB fallback); recorded responses are bounded to 1 MiB. Oversized response recording returns 500; the operation may already have executed, so keep these routes' responses bounded. Session cookies are not replayed. Scope must include all tenant/principal distinctions used by the application.
 
 ```bash
 curl -A 'Mozilla/5.0' \
@@ -802,7 +814,7 @@ curl -A 'Mozilla/5.0' \
   http://localhost:8080/orders
 ```
 
-The cache key combines method, URL path, and `Idempotency-Key`. Replayed concurrent responses include `Idempotent-Replayed: true`.
+The hashed cache key combines host, tenant, principal, method, path, and `Idempotency-Key`. The fingerprint includes query, content type/encoding and body; a conflicting reuse returns 409. Cached and coalesced responses include `Idempotent-Replayed: true`. Authorization must run before replay even when a cached response exists.
 
 ## PostgreSQL
 
@@ -895,6 +907,541 @@ s.SetSessionStorage(goredis.NewSession(goredis.SessionConfig{
 ```
 
 `NewSession` verifies Redis connectivity and panics if the initial ping fails, so initialize it during process startup.
+
+## Nuxt-like web application
+
+`goserver` includes an optional, file-based SSR web layer for full sites and services. It is disabled by default. Enable it during server setup, before `Run()`:
+
+```go
+s := goserver.NewServer("8080")
+s.Defaults()
+
+if err := s.EnableWeb(); err != nil {
+	log.Fatal(err)
+}
+
+// Explicit goserver routes retain priority over file-based pages.
+s.GET("/api/health", health)
+s.Run()
+```
+
+`EnableWeb` installs the application only as the router fallback, so existing routes, middleware, operational endpoints, WebSockets, sessions, cache, database integrations and response helpers remain available. A rendering failure uses goserver's embedded `error.html` through `RenderError`; a file-based `404.gosh` remains available for not-found pages.
+
+The source is read from the host project's `web/` directory, which makes the feature directly extensible by `goserver-template` projects:
+
+```text
+websettings.json             # complete, non-secret web-framework defaults
+websettings.Development.json # optional local Development overrides
+websettings.Production.json  # optional local Production overrides
+web/
+  pages/                 # index.gosh, users/[id].gosh, docs/[...all].gosh
+  components/            # reusable GOSH SFCs
+  layouts/               # layouts; default.gosh is selected by config
+  global/{head,styles,scripts}/
+  logic/                 # optional page/component Go logic
+  modules/               # optional distributable Go modules
+  plugins/               # optional client runtime-hook JavaScript
+  server/                # optional file-based HTTP handlers (*.method.go)
+  stores/
+  content/               # Markdown posts available at /post/<filename>
+  system/
+    runtime/             # browser runtime chunks
+    templates/           # loader and SPA fallback templates
+    client/              # private esbuild entry tooling
+    tailwind/            # required Tailwind config, CSS and dependencies
+    generated/           # generated Go bindings; only stub.go is versioned
+assets/                    # shared goserver static files, served under /assets/
+```
+
+Pages follow Nuxt-style routing: `index.gosh` maps to its directory, `[id].gosh` is a parameter, and `[...all].gosh` is a catch-all. Components support SSR, layouts, scoped CSS, client/lazy components, streaming runtime navigation, server actions, content-addressed JS/CSS assets, route/component SWR rules, SEO composables, and hooks. `web/components/Demo.gosh` and `web/pages/index.gosh` provide a compact example. Server logic is optional and is referenced from a page or component with its `@server path#Export` directive; ordinary server endpoints remain explicit goserver routes outside `web/`.
+
+`web generate` scans every page, component, and layout for `@server` directives. It writes the compile-time bindings under `web/system/generated/`, never into editable `logic/`; only exports referenced by GOSH files are registered. `task run`, `task dev`, `task preview`, and `task build` run generation before compilation. File-based page paths continue to come exclusively from `web/pages` when `EnableWeb()` starts.
+
+The web framework is opt-in: set `runtime.enabled` to `true` in `websettings.json`, or set `MYELOPHONE_WEB_ENABLED=true`. Without either, `cmd/main.go` starts only the regular goserver application. Development web tooling uses `go run -tags webcli ./cmd <generate|build|audit|clean|prune-unused --yes>`. `audit` is report-only and checks only `assets/`: it reports files with no static reference in project sources. Root `favicon.ico`, `favicon.png`, and `favicon.svg`, as well as `build.includeFiles`, are delivery assets and are excluded from that report. `robots.txt` is embedded in the production binary. `clean` is optional and removes only generated output plus the audit report. Its build-tagged entry point is excluded from normal and production binaries.
+
+`web/server` is optional. A file named `web/server/pogoda.get.go` maps to `GET /pogoda`; `web/server/api/pogoda.get.go` maps to `GET /api/pogoda`. Nested folders become URL segments and are imported as separate Go packages automatically. Dynamic segments belong in the file name (`web/server/users/[id].get.go`), since a Go import path itself cannot contain `[` or `]`. It exports one handler with this public contract:
+
+```go
+func Pogoda(event *runtime.Event) error {
+    city := event.Query("city")
+    requestID := event.Context().Value(requestIDKey)
+    return event.JSON(map[string]any{"city": city, "requestId": requestID})
+}
+```
+
+`Event` exposes `Request`, `Context()`, `Param()`, `Query()`, `Header()`, `Status()`, `JSON()`, `Text()`, and `HTML()`. These generated endpoints are fallback routes: an explicit `s.GET`, `s.POST`, and so on always has priority.
+
+`websettings.json` contains every non-secret web-framework setting and its defaults. It deliberately has no listener address or port: the web layer never starts a second HTTP server. Configure the listener once when creating `goserver.NewServer(...)` (normally from `HTTP_PORT`), then attach web with `EnableWeb()`. At startup goserver applies built-in defaults, then the consuming project's local `websettings.json`, then `websettings.{Environment}.json`. `Environment` comes from `APP_ENV`: Task targets map `dev` to `Development` and `prod` to `Production`. Thus a project that imports goserver can keep its own settings files alongside its own `go.mod`; they override framework defaults without modifying the dependency. Environment variables remain the final override layer. `render.serverTiming` is disabled by default; set it to `true` only for profiling builds. `MYELOPHONE_WEB_RENDER_SERVER_TIMING` overrides that setting, and `task web:build:profile` creates a production web build with the header enabled.
+
+Use `build.includeFiles` for asset paths (relative to `assets/`) which must be copied to `dist/assets` even without a static source reference. For example, `"build": { "includeFiles": ["downloads/catalog.pdf"] }`. Requests for a root path such as `/favicon.ico` or `/downloads/catalog.pdf` are checked in `assets/` before the web handler returns a 404. Production embeds `websettings.json`, its environment override, and `assets/robots.txt`, so those files are not copied beside the executable.
+
+### Cookie consent
+
+Cookie consent uses the same top-level configuration shape as MyelophOne/Nuxt. `cookieControl.enabled` is the hard switch. When it is `false`, the default layout does not render the banner/config/settings markup, their component CSS and route JavaScript are excluded, and the `cookies` store is omitted from the shared client entry. `autoMount: false` keeps consent handling available for manually placed components while disabling the layout-provided UI.
+
+```json
+{
+ "cookieControl": {
+  "enabled": true,
+  "autoMount": true,
+  "cookieName": "privacy-preferences",
+  "maxAgeDays": 365,
+  "declineReaskDays": 30,
+  "banner": { "enabled": true, "position": "bottom-left" },
+  "settings": { "enabled": true, "showCookieList": true }
+ },
+ "cookieScripts": {
+  "necessary": [],
+  "analytics": [
+   {
+    "id": "analytics",
+    "name": "Analytics",
+    "description": "Anonymous traffic statistics",
+    "loadKey": "analytics",
+    "src": "https://analytics.example/script.js",
+    "attributes": { "defer": "true" },
+    "legalBasis": "consent",
+    "legal": { "privacyPolicyUrl": "https://example.com/privacy" }
+   }
+  ],
+  "marketing": [],
+  "functional": [],
+  "notices": []
+ }
+}
+```
+
+Configured `src` or inline `code` is loaded only after its category is allowed. Definitions may also use `initializers`, `beforeLoad`, `onConsentChange`, and per-category `categorySettings`; `loadKey` deduplicates a vendor shared by several categories. Cookie script configuration is trusted application configuration and must never contain user input.
+
+The default layout mounts `CookieBanner` and `CookieSettingsModal`. Any element with `data-cookie-open-settings` opens the settings again. Use the content components directly in GOSH templates:
+
+```html
+<ConsentYoutube video-id="dQw4w9WgXcQ" />
+<ConsentGoogleMap address="Warsaw, Poland" language="pl" region="pl" />
+
+<CookieConsentWrapper category="marketing" service-name="Example video">
+ <iframe src="https://example.com/embed/123"></iframe>
+</CookieConsentWrapper>
+
+<CookiePrivacyPolicy title="Cookie policy" :show-sources="true" />
+<button type="button" data-cookie-open-settings>Cookie settings</button>
+```
+
+Consent-wrapped markup is emitted inside an inert `noscript` container and is instantiated only after permission, so an iframe cannot contact its provider before consent. Preferences use a first-party `SameSite=Lax` cookie and synchronize across open tabs.
+
+`values` is deliberately schema-free: it accepts any valid JSON value without a second schema or generated type file. Strings, booleans, numbers, arrays, objects, and `null` retain their JSON types in `RuntimeConfig.Values`. Use `cfg.String("key")`, `cfg.Bool("key")`, or `cfg.Int("key")` for scalar convenience; retrieve nested arrays and objects from `cfg.Values["key"]` when needed. Framework-owned sections remain typed and validated separately.
+
+### Zustand store hydration
+
+`logic.UseStoreState` provides Nuxt-style store hydration without base64. During SSR it collects serializable store snapshots and goserver emits one safe `<script type="application/json" id="gosh-store-state">` block before the application. The runtime applies that JSON to registered Zustand stores before page and component modules mount. Never put secrets in a store snapshot.
+
+```go
+func (CatalogPage) Render(ctx *logic.Context, props logic.Props) (logic.Data, error) {
+    logic.UseStoreState(ctx, "cart", map[string]any{
+        "count":        3,
+        "lastProductId": "keyboard",
+    })
+    return logic.Data{}, nil
+}
+```
+
+Inside a `.gosh` client script, use the matching `_gosh.useStoreState(name, state)` composable. It merges serializable fields into a registered store and also retains the snapshot for a store that registers later:
+
+```html
+<script>
+ export function mount() {
+  _gosh.useStoreState("cart", { drawerOpen: true });
+ }
+</script>
+```
+
+Use server hydration for request-specific initial values. Use the GOSH composable for client-side changes. A store may later persist selected fields through its session configuration without changing either API.
+
+Every `web/stores/*.js` module is bundled into the one global runtime entry and registered before page or layout modules mount. A store may export `setup({ name, store, gosh })`; use it for browser listeners and subscriptions, and return a cleanup function. This keeps store lifecycle independent of the selected layout:
+
+```js
+export function setup({ store }) {
+ const unsubscribe = store.subscribe((state) =>
+  localStorage.setItem("theme", state.theme),
+ );
+ const onStorage = (event) => {
+  /* apply cross-tab updates */
+ };
+ window.addEventListener("storage", onStorage);
+ return () => {
+  unsubscribe();
+  window.removeEventListener("storage", onStorage);
+ };
+}
+```
+
+Templates can use a store without a component script: `data-gosh-store-text="cart.count"` renders and keeps a text node in sync, while `data-gosh-store-action="preferences.toggleTheme"` invokes an action on click. Pass action parameters as JSON with `data-gosh-store-args='["dark"]'`.
+
+### GOSH file standard
+
+`.gosh` is the native **GOServer Hybrid** format. It is the framework’s template-file extension. A renderable page, layout, or component is a UTF-8 single-file component (SFC) with one `<template>` block that contains its HTML. It may additionally contain CSS (global or scoped), JavaScript, and HTML comments. The framework preserves comments inside `<template>` and recognizes comment directives outside it.
+
+```html
+<!-- @layout default -->
+<!-- @server ./web/logic/catalog.go#CatalogPage -->
+
+<template>
+ <!-- Visible only in the rendered HTML source. -->
+ <main class="catalog"><ProductCard /></main>
+</template>
+
+<style>
+ :root {
+  --catalog-gap: 1rem;
+ } /* Global CSS */
+</style>
+
+<style scoped>
+ .catalog {
+  display: grid;
+  gap: var(--catalog-gap);
+ }
+</style>
+
+<script setup>
+ const title = "Catalog";
+</script>
+
+<script>
+ _gosh.hook("page:afterNavigate", ({ url }) => console.info(url));
+</script>
+```
+
+The standard is deliberately strict:
+
+- A page, layout, or component has exactly one `<template>` block; HTML belongs only inside that block. `<head>` is optional and is appended to the document head.
+- Use `<style scoped>` for styles owned by that SFC; goserver assigns a stable scope attribute to its rendered elements. Use plain `<style>` for intentional global CSS. Multiple style blocks are allowed.
+- `<script setup>` is allowed once and runs as setup code. Ordinary `<script>` blocks are allowed more than once and are emitted as client code. A `.server.gosh` component must not contain ordinary `<script>` blocks; `.client.gosh` marks a client component, and a name without either suffix is universal.
+- Use standard `<!-- ... -->` comments. `<!-- @layout name -->` selects a page layout (`none` disables it); `<!-- @server path#Export -->` binds a Go handler. Keep directives at the beginning of the file and one directive per comment for reviewability.
+- The browser runtime namespace is `_gosh` (or `window._gosh`). Framework-owned requests use `/_gosh/`, and generated DOM hooks use `data-gosh-*`; applications must not depend on their exact markup beyond documented runtime APIs.
+- SSR props are never serialized into HTML—not as base64, JSON, or an inline script. The rendered DOM contains only opaque `data-gosh-state` continuation tokens for server actions and lazy islands. Tokens are random, bound to an HttpOnly same-site cookie, expire after 30 minutes, and are held in a bounded server store (4,096 entries per process); an expired token reloads the document safely. This keeps rendered source clean and prevents a client from modifying server props. Keep intentional public client state in Zustand via `logic.UseStoreState`; keep sensitive or authoritative state in goserver sessions. Client modules receive `ctx.props = {}` by design: pass required public values through a store or explicit module data instead. For a multi-instance deployment, register a shared owner-bound implementation with `app.SetRuntimeStateStore(...)` during setup; the default in-memory store is appropriate for a single instance or sticky sessions.
+- `web/global/head/*.gosh`, `web/global/scripts/*.gosh`, and `web/global/styles/*.gosh` are injection fragments rather than renderable SFCs: they contain, respectively, trusted head markup, script markup, or raw CSS. Use `.gosh` for their extension as well.
+
+Each page can select its own layout at the top of its `.gosh` file. `render.defaultLayout` is used only when the page has no directive:
+
+```html
+<!-- @layout marketing -->
+<template>...</template>
+```
+
+Use `<!-- @layout none -->` for a page without a layout. Layout files live in `web/layouts/`; `web/pages/index.gosh` is the working `default` layout example.
+
+Missing optional template values render as an empty value instead of turning the page into a 500 response. A failing component, layout handler, or individual node is isolated so remaining SSR markup can still be sent; the failure is logged and exposed to templates as `renderError`. Invalid source files and startup configuration remain startup errors.
+
+When neither a page nor its server logic specifies SEO, the built-in defaults are `Our Nuxt WebSite | by MyelophOne/GoServer` and `Welcome to our new amazing website where you can explore exciting content and features! Empowered by MyelophOne`. Override them with the `seo` object in `websettings.json`.
+
+All website paths are canonicalized without a trailing slash: `/catalog/` permanently redirects to `/catalog`. Use `goserver.CanonicalURL` when producing application links from Go.
+
+Markdown files in `web/content/` are published as posts. `web/content/hello.md` is served at `/post/hello`; nested files keep their nested path. An optional frontmatter block supplies page SEO:
+
+```md
+---
+title: "Post title"
+description: "Page description"
+image: "/assets/posts/example.jpg"
+---
+
+# Post body
+```
+
+Set `content.layout` in `websettings.json` to choose the layout for all Markdown posts. When omitted, posts use `render.defaultLayout`; set it to `none` for raw post markup. `MYELOPHONE_WEB_CONTENT_LAYOUT` is the equivalent environment override.
+
+Files stored next to Markdown are content resources, not embedded source. Production builds copy them to `dist/assets/content/` with their relative path preserved, so `web/content/guides/intro/cover.jpg` is served as `/assets/content/guides/intro/cover.jpg`. A relative frontmatter value such as `image: "cover.jpg"` is resolved automatically from its Markdown directory; use `/assets/...` or an absolute URL to leave a value untouched. This is useful for frontmatter SEO images, Markdown media, downloadable files, and fonts. Tenant content follows the equivalent `/assets/tenants/<tenant-id>/content/...` path. JPEG and PNG content resources use the same optional production optimization as `assets/`.
+
+### Tenant-specific pages and content
+
+When the existing `TenantStore` middleware has resolved a tenant, the web layer checks `web/tenants/<tenant-id>/pages/` before falling back to `web/pages/`, and checks `web/tenants/<tenant-id>/content/` before `web/content/`. This lets a tenant override only the pages or Markdown posts it owns; it does not require a duplicate site tree. Tenant IDs are treated as directory names and must not contain path separators.
+
+```text
+web/tenants/
+  tenant3/
+    pages/
+      index.gosh             # overrides / for tenant3
+      pricing.gosh           # adds /pricing only for tenant3
+    content/
+      welcome.md             # overrides /post/welcome for tenant3
+```
+
+Register the tenants and middleware before `EnableWeb`:
+
+```go
+tenantStore := goserver.NewTenantStore()
+tenantStore.AddTenant(&goserver.Tenant{
+	ID: "tenant3", Name: "Tenant Three",
+	Config: map[string]any{"domain": "*.example.com"},
+})
+tenantStore.AddTenant(&goserver.Tenant{
+	ID: "tenant4", Name: "Tenant Four",
+	Config: map[string]any{"domain": "*.sub.example.com"},
+})
+
+s.Use(tenantStore.MiddlewareByDomain())
+if err := s.EnableWeb(); err != nil { log.Fatal(err) }
+```
+
+Tenant page/content trees are loaded once on first request for that tenant and concurrent first requests share the same load. Page and file-based API cache keys include the resolved tenant ID.
+
+Set `locales` and `defaultLocale` in `websettings.json` to expose every file-based page under non-default locale prefixes. For example, `"locales": ["en", "ru", "pl"]` with `"defaultLocale": "en"` serves the home page at `/`, `/ru`, and `/pl`; `/about` also becomes `/ru/about` and `/pl/about`. Each localized file-based page automatically emits `hreflang` links for all configured languages plus `x-default`; 404, error, `/post/*`, and explicit physical language routes are excluded. `MYELOPHONE_WEB_LOCALES=en,ru,pl` and `MYELOPHONE_WEB_DEFAULT_LOCALE=en` provide the equivalent deployment-time overrides. The `/post/` namespace and not-found pages are deliberately not locale-prefixed. The active locale is available to page logic and templates as `locale` and `lang`.
+
+`web/pages/i18n.gosh` is a complete I18n example. Initialize `s.NewI18n("en", []string{"en", "ru", "pl"})` before `EnableWeb`, then open `/i18n`, `/ru/i18n`, or `/pl/i18n`. Its language links are ordinary internal links, so `window._gosh` turns them into SPA navigation while the server re-renders the translated page. In web server logic call `ctx.T("common.web.heading")` to use the existing goserver I18n messages.
+
+Use the included web command or copy its small entrypoint into an application:
+
+```bash
+task web:run       # starts ./cmd/web with web support enabled
+task web:setup     # installs required Tailwind and optional esbuild tooling
+task web:test
+task web:audit     # reports assets without static references; never deletes source files
+task web:clean     # optional: removes generated build output and audit report
+```
+
+`cmd/web` is a maintenance command for `build`, `audit`, and `clean`; it is not used by `EnableWeb` or `Server.Run`. The application itself always starts through the regular `cmd/main.go` and goserver lifecycle.
+
+When web support is enabled, `task build` writes `tmp/web-assets.json`: the immutable final JS/CSS URLs with raw and gzip sizes. Build extensions can observe the same manifest in every environment with `logic.HookBuildAssetsBefore` and `logic.HookBuildAssetsAfter`; the latter receives `[]logic.BuildAsset`.
+
+Set `render.spaLoadingTemplate` to `true` to insert `web/system/templates/spa-loading-template.html` before `#app`. It remains visible while the deferred runtime is loading and is removed immediately after `window._gosh.start()` succeeds. The option is disabled by default and can also be set with `MYELOPHONE_WEB_RENDER_SPA_LOADING_TEMPLATE=true`.
+
+Tailwind CSS v4 is required by the web layer. Run `task web:setup` before starting the application; `tailwind.minify` controls only minification. The compiler builds Tailwind once for the full reachable graph and emits it as a content-addressed common asset. With `render.splitCss=true`, every response loads that common CSS separately and then only its page/component CSS; both are split at `render.cssMaxChunkSize`. `render.cssMinChunkSize` rebalances CSS rules between the final chunks when that keeps every chunk within the configured maximum; a small single page asset remains separate so the common CSS stays cacheable. A single CSS rule larger than the maximum is emitted intact. With `render.splitCss=false`, startup builds exactly one immutable stylesheet from Tailwind plus every known page, layout, component, and lazy-component style. Every route receives the same URL and lazy streaming never adds another CSS file.
+
+The `Generated assets` section of `task build` lists only immutable files created during the production build: the shared Tailwind CSS, browser entry, WebSocket chunk, and optional Web Vitals chunk. A shared CSS file smaller than `render.cssMaxChunkSize` remains one file even with `render.splitCss=true`. Route-specific component/page CSS is emitted on demand as `/_gosh/style/<hash>.css`. Likewise, page/component client scripts are route-scoped and emitted on demand as `/_gosh/chunk/<hash>.js`; they are not pre-listed by the build output. The browser runtime API is `window._gosh` (and `_gosh` in client scripts); it exposes hooks, stores, navigation, and SEO helpers. Environment variables override configuration files: `MYELOPHONE_WEB_RUNTIME_CACHE_TTL`, `MYELOPHONE_WEB_RUNTIME_WEB_VITALS`, `MYELOPHONE_WEB_RUNTIME_PREFETCH_DELAY`, `MYELOPHONE_WEB_RUNTIME_PREFETCH_MAX_CONCURRENT`, `MYELOPHONE_WEB_RENDER_DEFAULT_LAYOUT`, `MYELOPHONE_WEB_CONTENT_LAYOUT`, `MYELOPHONE_WEB_LOCALES`, `MYELOPHONE_WEB_DEFAULT_LOCALE`, `MYELOPHONE_WEB_RENDER_EARLY_HINTS`, `MYELOPHONE_WEB_RENDER_PRELOAD_RUNTIME`, `MYELOPHONE_WEB_RENDER_PRELOAD_PAGE_STYLES`, `MYELOPHONE_WEB_RENDER_SPLIT_CSS`, `MYELOPHONE_WEB_RENDER_CSS_MIN_CHUNK_SIZE`, `MYELOPHONE_WEB_RENDER_CSS_MAX_CHUNK_SIZE`, `MYELOPHONE_WEB_RENDER_SPA_LOADING_TEMPLATE`, `MYELOPHONE_WEB_TAILWIND_MINIFY`, `MYELOPHONE_WEB_IMAGES_OPTIMIZE`, and `MYELOPHONE_WEB_IMAGES_JPEG_QUALITY`.
+
+### Runtime performance, islands, and errors
+
+The runtime indexes managed `<meta>`, `<link>`, page CSS, fragment CSS, and runtime styles once rather than repeatedly scanning the document head during navigation. Consecutive patch operations are applied as one DOM batch. It keeps full SSR/native navigation when the browser lacks a required modern primitive (`Promise`, `fetch`, `URL`, `AbortController`, `Map`, or `Set`); no interceptor is installed in that case.
+
+### Viewport reveal animation
+
+Use `data-gosh-reveal` on a page or component element to apply the existing reveal CSS when it approaches the viewport. The runtime uses one shared `IntersectionObserver`, batches simultaneous entries for 50ms, and adds classes in `requestAnimationFrame`; it never listens to scroll events. Reveal runs once by default. Add `data-gosh-reveal-repeat` to reset the element after it leaves the viewport. `data-gosh-reveal-step` controls the stagger in milliseconds, and `data-gosh-reveal-speed="fast"` or `"slow"` selects the existing speed variants.
+
+```html
+<section data-gosh-reveal="slide" data-gosh-reveal-step="120">
+ <h2>Appears once</h2>
+</section>
+<article
+ data-gosh-reveal="slide-left"
+ data-gosh-reveal-repeat
+ data-gosh-reveal-speed="fast"
+>
+ Appears again after re-entering the viewport.
+</article>
+```
+
+Reveal classes are emitted during SSR, so a JavaScript-enabled document never paints an element and then hides it before the observer runs. Reveal never uses `display:none` or removes content from SSR HTML: text, links, and semantic markup remain in the initial response and layout. The SSR document remains visible without JavaScript. The runtime immediately shows reveal elements when the browser lacks `IntersectionObserver`, the visitor prefers reduced motion, or the connection has Save-Data/2G enabled.
+
+Client components are islands. A `.client.gosh` component defaults to `hydrate="visible"`, which starts its server lazy-render shortly before it enters the viewport. Choose the priority on the component call site:
+
+```html
+<SearchPanel hydrate="visible" />
+<AnalyticsPanel hydrate="idle" />
+<LoginDialog hydrate="interaction" />
+<CriticalCart hydrate="immediate" />
+```
+
+Wrap any component tree in the system `<ClientOnly>` tag to defer it until after the initial page render. It emits the normal loader first, then requests each wrapped component through the lazy endpoint; its `@server` logic runs at that deferred render just as it does for a `.client.gosh` island.
+
+```html
+<ClientOnly>
+ <AccountPanel userId="42" />
+ <Recommendations />
+</ClientOnly>
+```
+
+`visible` uses `IntersectionObserver` with a 240px margin; browsers without it safely load the island immediately. `idle` uses `requestIdleCallback` when available, `interaction` waits for pointer/focus, and `immediate` preserves eager behavior. A failed navigation, action, or island emits a `runtime:*error` event and renders an accessible retry control in the affected boundary. Navigation and stream boundaries also receive `aria-busy` while loading. Applications can observe `runtime:runtime-error`, `runtime:action-error`, and `runtime:lazy-error` or register `_gosh.hook("app:error", handler)` for a custom UI.
+
+Every document also ends with the global `#gosh-preloader` spinner. It is hidden while the root has `.nojs`; after JavaScript activates it displays during initial runtime boot, SPA navigation, server actions, forms, and lazy-island requests. The runtime tracks these through one reference-counted loading store, so overlapping requests cannot hide it early. Subscribe with `_gosh.useLoading(listener)`; `listener` receives `{ isLoading, count }`. For an application-owned asynchronous task, wrap it with `_gosh.withLoading(() => fetch(...))` rather than manually changing DOM classes. The runtime also emits `runtime:loading` and invokes `_gosh.hook("loading:change", handler)`.
+
+Hover prefetch remains opt-in with `data-prefetch="hover"`. It waits `runtime.prefetchDelay` milliseconds (65 by default), cancels when the pointer leaves, deduplicates requests, allows at most `runtime.prefetchMaxConcurrent` requests (2 by default), and avoids `Save-Data` and 2G connections.
+
+Set `runtime.webVitals` to `true` to dynamically import the separate, dependency-free Core Web Vitals collector. It writes one `[GOSH Web Vitals] TTFB=… | FCP=… | LCP=… | CLS=… | INP=…` development snapshot after three seconds (or sooner if the document unloads), instead of cluttering DevTools with separate lines. `INP=unavailable` means the visitor has not interacted yet or the browser does not expose the API; final LCP, CLS, and INP still arrive through the event API when the document becomes hidden. It also emits `runtime:web-vital` and calls `_gosh.hook("web-vital", handler)` for each metric. This chunk is not requested when the option is false.
+
+```json
+{
+ "runtime": {
+  "webVitals": true,
+  "prefetchDelay": 80,
+  "prefetchMaxConcurrent": 2
+ }
+}
+```
+
+### Server cache tags and optimistic actions
+
+Route rules retain their existing `cache.maxAge` and `swr` behavior. Web rendering always retains its fast in-process L1 route cache. When `s.Cache` is configured before `EnableWeb`, the same existing `CacheStore` becomes a shared L2 cache for public SSR route renders; this lets cache hits and tag invalidation work across processes or instances without requiring a second cache implementation. A cache-store failure or unavailable entry simply falls back to the normal L1/render path.
+
+For public HTML routes, the L1 cache also stores a minified full-document template. On a hit goserver substitutes a newly generated CSP nonce and visitor-bound runtime tokens instead of executing the base template or minifying HTML again. These document templates remain local to the process, are capped at 32 MiB total and 1 MiB per route, and are discarded with the corresponding route entry; L2 continues to store the portable render result.
+
+For HTTP benchmarks and clients that use `Connection: close`, leave `render.earlyHints` disabled (the supplied `websettings.json` does so). A `103 Early Hints` response is an additional informational HTTP response before the final `200`; it is useful only when an HTTP-aware browser/proxy uses the preload links. goserver also suppresses it automatically for requests that ask to close the connection.
+
+Enable SWR explicitly for every public route that is safe to share between visitors. For example, the root page below is fresh for 10 seconds and may be served stale for a further 10 seconds while one request revalidates it in the background:
+
+```json
+{
+ "routeRules": {
+  "/": { "swr": 10 }
+ }
+}
+```
+
+An absent matching rule intentionally returns `X-Myelophone-Cache: bypass`; that is a security guard, not a cache failure. A public cache hit returns `X-Myelophone-Cache: hit`. Requests with `Authorization` or any cookie also bypass this shared route cache, preventing identity-dependent HTML from being shared accidentally. Check the active route rule before benchmarking:
+
+```powershell
+curl.exe -s -A "Mozilla/5.0" -D - -o NUL http://localhost:8080 | Select-String X-Myelophone-Cache
+```
+
+#### Fully public static routes
+
+Set `publicStatic: true` only for a page whose output is identical for every visitor. It is intended for marketing pages, documentation, campaign landing pages, and other content that does not need hydration, server actions, lazy islands, SPA navigation, runtime stores, or per-visitor props:
+
+```json
+{
+ "routeRules": {
+  "/pricing": {
+   "publicStatic": true,
+   "cache": { "maxAge": 60 },
+   "swr": 300
+  }
+ }
+}
+```
+
+A public-static document contains no goserver runtime script, runtime state token, or runtime-owner cookie. Its response is stable across visitors and receives a cacheable header such as `Cache-Control: public, max-age=60, s-maxage=60, stale-while-revalidate=300`, so a browser, CDN, or reverse proxy can cache it safely. Its CSP blocks scripts (`script-src 'none'`); do not use this mode for pages that require application or inline JavaScript.
+
+`publicStatic` is an explicit author security declaration: normal cookies do not bypass its route cache, because a CDN cannot share a response while varying it by every visitor cookie. Requests carrying `Authorization` still bypass the cache. Never enable it for a page that reads cookies, sessions, request identity, authorization, experiments, geographic personalization, or any other visitor-specific value.
+
+#### Route-rule exclusions and overrides
+
+More specific route patterns win. You may also exclude paths from a broad rule; an excluded request falls back to the next matching less-specific rule, or bypasses caching when none remains. Use an exact path for one URL and `*fragment*` when the URL path must contain a fragment:
+
+```json
+{
+ "routeRules": {
+  "/**": { "cache": { "maxAge": 5 } },
+  "/products/*": {
+   "cache": { "maxAge": 25 },
+   "swr": 25,
+   "exclude": ["/products/15", "*preview*"]
+  },
+  "/products/15": { "cache": { "maxAge": 120 }, "swr": 60 }
+ }
+}
+```
+
+Here `/products/9` uses the 25-second rule, `/products/15` uses its exact 120-second override, and `/products/preview/9` falls back to the 5-second `/**` rule. Existing `*` segment patterns and `/**` prefix patterns continue to work.
+
+The per-process L1 cache remains the hot path for both normal SWR and public-static routes. An optional shared `CacheStore`/Redis L2 stores only portable render results and tag versions; it does not serve a full document on each hit, so a Redis round trip never replaces the in-memory document-cache hot path. Each process reconstructs its local document template after an L2 hit.
+
+On a local Windows loopback benchmark with a warmed root route, `bombardier -c 100 -d 15s -l http://localhost:8080` reached 9,632 successful `2xx` responses/s with P50 10.36 ms and P99 14.03 ms. This is an illustrative result only: compare production deployments using equal response bodies, compression, HTTP version, middleware, CPU limits and cache warmth. Do not add `103` responses into a page-RPS comparison; a `103` and the final `200` are two HTTP status lines for one document request.
+
+```go
+s := goserver.NewServer("8080")
+s.Cache = goserver.NewCache(10_000, "./data/cache") // or any CacheStore, including RedisCache
+if err := s.EnableWeb(); err != nil { /* handle error */ }
+```
+
+Server logic may associate a public SSR render with cache tags; a successful action can invalidate those tags. This removes affected local route-cache entries, invalidates their shared L2 counterparts by a versioned tag, and sends an invalidation frame that removes matching browser SPA-cache entries. Never tag pages that depend on identity: goserver already bypasses route caching for cookies and `Authorization`.
+
+```go
+func (ProductPage) Render(ctx *logic.Context, props logic.Props) (logic.Data, error) {
+    id := props.String("id")
+    logic.UseCacheTags(ctx, "product:"+id, "catalog")
+    return logic.Data{}, nil
+}
+
+func (ProductPage) Action(ctx *logic.Context, action string, props logic.Props) (logic.Data, bool, error) {
+    if action == "save" {
+        // persist the product first
+        logic.RevalidateTags(ctx, "product:"+props.String("id"), "catalog")
+        return logic.Data{}, true, nil
+    }
+    return nil, false, nil
+}
+```
+
+For client-side optimistic UI, use the same server action protocol and provide a reversible update. `apply` runs before the request; `rollback` runs only if it fails. `_gosh.optimisticWrite` is a convenient query-cache rollback source.
+
+```js
+const undo = _gosh.optimisticWrite(["product", id], (current) => ({
+ ...current,
+ liked: true,
+}));
+await _gosh.runAction("like", rootElement, {
+ optimistic: { apply() {}, rollback: undo },
+});
+```
+
+### Runtime forms without endpoint actions
+
+For a GOSH server-action form, do not use HTML `action`. Name the logical server event with `data-gosh-form`; the browser posts only to the framework endpoint `/_gosh/action`, not to a page-specific URL. The runtime serializes ordinary fields as JSON, applies native constraint validation, marks the form busy, and rerenders the owning page/component from the action response. File inputs are deliberately excluded: use a dedicated authenticated upload endpoint for binaries.
+
+```html
+<form data-gosh-form="save-profile">
+ <label>Email <input type="email" name="email" required /></label>
+ <label>Name <input name="name" required /></label>
+ <button type="submit">Save</button>
+</form>
+```
+
+In Go, submitted fields are isolated from SSR props under `props.Form()`. Treat all of them as untrusted input and validate/authorize on the server.
+
+```go
+func (Profile) Action(ctx *logic.Context, event string, props logic.Props) (logic.Data, bool, error) {
+    if event != "save-profile" { return nil, false, nil }
+    form := props.Form()
+    email, _ := form["email"].(string)
+    // Validate email, check the current session and persist the profile.
+    return logic.Data{"saved": true, "email": email}, true, nil
+}
+```
+
+For client-side validation and reactive state, call `_gosh.useForm(form, { event, validate, resetOnSuccess })`. It returns `{ pending, errors, values, submit(), reset(), subscribe() }` and removes any existing HTML `action` from the bound form. `validate(fields, form)` may return `false` or an object of field errors. The endpoint requires `X-Runtime: 1`, `X-GOSH-Runtime: action`, and rejects a mismatched browser `Origin`; these checks reduce browser CSRF exposure, but are not a replacement for rate limits, session/JWT authorization, CAPTCHA/challenge policies, or server-side validation against automated abuse.
+
+Place Tailwind directives such as `@theme`, `@utility`, `@variant`, and `@apply` in `web/system/tailwind/global.css`; it is included immediately after `@import "tailwindcss"`.
+
+After Tailwind generates the complete stylesheet, goserver runs the PostCSS pipeline in `web/system/tailwind/postcss.config.mjs` before CSS is hashed, served, or embedded in a production binary. The included plugins add `dvh`/`dvw` declarations to Tailwind screen utilities, add `vh`/`vw` fallbacks for modern viewport units, and remove empty custom properties. To add another final-CSS transformation, create an ES module in `web/system/tailwind/plugins/` and add its plugin instance to that config; no Go, esbuild, or asset-delivery changes are required.
+
+#### CSS layers and local imports
+
+The generated shared stylesheet is assembled in this order:
+
+1. `web/system/tailwind/global.css` — framework Tailwind configuration.
+2. `web/system/css/default.css` — package-owned baseline rules.
+3. `web/css/default.css` — optional consuming-project overrides.
+4. `web/global/styles/*.gosh` — reusable global GOSH styles.
+
+Do not edit the system default file for project-specific design. Create `web/css/default.css` instead; it is appended after the system layer, so normal CSS cascade rules let it override framework defaults. Both default files support recursive local CSS imports. Imported files must stay inside the directory of their entry file and are inlined into the generated stylesheet during development and production builds:
+
+```css
+/* web/css/default.css */
+@import "./tokens.css";
+@import "./layers/forms.css";
+
+:root {
+ --brand: #2563eb;
+}
+```
+
+### Runtime `useQuery`
+
+Client modules can call `_gosh.useQuery({ key, query })` for arbitrary requests or use the `url` shorthand. Queries deduplicate equal keys in a tab, cache results for `staleTime` (30 seconds by default), retry twice with exponential backoff, and can use `broadcast: true` to coordinate the same query across tabs. External URLs are subject to normal browser CORS rules.
+
+SPA page navigation is not cached by default. Set `routeRules` with `cache.maxAge` or `swr` to opt a route into both its server render cache and the bounded browser navigation cache; otherwise goserver emits `Cache-Control: private, no-store` and a repeated navigation fetches fresh output. The browser cache remains LRU-bounded (30 entries by default), and a repeated URL replaces its existing entry rather than accumulating copies.
+
+```js
+const users = _gosh.useQuery({
+ key: ["users", 15],
+ url: "/api/users/15",
+ immediate: false,
+ staleTime: 60_000,
+});
+const data = await users.refresh();
+```
+
+Use `_gosh.invalidateQuery(key)`, `_gosh.cancelQuery(key)`, and `_gosh.optimisticWrite(key, updater)` for cache control. The runnable `/use-query` page shows local single-flight, an external request, and an optimistic update.
 
 ## Templates, static assets, and i18n
 
@@ -1180,7 +1727,48 @@ log.Fatal(http.ListenAndServe(":8081", nil))
 
 Server-side publishing is `hub.Broadcast("orders", payload)`. For horizontal scaling, implement `WSBroker`, then call `hub.SetBroker(broker, "goserver:websocket")`.
 
-At present the main `Server` does not expose a public setter for its internal WebSocket hub. Mount the hub on a standard `net/http` route/server as above; middleware wrapped around the upgrade must preserve `http.Hijacker`.
+For the normal goserver server, attach the hub before `Run`. This exposes the same-origin endpoint at `/ws`; `SetWebSocketAuthorizer` runs immediately before the upgrade. Use it for every private or tenant-specific channel because the hub itself treats channel names as transport identifiers, not permissions.
+
+```go
+hub := goserver.NewWebSocketHub()
+s.SetWebSocketHub(hub)
+s.SetWebSocketAuthorizer(func(r *http.Request) error {
+    // Validate the goserver session, JWT, signed WS token, or tenant here.
+    return nil
+})
+```
+
+### GOSH WebSocket composable
+
+The web framework exposes `_gosh.useWebSocket(options)`. It is intentionally an optional chunk: the core runtime never downloads WebSocket code unless a client module calls the composable. The chunk waits for `domReady`, then connects to `/ws` by default. That is the right default for page modules and islands: DOM is available before callbacks run, while connection setup remains independent of rendering. For a connection needed immediately after runtime boot, call the composable in a client module as soon as it mounts.
+
+The composable returns a `Promise` because its chunk is dynamic. It resolves to a reusable connection per `{url, channel}` with `status`, `connected`, `send(value)`, `reconnect()`, `close()`, `release()`, and `subscribe(listener)`. `release()` closes and forgets the shared connection; use it from a component’s unmount cleanup only when no other part of the page should keep that channel open.
+
+```html
+<script>
+ export async function mount({ element }) {
+  const orders = await _gosh.useWebSocket({
+   channel: "orders",
+   json: true,
+   onMessage(message) {
+    console.info("order update", message);
+   },
+   onError(error) {
+    console.error("orders socket", error);
+   },
+  });
+
+  const unsubscribe = orders.subscribe((state) => {
+   element.dataset.socketState = state.status;
+  });
+  return () => unsubscribe();
+ }
+</script>
+```
+
+`json: true` applies `JSON.stringify` to sent values and `JSON.parse` to received values. Without it, the hub’s text payload is passed through unchanged. Override `encode` and `decode` for another protocol, or pass `url: "/ws?token=..."` / a full `wss://` URL when appropriate. Reconnection is enabled by default with exponential backoff from 500ms to 10s; configure `reconnect`, `reconnectDelay`, and `maxReconnectDelay` per connection.
+
+The server protocol sends the channel name as its first frame and accepts at most 512 bytes for every client frame. Keep messages compact and authorize the upgrade before allowing a client to choose a sensitive channel.
 
 ## Cron, email, Telegram, and multi-tenancy
 
@@ -1292,7 +1880,9 @@ go tool pprof 'http://localhost:8080/debug/pprof/profile?token=YOUR_TOKEN'
 
 ### Graceful lifecycle
 
-`Start()` listens for `SIGINT`, `SIGTERM`, and `SIGHUP`. Shutdown runs registered hooks, drains the HTTP server up to `RELOAD_SHUTDOWN_TIMEOUT`, stops cron jobs, and waits for `RunAsync` tasks. `SIGHUP` starts a replacement listener and gracefully shuts down the previous server; platform socket options determine whether the same-address handoff is supported.
+`Start()` listens for `SIGINT`, `SIGTERM`, and `SIGHUP`. Shutdown marks the server as stopping, rejects new work, cancels cron scheduling and drains HTTP requests. It then waits for running cron jobs, `Go`/`RunAsync` tasks and handlers still running after a timeout, before executing dependency shutdown hooks. `RELOAD_SHUTDOWN_TIMEOUT` bounds this entire process, including blocking legacy hooks; expiration returns an error and closes HTTP connections. Go cannot forcibly terminate callbacks that ignore cancellation: dependency cleanup waits for those callbacks rather than closing their resources underneath them. `Run()` exposes `/readyz` for process readiness (not dependency health); it returns 503 while stopping if the listener is still reachable. `SIGHUP` starts a replacement listener and drains the old one without stopping shared cron jobs; platform socket options determine whether same-address handoff is supported.
+
+Timeouts cancel the request context and can return 504 before a handler exits. When load shedding wraps the timeout middleware, its admission slot remains occupied until that handler actually finishes. DB, Redis and outbound HTTP operations must observe the request context to finish promptly. New `Go`/`RunAsync` submissions after shutdown starts are ignored.
 
 ### Docker
 
@@ -1301,7 +1891,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-The image uses a static, non-root distroless runtime. Compose includes a `/healthz` health check, restart policy, bounded JSON logs, and configurable host binding through `DOCKER_PORT_BINDING`.
+The web-enabled image uses a non-root Node Alpine runtime because Tailwind and the optional client bundle are compiled when the application starts. It contains the `web/` tree and shared `assets/` directory; Compose includes a `/healthz` health check, restart policy, bounded JSON logs, and configurable host binding through `DOCKER_PORT_BINDING`.
 
 ## Configuration
 
@@ -1332,54 +1922,58 @@ METRICS_SECRET=replace-with-a-monitoring-token
 
 The following table covers the environment variables consumed by the server, example application, database/mail integrations, and Docker Compose:
 
-| Variable                    | Default               | Purpose                                                                                                                      |
-| --------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `HTTP_PORT`                 | `8080` in example app | Listener port used by `cmd/main.go`.                                                                                         |
-| `APP_ENV`                   | `dev`                 | `dev` enables development behavior; production builds set `prod`.                                                            |
-| `APP_ERROR_MODE`            | `html`                | Default error rendering: `html` or `json`.                                                                                   |
-| `API_PREFIX`                | empty                 | External prefix stripped before routing.                                                                                     |
-| `MAX_URL_LENGTH`            | `2048`                | Maximum URL string length.                                                                                                   |
-| `MAX_HEADERS`               | `100`                 | Maximum distinct request header keys.                                                                                        |
-| `MAX_CONNECTIONS`           | `10000`               | Active connection limit.                                                                                                     |
-| `CONCURRENCY_LIMIT`         | `100`                 | Concurrent requests admitted by load shedding.                                                                               |
-| `MAX_BODY_SIZE`             | `1MB`                 | Maximum request body size.                                                                                                   |
-| `MAX_HEADER_BYTES`          | `65536`               | Header limit on the runtime server.                                                                                          |
-| `MaxHeaderBytes`            | `1MB`                 | Legacy case-sensitive setting read by the initial internal server object; prefer `MAX_HEADER_BYTES` for the active listener. |
-| `READ_TIMEOUT`              | `15s`                 | Server read timeout and default handler timeout in `Defaults`.                                                               |
-| `WRITE_TIMEOUT`             | `15s`                 | Server write timeout.                                                                                                        |
-| `IDLE_TIMEOUT`              | `90s`                 | Keep-alive idle timeout.                                                                                                     |
-| `READ_HEADER_TIMEOUT`       | `500ms`               | Header/slowloris deadline.                                                                                                   |
-| `PING_TIMEOUT`              | `15s`                 | HTTP/2 ping timeout.                                                                                                         |
-| `RELOAD_SHUTDOWN_TIMEOUT`   | `30s`                 | Graceful drain deadline.                                                                                                     |
-| `ENABLE_SLOWLORIS_CHECK`    | `false`               | Loaded compatibility flag; header deadlines are applied independently.                                                       |
-| `ENABLE_GZIP`               | `true`                | Gzip is only applied when `GzipMiddleware` or `WithGzip` is used. Defaults() uses GzipMiddleware.                            |
-| `RATE_LIMIT_SIZE`           | `10000`               | Number of client IP entries retained by an LRU limiter.                                                                      |
-| `RATE_LIMIT_RATE`           | `360`                 | Requests allowed per window.                                                                                                 |
-| `RATE_LIMIT_WINDOW`         | `1m`                  | Rate-limit window.                                                                                                           |
-| `RATE_LIMIT_SKIP_LOCALHOST` | `true`                | Exempts loopback clients.                                                                                                    |
-| `CSRF_TRUSTED_ORIGINS`      | empty                 | Comma-separated exact/wildcard origins; `*` allows all.                                                                      |
-| `SESSION_KEY`               | random per process    | AES-GCM session-cookie passphrase; set a stable secret in production.                                                        |
-| `JWT_SECRET`                | random per process    | HS256 signing secret; set a stable secret in production.                                                                     |
-| `WS_TOKEN_KEY`              | random per process    | WebSocket token signing secret.                                                                                              |
-| `METRICS_ENABLED`           | `false`               | Enables `/metricz` and protected pprof routes.                                                                               |
-| `METRICS_SECRET`            | random per process    | Token for detailed health, metrics, and pprof.                                                                               |
-| `TZ`                        | `Europe/Warsaw`       | Application timezone value exposed in config.                                                                                |
-| `DATABASE_URL`              | empty                 | Complete pgx PostgreSQL DSN.                                                                                                 |
-| `POSTGRES_HOST`             | empty                 | Host used when `DATABASE_URL` is absent; empty skips DB connection.                                                          |
-| `POSTGRES_USER`             | `postgres`            | PostgreSQL user.                                                                                                             |
-| `POSTGRES_PASSWORD`         | empty                 | PostgreSQL password.                                                                                                         |
-| `POSTGRES_DB`               | `postgres`            | PostgreSQL database.                                                                                                         |
-| `DB_EXEC_MODE`              | empty                 | pgx `default_query_exec_mode` when building a DSN.                                                                           |
-| `DB_MAX_CONNS`              | `8 × CPU`             | Pool maximum; minimum is 50% of maximum.                                                                                     |
-| `DB_LOG_MODE`               | `sanitized`           | `off`, `blind`, `full`, or default SQL-without-args logging.                                                                 |
-| `SMTP_HOST`                 | empty                 | SMTP host; empty disables sending.                                                                                           |
-| `SMTP_PORT`                 | `25`                  | SMTP port; `465` uses implicit TLS, others opportunistic STARTTLS.                                                           |
-| `SMTP_USER`                 | empty                 | SMTP username.                                                                                                               |
-| `SMTP_PASS`                 | empty                 | SMTP password.                                                                                                               |
-| `SMTP_FROM`                 | empty                 | Default sender.                                                                                                              |
-| `SMTP_QUEUE_SIZE`           | `20`                  | Async mail queue capacity.                                                                                                   |
-| `SMTP_WORKERS`              | `1`                   | Number of async mail queue workers.                                                                                          |
-| `DOCKER_PORT_BINDING`       | `8080`                | Compose host-to-container port binding.                                                                                      |
+| Variable                    | Default                       | Purpose                                                                                                                           |
+| --------------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `HTTP_PORT`                 | `8080` in example app         | Listener port used by `cmd/main.go`.                                                                                              |
+| `APP_ENV`                   | `dev`                         | `dev` enables development behavior; production builds set `prod`.                                                                 |
+| `LOG_LEVEL`                 | `info`                        | Minimum application log level: `debug`, `info`, `warn`, `error`, `fatal`, or `off`.                                               |
+| `LOG_CLIENT_IP`             | `off`                         | Client IP logging: `off`, `masked` (IPv4 last octet/IPv6 host part hidden), or `full`. Masking is still personal-data processing. |
+| `APP_ERROR_MODE`            | `html`                        | Default error rendering: `html` or `json`.                                                                                        |
+| `API_PREFIX`                | empty                         | External prefix stripped before routing.                                                                                          |
+| `MAX_URL_LENGTH`            | `2048`                        | Maximum URL string length.                                                                                                        |
+| `MAX_HEADERS`               | `100`                         | Maximum distinct request header keys.                                                                                             |
+| `MAX_CONNECTIONS`           | `10000`                       | Active connection limit.                                                                                                          |
+| `CONCURRENCY_LIMIT`         | `100`                         | Concurrent requests admitted by load shedding.                                                                                    |
+| `MAX_BODY_SIZE`             | `1MB`                         | Maximum request body size.                                                                                                        |
+| `MAX_HEADER_BYTES`          | `65536`                       | Header limit on the runtime server.                                                                                               |
+| `MaxHeaderBytes`            | `1MB`                         | Legacy case-sensitive setting read by the initial internal server object; prefer `MAX_HEADER_BYTES` for the active listener.      |
+| `READ_TIMEOUT`              | `15s`                         | Server read timeout and default handler timeout in `Defaults`.                                                                    |
+| `WRITE_TIMEOUT`             | `15s`                         | Server write timeout.                                                                                                             |
+| `WRITE_BYTE_TIMEOUT`        | `5s`                          | HTTP/2 timeout for writing a single byte.                                                                                         |
+| `IDLE_TIMEOUT`              | `90s`                         | Keep-alive idle timeout.                                                                                                          |
+| `READ_HEADER_TIMEOUT`       | `500ms`                       | Header/slowloris deadline.                                                                                                        |
+| `PING_TIMEOUT`              | `15s`                         | HTTP/2 ping timeout.                                                                                                              |
+| `RELOAD_SHUTDOWN_TIMEOUT`   | `30s`                         | Graceful drain deadline.                                                                                                          |
+| `ENABLE_SLOWLORIS_CHECK`    | `false`                       | Loaded compatibility flag; header deadlines are applied independently.                                                            |
+| `ENABLE_GZIP`               | `true`                        | Gzip is only applied when `GzipMiddleware` or `WithGzip` is used. Defaults() uses GzipMiddleware.                                 |
+| `RATE_LIMIT_SIZE`           | `10000`                       | Number of client IP entries retained by an LRU limiter.                                                                           |
+| `RATE_LIMIT_RATE`           | `360`                         | Requests allowed per window.                                                                                                      |
+| `RATE_LIMIT_WINDOW`         | `1m`                          | Rate-limit window.                                                                                                                |
+| `RATE_LIMIT_SKIP_LOCALHOST` | `true`                        | Exempts loopback clients.                                                                                                         |
+| `CSRF_TRUSTED_ORIGINS`      | empty                         | Comma-separated exact/wildcard origins; `*` allows all.                                                                           |
+| `SESSION_KEY`               | random per process            | AES-GCM session-cookie passphrase; set a stable secret in production.                                                             |
+| `JWT_SECRET`                | random per process            | HS256 signing secret; set a stable secret in production.                                                                          |
+| `WS_TOKEN_KEY`              | random per process            | WebSocket token signing secret.                                                                                                   |
+| `METRICS_ENABLED`           | `false`                       | Enables `/metricz` and protected pprof routes.                                                                                    |
+| `METRICS_SECRET`            | random per process            | Token for detailed health, metrics, and pprof.                                                                                    |
+| `TZ`                        | `Europe/Warsaw`               | Application timezone value exposed in config.                                                                                     |
+| `DATABASE_URL`              | empty                         | Complete pgx PostgreSQL DSN.                                                                                                      |
+| `POSTGRES_HOST`             | empty                         | Host used when `DATABASE_URL` is absent; empty skips DB connection.                                                               |
+| `POSTGRES_USER`             | `postgres`                    | PostgreSQL user.                                                                                                                  |
+| `POSTGRES_PASSWORD`         | empty                         | PostgreSQL password.                                                                                                              |
+| `POSTGRES_DB`               | `postgres`                    | PostgreSQL database.                                                                                                              |
+| `DB_EXEC_MODE`              | empty                         | pgx `default_query_exec_mode` when building a DSN.                                                                                |
+| `DB_MAX_CONNS`              | `min(max(4, 2 × CPU), 32)`    | Pool maximum; tune against the shared PostgreSQL connection budget across all replicas.                                           |
+| `DB_MIN_CONNS`              | `25% of maximum`, minimum `1` | Minimum warm connections; never exceeds `DB_MAX_CONNS`.                                                                           |
+| `DB_LOG_MODE`               | `sanitized`                   | `off`, `blind`, `full`, or default SQL-without-args logging.                                                                      |
+| `SMTP_HOST`                 | empty                         | SMTP host; empty disables sending.                                                                                                |
+| `SMTP_PORT`                 | `25`                          | SMTP port; `465` uses implicit TLS, others opportunistic STARTTLS.                                                                |
+| `SMTP_USER`                 | empty                         | SMTP username.                                                                                                                    |
+| `SMTP_PASS`                 | empty                         | SMTP password.                                                                                                                    |
+| `SMTP_FROM`                 | empty                         | Default sender.                                                                                                                   |
+| `SMTP_QUEUE_SIZE`           | `20`                          | Async mail queue capacity.                                                                                                        |
+| `SMTP_WORKERS`              | `1`                           | Number of async mail queue workers.                                                                                               |
+| `DOCKER_PORT_BINDING`       | `8080`                        | Compose host-to-container port binding.                                                                                           |
 
 `Config.String()` redacts WebSocket/session/JWT/metrics keys plus PostgreSQL and SMTP passwords before logging.
 
@@ -1519,6 +2113,7 @@ For dependency maintenance, `task check-updates` is read-only; `task update` cha
 | `task dev`                | Runs the server in development mode with live reload and metrics enabled.                                              | Requires `air`; uses `.air.toml`.                                                    |
 | `task preview`            | Runs the example server with `APP_ENV=prod`.                                                                           | Go toolchain.                                                                        |
 | `task build`              | Builds `./tmp/goserver` with `CGO_ENABLED=0`, trimpath, PGO, stripped symbols, prod environment, and Git hash version. | Go and Git.                                                                          |
+| `task web:build:profile`  | Builds the standalone production web distribution with `Server-Timing` profiling enabled.                              | Use only for profiling; the header exposes server timing details.                    |
 | `task view -- [args]`     | Runs the binary produced by `task build`, forwarding optional arguments.                                               | Run `task build` first.                                                              |
 | `task lint`               | Runs golangci-lint over the repository.                                                                                | Requires `golangci-lint`.                                                            |
 | `task format`             | Formats all Go packages with `go fmt ./...`.                                                                           | Go toolchain.                                                                        |

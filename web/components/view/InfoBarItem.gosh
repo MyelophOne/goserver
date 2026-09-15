@@ -1,0 +1,38 @@
+<!-- @server ./system/logic/info_bar.go#ViewInfoBarItemData -->
+<template>
+	<span
+		:class="class"
+		:data-interactive="infoBarItemInteractive"
+		:tabindex="infoBarItemInteractive ? '0' : ''"
+		data-view-info-bar-item
+		><UiIcon
+			m-if="infoBarItemIcon"
+			:name="infoBarItemIcon"
+			:class="infoBarItemIconClass"
+			size="var(--view-info-bar-icon-size)"
+		/><span m-if="infoBarItemHasLabel" :class="infoBarItemTextClass">{{
+			infoBarItemLabel
+		}}</span></span
+	>
+</template>
+
+<script setup>
+const root = useRoot().querySelector("[data-view-info-bar-item]");
+if (!root || !root.hasAttribute("data-interactive")) return;
+const activate = () =>
+	root.dispatchEvent(
+		new CustomEvent("ui:info-bar-item-click", { bubbles: true }),
+	);
+const keydown = (event) => {
+	if (event.key === "Enter" || event.key === " ") {
+		event.preventDefault();
+		activate();
+	}
+};
+root.addEventListener("click", activate);
+root.addEventListener("keydown", keydown);
+onUnmounted(() => {
+	root.removeEventListener("click", activate);
+	root.removeEventListener("keydown", keydown);
+});
+</script>

@@ -1,0 +1,93 @@
+<template>
+	<div data-ui-cursor aria-hidden="true">
+		<i data-ui-cursor-dot></i><i data-ui-cursor-ring></i>
+	</div>
+</template>
+<style scoped>
+[data-ui-cursor],
+[data-ui-cursor] * {
+	pointer-events: none;
+}
+[data-ui-cursor-dot],
+[data-ui-cursor-ring] {
+	position: fixed;
+	top: 0;
+	left: 0;
+	z-index: 10000;
+	display: block;
+	border-radius: 9999px;
+	opacity: 0;
+	transition: opacity 0.3s ease-out;
+}
+[data-ui-cursor-dot] {
+	width: 4px;
+	height: 4px;
+	background: var(--ui-text);
+}
+[data-ui-cursor-ring] {
+	z-index: 9999;
+	width: 28px;
+	height: 28px;
+	border: 2px solid var(--ui-text);
+}
+[data-ui-cursor].is-active [data-ui-cursor-dot],
+[data-ui-cursor].is-active [data-ui-cursor-ring] {
+	opacity: 1;
+}
+[data-ui-cursor].is-hidden [data-ui-cursor-dot],
+[data-ui-cursor].is-hidden [data-ui-cursor-ring] {
+	opacity: 0;
+}
+</style>
+<script setup>
+const root = useRoot().querySelector("[data-ui-cursor]");
+if (
+	!root ||
+	!matchMedia("(pointer:fine)").matches ||
+	matchMedia("(prefers-reduced-motion:reduce)").matches
+)
+	return;
+const dot = root.querySelector("[data-ui-cursor-dot]"),
+	ring = root.querySelector("[data-ui-cursor-ring]"),
+	css = window._gosh.setStyleProperty;
+let mouse = { x: innerWidth / 2, y: innerHeight / 2 },
+	ringPos = { x: mouse.x, y: mouse.y },
+	frame = 0;
+const hide = (target) =>
+	root.classList.toggle(
+		"is-hidden",
+		!!(
+			target &&
+			target.closest &&
+			target.closest(
+				'a,button,input,textarea,select,[role="button"],iframe',
+			)
+		),
+	);
+const move = (event) => {
+	mouse = { x: event.clientX, y: event.clientY };
+	hide(event.target);
+};
+const tick = () => {
+	ringPos.x += (mouse.x - ringPos.x) * 0.15;
+	ringPos.y += (mouse.y - ringPos.y) * 0.15;
+	css(
+		dot,
+		"transform",
+		`translate3d(${mouse.x}px,${mouse.y}px,0) translate(-50%,-50%)`,
+	);
+	css(
+		ring,
+		"transform",
+		`translate3d(${ringPos.x}px,${ringPos.y}px,0) translate(-50%,-50%)`,
+	);
+	frame = requestAnimationFrame(tick);
+};
+root.classList.add("is-active");
+window.addEventListener("mousemove", move, { passive: true });
+tick();
+onUnmounted(() => {
+	cancelAnimationFrame(frame);
+	window.removeEventListener("mousemove", move);
+});
+</script>

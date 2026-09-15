@@ -1,0 +1,45 @@
+<!-- @server ./system/logic/icons.go#UiTextColumnData -->
+<template>
+	<div :id="id" :class="textColumnClasses" data-ui-text-column>
+		<slot />
+	</div>
+</template>
+
+<style scoped>
+[data-ui-text-column] {
+	width: 100%;
+	color: #374151;
+	font-size: 1.125rem;
+	line-height: 1.625;
+}
+[data-ui-text-column] > :not([hidden]) ~ :not([hidden]) {
+	margin-top: 1rem;
+}
+[data-ui-text-column] :where(p, ul, ol) {
+	font-size: inherit;
+	color: inherit;
+}
+@media (min-width: 640px) {
+	[data-ui-text-column] > :not([hidden]) ~ :not([hidden]) {
+		margin-top: 1.5rem;
+	}
+}
+@media (min-width: 1024px) {
+	[data-ui-text-column] {
+		width: 70%;
+	}
+}
+@media (min-width: 1280px) {
+	[data-ui-text-column] {
+		width: 65%;
+	}
+}
+@media (prefers-color-scheme: dark) {
+	[data-ui-text-column] {
+		color: #d1d5db;
+	}
+}
+[data-theme="dark"] [data-ui-text-column] {
+	color: #d1d5db;
+}
+</style>

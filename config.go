@@ -5,11 +5,16 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"reflect"
 	"regexp"
+	"strconv"
+	"strings"
 	"time"
 )
 
 type Config struct {
+	LogLevel               string
+	LogClientIP            string
 	APIPrefix              string
 	WsTokenKey             string
 	CsrfTrustedOrigins     string
@@ -20,6 +25,7 @@ type Config struct {
 	PostgresDb             string
 	DbExecMode             string
 	DbMaxConns             string
+	DbMinConns             string
 	DbLogMode              string
 	SmtpHost               string
 	SmtpPort               string
@@ -28,6 +34,8 @@ type Config struct {
 	SmtpFrom               string
 	SmtpQueueSize          string
 	SmtpWorkers            string
+	I18nDefaultLanguage    string
+	I18nLanguages          []string
 	sessionKey             string
 	TZ                     string
 	JWTSecret              string
@@ -62,13 +70,15 @@ func (s *Server) loadConfig() {
 	}
 
 	s.Config = Config{
+		LogLevel:               ParseLogLevel(GetEnv("LOG_LEVEL", "info")).String(),
+		LogClientIP:            ParseClientIPLogMode(GetEnv("LOG_CLIENT_IP", "off")).String(),
 		APIPrefix:              GetEnv("API_PREFIX", ""),
 		MaxURLLength:           GetEnvInt("MAX_URL_LENGTH", 2048),
 		MaxHeaders:             GetEnvInt("MAX_HEADERS", 100),
 		MaxConnections:         int64(GetEnvInt("MAX_CONNECTIONS", 10000)),
 		ReadTimeout:            GetEnvDuration("READ_TIMEOUT", 15*time.Second),
 		WriteTimeout:           GetEnvDuration("WRITE_TIMEOUT", 15*time.Second),
-		WriteByteTimeout:       GetEnvDuration("WRITE_TIMEOUT", 5*time.Second),
+		WriteByteTimeout:       GetEnvDuration("WRITE_BYTE_TIMEOUT", 5*time.Second),
 		IdleTimeout:            GetEnvDuration("IDLE_TIMEOUT", 90*time.Second),
 		PingTimeout:            GetEnvDuration("PING_TIMEOUT", 15*time.Second),
 		ReadHeaderTimeout:      GetEnvDuration("READ_HEADER_TIMEOUT", 500*time.Millisecond),
@@ -84,6 +94,7 @@ func (s *Server) loadConfig() {
 		PostgresDb:             GetEnv("POSTGRES_DB", "postgres"),
 		DbExecMode:             GetEnv("DB_EXEC_MODE", ""),
 		DbMaxConns:             GetEnv("DB_MAX_CONNS", ""),
+		DbMinConns:             GetEnv("DB_MIN_CONNS", ""),
 		DbLogMode:              GetEnv("DB_LOG_MODE", "sanitized"),
 		SmtpHost:               GetEnv("SMTP_HOST", ""),
 		SmtpPort:               GetEnv("SMTP_PORT", ""),
@@ -92,6 +103,8 @@ func (s *Server) loadConfig() {
 		SmtpFrom:               GetEnv("SMTP_FROM", ""),
 		SmtpWorkers:            GetEnv("SMTP_WORKERS", "1"),
 		SmtpQueueSize:          GetEnv("SMTP_QUEUE_SIZE", "20"),
+		I18nDefaultLanguage:    GetEnv("I18N_DEFAULT_LANGUAGE", "en"),
+		I18nLanguages:          configuredLanguages(GetEnv("I18N_LANGUAGES", ""), GetEnv("I18N_DEFAULT_LANGUAGE", "en")),
 		sessionKey:             GetEnv("SESSION_KEY", "DefaultSessionKey_CHANGE_IT!"+hex.EncodeToString(b)),
 		maxConcurrent:          GetEnvInt("CONCURRENCY_LIMIT", 100),
 		MaxBodySize:            GetEnvBytes("MAX_BODY_SIZE", 1<<20),
@@ -105,6 +118,16 @@ func (s *Server) loadConfig() {
 		metricsToken:           GetEnv("METRICS_SECRET", "DefaultMetricToken_CHANGE_IT!"+hex.EncodeToString(b)),
 		metricsEnabled:         GetEnvBool("METRICS_ENABLED", false),
 	}
+}
+
+func configuredLanguages(value, defaultLanguage string) []string {
+	languages := strings.FieldsFunc(value, func(r rune) bool {
+		return r == ',' || r == ';' || r == ' ' || r == '\t'
+	})
+	if len(languages) == 0 {
+		return []string{defaultLanguage}
+	}
+	return languages
 }
 
 func (c Config) String() string {
@@ -125,7 +148,91 @@ func (c Config) String() string {
 		}
 	}
 
-	return fmt.Sprintf("%+v", aux)
+	return formatConfiguredValues(aux)
+}
+
+func formatConfiguredValues(value any) string {
+	return formatConfiguredValue(reflect.ValueOf(value))
+}
+
+func formatConfiguredValue(value reflect.Value) string {
+	if !value.IsValid() || value.IsZero() {
+		return ""
+	}
+
+	for value.Kind() == reflect.Interface || value.Kind() == reflect.Pointer {
+		if value.IsNil() {
+			return ""
+		}
+		value = value.Elem()
+	}
+	if (value.Kind() == reflect.Map || value.Kind() == reflect.Slice) && value.Len() == 0 {
+		return ""
+	}
+
+	switch value.Kind() {
+	case reflect.Struct:
+		fields := make([]string, 0, value.NumField())
+		valueType := value.Type()
+		for i := range value.NumField() {
+			fieldName := valueType.Field(i).Name
+			field := formatConfiguredField(fieldName, value.Field(i))
+			if field == "" {
+				continue
+			}
+			fields = append(fields, fieldName+":"+field)
+		}
+		if len(fields) == 0 {
+			return ""
+		}
+		return "{" + strings.Join(fields, " ") + "}"
+	case reflect.String:
+		return value.String()
+	case reflect.Bool:
+		return strconv.FormatBool(value.Bool())
+	case reflect.Int64:
+		if value.Type() == reflect.TypeFor[time.Duration]() {
+			return time.Duration(value.Int()).String()
+		}
+		return strconv.FormatInt(value.Int(), 10)
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32:
+		return strconv.FormatInt(value.Int(), 10)
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return strconv.FormatUint(value.Uint(), 10)
+	case reflect.Float32, reflect.Float64:
+		return strconv.FormatFloat(value.Float(), 'g', -1, value.Type().Bits())
+	default:
+		if value.CanInterface() {
+			return fmt.Sprintf("%+v", value.Interface())
+		}
+		return fmt.Sprintf("%+v", value)
+	}
+}
+
+func formatConfiguredField(name string, value reflect.Value) string {
+	if (name == "MaxHeaderBytes" || name == "MaxBodySize") && value.IsValid() && !value.IsZero() {
+		switch value.Kind() {
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			return formatByteSize(value.Int())
+		}
+	}
+	return formatConfiguredValue(value)
+}
+
+func formatByteSize(size int64) string {
+	for _, unit := range []struct {
+		name  string
+		bytes int64
+	}{
+		{"GiB", 1 << 30},
+		{"MiB", 1 << 20},
+		{"KiB", 1 << 10},
+	} {
+		if size >= unit.bytes && size%unit.bytes == 0 {
+			return strconv.FormatInt(size/unit.bytes, 10) + unit.name
+		}
+	}
+	return strconv.FormatInt(size, 10) + "B"
 }
 
 var sensitiveRegex = regexp.MustCompile(`(?i)\b(email|phone|token|access_token|secret|password|key|auth)(["']?[:=]\s*["']?)([^"'\s,}\]]+)`)

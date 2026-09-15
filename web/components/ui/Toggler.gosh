@@ -1,0 +1,81 @@
+<!-- @server ./system/logic/icons.go#UiTogglerData -->
+<template>
+	<button
+		:id="id"
+		:class="class"
+		type="button"
+		role="switch"
+		:aria-checked="togglerAriaChecked"
+		:aria-label="togglerLabel"
+		:disabled="togglerDisabled"
+		:data-on="togglerChecked"
+		data-ui-toggler
+	>
+		<span aria-hidden="true" data-ui-toggler-thumb></span>
+	</button>
+</template>
+
+<style scoped>
+[data-ui-toggler] {
+	display: inline-flex;
+	width: 2.75rem;
+	height: 1.5rem;
+	flex: none;
+	align-items: center;
+	padding: 0.125rem;
+	border: 2px solid transparent;
+	border-radius: 9999px;
+	background: color-mix(in srgb, var(--ui-text), transparent 85%);
+	color: var(--ui-bg);
+	cursor: pointer;
+	transition:
+		background-color 0.2s ease,
+		border-color 0.2s ease,
+		opacity 0.2s ease;
+}
+[data-ui-toggler][data-on] {
+	background: var(--ui-text);
+}
+[data-ui-toggler]:disabled {
+	cursor: not-allowed;
+	opacity: 0.5;
+}
+[data-ui-toggler]:focus-visible {
+	border-color: var(--ui-focus, #2563eb);
+	outline: 2px solid var(--ui-focus, #2563eb);
+	outline-offset: 2px;
+}
+[data-ui-toggler-thumb] {
+	display: block;
+	width: 1.125rem;
+	height: 1.125rem;
+	border-radius: 9999px;
+	background: var(--ui-bg);
+	box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+	transform: translateX(0);
+	transition: transform 0.2s ease;
+}
+[data-ui-toggler][data-on] [data-ui-toggler-thumb] {
+	transform: translateX(1.125rem);
+}
+</style>
+
+<script setup>
+const button = useRoot().querySelector("[data-ui-toggler]");
+if (!button) return;
+const onClick = () => {
+	if (button.disabled) return;
+	const checked = button.getAttribute("aria-checked") !== "true";
+	button.setAttribute("aria-checked", String(checked));
+	if (checked) button.setAttribute("data-on", "");
+	else button.removeAttribute("data-on");
+	button.dispatchEvent(
+		new CustomEvent("ui:toggler-change", {
+			bubbles: true,
+			detail: { checked, button },
+		}),
+	);
+};
+button.addEventListener("click", onClick);
+onUnmounted(() => button.removeEventListener("click", onClick));
+</script>

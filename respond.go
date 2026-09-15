@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"path/filepath"
@@ -35,15 +36,13 @@ var sniffBufPool = sync.Pool{
 func acquireSniffBuf() []byte {
 	b := sniffBufPool.Get().(*[]byte)
 	buf := (*b)[:0]
-	sniffBufPool.Put(b)
 	return buf
 }
 
 func releaseSniffBuf(b []byte) {
-	if cap(b) >= minGzipSize {
-		bp := sniffBufPool.Get().(*[]byte)
-		*bp = b[:0]
-		sniffBufPool.Put(bp)
+	if cap(b) >= minGzipSize && cap(b) <= 64<<10 {
+		b = b[:0]
+		sniffBufPool.Put(&b)
 	}
 }
 
@@ -94,6 +93,10 @@ type gzipResponseWriter struct {
 }
 
 func (w *gzipResponseWriter) WriteHeader(statusCode int) {
+	if statusCode >= 100 && statusCode < 200 {
+		w.ResponseWriter.WriteHeader(statusCode)
+		return
+	}
 	if w.wroteHeader {
 		return
 	}
@@ -122,7 +125,11 @@ func (w *gzipResponseWriter) Write(b []byte) (int, error) {
 	w.sniffBuf = append(w.sniffBuf, b...)
 
 	if len(w.sniffBuf) >= minGzipSize {
-		return w.flushBuffer(false)
+		_, err := w.flushBuffer(false)
+		if err != nil {
+			return 0, err
+		}
+		return len(b), nil
 	}
 
 	return len(b), nil
@@ -180,6 +187,7 @@ func (w *gzipResponseWriter) flushBuffer(isClosing bool) (int, error) {
 
 		n, err := w.writer.Write(w.sniffBuf)
 
+		releaseSniffBuf(w.sniffBuf)
 		w.sniffBuf = nil
 		return n, err
 	}
@@ -192,6 +200,7 @@ func (w *gzipResponseWriter) flushBuffer(isClosing bool) (int, error) {
 	}
 
 	n, err := w.ResponseWriter.Write(w.sniffBuf)
+	releaseSniffBuf(w.sniffBuf)
 	w.sniffBuf = nil
 	return n, err
 }
@@ -241,10 +250,26 @@ func (w *gzipResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 }
 
 func (s *Server) RespondJSON(w http.ResponseWriter, r *http.Request, data any) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	if err := json.NewEncoder(w).Encode(data); err != nil {
+	if err := RespondJSONFast(w, data); err != nil {
 		s.Logger.Printf("json encoding failed: %v", err)
 	}
+}
+
+func RespondJSONFast(w http.ResponseWriter, data any) error {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	return json.NewEncoder(w).Encode(data)
+}
+
+func RespondHTMLFast(w http.ResponseWriter, content string) error {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, err := io.WriteString(w, content)
+	return err
+}
+
+func RespondTextFast(w http.ResponseWriter, content string) error {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	_, err := io.WriteString(w, content)
+	return err
 }
 
 func (s *Server) RespondRawJSON(w http.ResponseWriter, data []byte) {
@@ -255,15 +280,13 @@ func (s *Server) RespondRawJSON(w http.ResponseWriter, data []byte) {
 }
 
 func (s *Server) RespondHTML(w http.ResponseWriter, html string) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if _, err := w.Write([]byte(html)); err != nil {
+	if err := RespondHTMLFast(w, html); err != nil {
 		s.Logger.Printf("failed to write response: %v", err)
 	}
 }
 
 func (s *Server) RespondText(w http.ResponseWriter, text string) {
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	if _, err := w.Write([]byte(text)); err != nil {
+	if err := RespondTextFast(w, text); err != nil {
 		s.Logger.Printf("failed to write response: %v", err)
 	}
 }

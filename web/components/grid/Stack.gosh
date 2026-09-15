@@ -1,0 +1,126 @@
+<!-- @server ./system/logic/grid.go#GridBackground -->
+<template>
+	<div
+		:id="id"
+		:class="class"
+		:data-hide-mobile="hideOnMobile"
+		:data-hide-desktop="hideOnDesktop"
+		data-grid-stack
+	>
+		<div m-if="bgImage" data-layout-background>
+			<img :src="bgImage" alt="" aria-hidden="true" />
+		</div>
+		<div
+			m-if="bgImageSm"
+			data-layout-background
+			data-layout-background-mobile
+		>
+			<img :src="bgImageSm" alt="" aria-hidden="true" />
+		</div>
+		<video
+			m-if="bgVideo"
+			data-layout-background
+			autoplay
+			muted
+			loop
+			playsinline
+			:poster="bgVideoPoster"
+		>
+			<source :src="bgVideo" />
+		</video>
+		<video
+			m-if="bgVideoSm"
+			data-layout-background
+			data-layout-background-mobile
+			autoplay
+			muted
+			loop
+			playsinline
+			:poster="bgVideoPosterSm"
+		>
+			<source :src="bgVideoSm" />
+		</video>
+		<iframe
+			m-if="youtubeEmbed"
+			data-layout-background
+			:data-youtube-src="youtubeEmbed"
+			:data-youtube-zoom="youtubeZoom"
+			title="Background video"
+			allow="autoplay; encrypted-media; picture-in-picture"
+			referrerpolicy="no-referrer-when-downgrade"
+			loading="lazy"
+		></iframe>
+		<iframe
+			m-if="youtubeEmbedSm"
+			data-layout-background
+			data-layout-background-mobile
+			:data-youtube-src="youtubeEmbedSm"
+			:data-youtube-zoom="youtubeZoom"
+			title="Background video"
+			allow="autoplay; encrypted-media; picture-in-picture"
+			referrerpolicy="no-referrer-when-downgrade"
+			loading="lazy"
+		></iframe>
+		<slot />
+	</div>
+</template>
+
+<style scoped>
+[data-grid-stack] {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	min-height: 100%;
+}
+[data-grid-stack][data-hide-mobile] {
+	display: none;
+}
+[data-grid-stack] > :not([data-layout-background]) {
+	position: relative;
+	z-index: 1;
+}
+[data-layout-background] {
+	position: absolute;
+	z-index: 0;
+	inset: 0;
+	display: block;
+	width: 100%;
+	height: 100%;
+	border: 0;
+	pointer-events: none;
+}
+[data-layout-background] img,
+[data-layout-background] video {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+[data-layout-background] iframe {
+	width: 115vw;
+	height: 64.68vw;
+	min-width: 204.44vh;
+	min-height: 115vh;
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+}
+[data-layout-background] iframe[data-youtube-zoom] {
+	transform: translate(-50%, -50%) scale(1.12);
+}
+[data-layout-background-mobile] {
+	display: block;
+}
+@media (min-width: 768px) {
+	[data-grid-stack][data-hide-mobile] {
+		display: flex;
+	}
+	[data-grid-stack][data-hide-desktop] {
+		display: none;
+	}
+	[data-layout-background-mobile] {
+		display: none;
+	}
+}
+</style>

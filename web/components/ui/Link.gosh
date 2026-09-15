@@ -1,0 +1,29 @@
+<!-- @server ./system/logic/link.go#UiLinkData -->
+<template>
+	<a
+		:id="id"
+		:class="class"
+		:href="uiLinkHref"
+		:target="uiLinkTarget"
+		:rel="uiLinkRel"
+		:aria-label="uiLinkAriaLabel"
+		:aria-disabled="uiLinkAriaDisabled"
+		:title="uiLinkTitle"
+		:data-external="uiLinkExternal"
+		:data-disabled="uiLinkDisabled"
+		data-ui-link
+		><slot
+	/></a>
+</template>
+
+<style>
+[data-ui-link][data-disabled] {
+	pointer-events: none;
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+[data-ui-link]:focus-visible {
+	outline: 2px solid var(--ui-focus);
+	outline-offset: 2px;
+}
+</style>

@@ -1,0 +1,25 @@
+<!-- @server ./system/logic/universal_components.go#UniversalComponentData -->
+<template>
+	<div
+		:id="id"
+		:class="class"
+		:data-start="start"
+		:data-end="end"
+		data-ui-scheduled-content
+	>
+		<slot />
+	</div>
+</template>
+<script setup>
+const e = useRoot().querySelector("[data-ui-scheduled-content]");
+if (!e) return;
+const update = () => {
+	const n = Date.now(),
+		s = Date.parse(e.dataset.start || ""),
+		z = Date.parse(e.dataset.end || "");
+	e.hidden = (!Number.isNaN(s) && n < s) || (!Number.isNaN(z) && n >= z);
+};
+update();
+const t = setInterval(update, 60000);
+onUnmounted(() => clearInterval(t));
+</script>

@@ -1,0 +1,239 @@
+<!-- @server ./system/logic/announcement_bar.go#ViewAnnouncementBarData -->
+<template>
+	<div
+		:id="id"
+		:class="class"
+		:data-color="announcementColor"
+		:data-variant="announcementVariant"
+		:data-sticky="announcementSticky"
+		role="region"
+		data-view-announcement-bar
+	>
+		<span
+			m-if="announcementIcon"
+			aria-hidden="true"
+			data-view-announcement-bar-icon
+			><UiIcon
+				:name="announcementIcon"
+				class="view-announcement-bar-icon-svg"
+		/></span>
+		<div data-view-announcement-bar-content>
+			<strong
+				m-if="announcementHasTitle"
+				data-view-announcement-bar-title
+				>{{ announcementTitle }}</strong
+			>
+			<span data-view-announcement-bar-description
+				>{{ announcementDescription }}<slot
+			/></span>
+		</div>
+		<button
+			m-if="announcementClosable"
+			:aria-label="announcementCloseLabel"
+			type="button"
+			data-view-announcement-bar-close
+		>
+			<UiIcon
+				name="heroicons:x-mark"
+				class="view-announcement-bar-close-icon"
+			/>
+		</button>
+	</div>
+</template>
+
+<style>
+[data-view-announcement-bar] {
+	position: relative;
+	display: flex;
+	width: 100%;
+	align-items: center;
+	gap: 1rem;
+	padding: 0.5rem 1rem;
+	border-bottom: 1px solid var(--ui-border);
+	color: var(--ui-text);
+	background: var(--ui-control-bg);
+	font-size: 0.875rem;
+	line-height: 1.4;
+	transition: opacity 0.16s ease;
+}
+[data-view-announcement-bar].is-closing {
+	opacity: 0;
+}
+[data-view-announcement-bar][data-sticky] {
+	position: sticky;
+	top: 0;
+	z-index: 50;
+}
+[data-view-announcement-bar-icon],
+[data-view-announcement-bar-close] {
+	display: inline-flex;
+	flex: none;
+	align-items: center;
+}
+[data-view-announcement-bar-icon] {
+	width: 1.25rem;
+	height: 1.25rem;
+}
+.view-announcement-bar-icon-svg,
+.view-announcement-bar-icon-svg [data-ui-icon],
+.view-announcement-bar-close-icon,
+.view-announcement-bar-close-icon [data-ui-icon] {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+[data-view-announcement-bar-content] {
+	display: flex;
+	min-width: 0;
+	flex: 1 1 auto;
+	align-items: center;
+	gap: 0.5rem;
+}
+[data-view-announcement-bar-title] {
+	flex: none;
+	font-weight: 600;
+}
+[data-view-announcement-bar-description] {
+	min-width: 0;
+	overflow: hidden;
+	opacity: 0.9;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+[data-view-announcement-bar-actions] {
+	position: static;
+	display: inline-flex;
+	flex: none;
+	align-items: center;
+	gap: 0.5rem;
+}
+[data-view-announcement-bar-close] {
+	width: 1.5rem;
+	height: 1.5rem;
+	margin-left: 0.5rem;
+	padding: 0.25rem;
+	border: 0;
+	color: currentColor;
+	background: transparent;
+	opacity: 0.65;
+	cursor: pointer;
+	transition: opacity 0.15s ease;
+}
+[data-view-announcement-bar-close]:hover {
+	opacity: 1;
+}
+[data-view-announcement-bar-close]:focus-visible {
+	outline: 2px solid currentColor;
+	outline-offset: 2px;
+}
+[data-view-announcement-bar][data-variant="solid"][data-color="primary"] {
+	color: #fff;
+	border-color: #4f46e5;
+	background: #4f46e5;
+}
+[data-view-announcement-bar][data-variant="soft"][data-color="primary"] {
+	color: #312e81;
+	border-color: #a5b4fc;
+	background: #e0e7ff;
+}
+[data-view-announcement-bar][data-variant="outline"][data-color="primary"] {
+	color: #312e81;
+	border-color: #818cf8;
+	background: transparent;
+}
+[data-view-announcement-bar][data-variant="solid"][data-color="info"] {
+	color: #fff;
+	background: #2563eb;
+}
+[data-view-announcement-bar][data-variant="soft"][data-color="info"] {
+	color: #1e3a8a;
+	border-color: #93c5fd;
+	background: #dbeafe;
+}
+[data-view-announcement-bar][data-variant="solid"][data-color="success"] {
+	color: #fff;
+	background: #059669;
+}
+[data-view-announcement-bar][data-variant="soft"][data-color="success"] {
+	color: #065f46;
+	border-color: #6ee7b7;
+	background: #d1fae5;
+}
+[data-view-announcement-bar][data-variant="solid"][data-color="warning"] {
+	color: #111827;
+	background: #f59e0b;
+}
+[data-view-announcement-bar][data-variant="soft"][data-color="warning"] {
+	color: #78350f;
+	border-color: #fcd34d;
+	background: #fef3c7;
+}
+[data-view-announcement-bar][data-variant="solid"][data-color="error"] {
+	color: #fff;
+	background: #dc2626;
+}
+[data-view-announcement-bar][data-variant="soft"][data-color="error"] {
+	color: #991b1b;
+	border-color: #fca5a5;
+	background: #fee2e2;
+}
+[data-view-announcement-bar][data-variant="solid"][data-color="gray"] {
+	color: #fff;
+	background: #374151;
+}
+[data-view-announcement-bar][data-variant="soft"][data-color="gray"] {
+	color: var(--ui-text);
+	background: color-mix(in srgb, var(--ui-text), transparent 92%);
+}
+[data-view-announcement-bar][data-variant="outline"] {
+	background: transparent;
+}
+@media (prefers-color-scheme: dark) {
+	[data-theme="dark"]
+		[data-view-announcement-bar][data-variant="soft"][data-color="primary"] {
+		color: #c7d2fe;
+		border-color: #4338ca;
+		background: #312e81;
+	}
+	[data-theme="dark"]
+		[data-view-announcement-bar][data-variant="soft"][data-color="info"] {
+		color: #bfdbfe;
+		border-color: #1d4ed8;
+		background: #1e3a8a;
+	}
+	[data-theme="dark"]
+		[data-view-announcement-bar][data-variant="soft"][data-color="success"] {
+		color: #a7f3d0;
+		border-color: #047857;
+		background: #064e3b;
+	}
+	[data-theme="dark"]
+		[data-view-announcement-bar][data-variant="soft"][data-color="warning"] {
+		color: #fde68a;
+		border-color: #b45309;
+		background: #78350f;
+	}
+	[data-theme="dark"]
+		[data-view-announcement-bar][data-variant="soft"][data-color="error"] {
+		color: #fecaca;
+		border-color: #b91c1c;
+		background: #7f1d1d;
+	}
+}
+</style>
+
+<script setup>
+const root = useRoot().querySelector("[data-view-announcement-bar]");
+if (!root) return;
+const close = root.querySelector("[data-view-announcement-bar-close]");
+if (!close) return;
+const dismiss = () => {
+	root.dispatchEvent(
+		new CustomEvent("ui:announcement-close", { bubbles: true }),
+	);
+	root.classList.add("is-closing");
+	window.setTimeout(() => root.remove(), 160);
+};
+close.addEventListener("click", dismiss);
+onUnmounted(() => close.removeEventListener("click", dismiss));
+</script>

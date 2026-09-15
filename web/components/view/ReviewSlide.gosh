@@ -1,0 +1,33 @@
+<!-- @server ./system/logic/reviews_slider.go#ViewReviewSlideData -->
+<template>
+	<article :class="class" data-view-review-slide>
+		<div data-view-review-card>
+			<p data-view-review-text>{{ reviewText }}</p>
+			<footer m-if="reviewHasFooter" data-view-review-footer>
+				<span data-view-review-person
+					><span m-if="reviewHasAvatar" data-view-review-avatar
+						><UiImageWithLoader
+							:src="reviewAvatar"
+							alt="Reviewer"
+							img-class="view-review-avatar-image"
+							loading="lazy" /></span
+					><span m-if="reviewHasIdentity"
+						><strong m-if="reviewHasName" data-view-review-name>{{
+							reviewName
+						}}</strong
+						><span m-if="reviewHasCity" data-view-review-city>{{
+							reviewCity
+						}}</span></span
+					></span
+				><a
+					m-if="reviewHasLink"
+					:href="reviewLink"
+					target="_blank"
+					rel="noopener noreferrer"
+					data-view-review-link
+					>{{ reviewLinkLabel }} →</a
+				>
+			</footer>
+		</div>
+	</article>
+</template>

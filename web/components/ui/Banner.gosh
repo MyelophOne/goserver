@@ -1,0 +1,254 @@
+<!-- @server ./system/logic/icons.go#UiBannerData -->
+<template>
+	<div
+		:id="id"
+		:class="class"
+		role="region"
+		:data-color="bannerColor"
+		:data-variant="bannerVariant"
+		:data-rounded="bannerRounded"
+		:data-bordered="bannerBordered"
+		data-ui-banner
+	>
+		<div m-if="bannerHasMedia" data-ui-banner-media>
+			<img
+				m-if="bannerAvatarSrc"
+				:src="bannerAvatarSrc"
+				:alt="bannerAvatarAlt"
+				loading="lazy"
+				data-ui-banner-avatar-image
+			/>
+			<UiIcon
+				m-if="bannerAvatarIcon"
+				:name="bannerAvatarIcon"
+				class="ui-banner-avatar-icon"
+			/>
+			<UiIcon
+				m-if="!bannerHasAvatar && bannerIcon"
+				:name="bannerIcon"
+				class="ui-banner-icon"
+			/>
+		</div>
+		<div data-ui-banner-copy>
+			<div m-if="bannerHasTitle" data-ui-banner-title>
+				{{ bannerTitle }}
+			</div>
+			<div m-if="bannerHasDescription" data-ui-banner-description>
+				{{ bannerDescription }}
+			</div>
+			<slot />
+		</div>
+		<button
+			m-if="bannerClosable"
+			type="button"
+			aria-label="Close banner"
+			data-ui-banner-close
+		>
+			<span aria-hidden="true">×</span>
+		</button>
+	</div>
+</template>
+
+<style scoped>
+[data-ui-banner] {
+	--banner-bg: #f3f4f6;
+	--banner-text: #111827;
+	--banner-border: #d1d5db;
+	display: flex;
+	width: 100%;
+	align-items: center;
+	gap: 1rem;
+	padding: 0.75rem 1rem;
+	border: 1px solid transparent;
+	background: var(--banner-bg);
+	color: var(--banner-text);
+}
+[data-ui-banner][data-rounded] {
+	border-radius: 0.375rem;
+}
+[data-ui-banner][data-bordered],
+[data-ui-banner][data-variant="outline"] {
+	border-color: var(--banner-border);
+}
+[data-ui-banner][data-variant="outline"] {
+	background: transparent;
+}
+[data-ui-banner][data-variant="solid"] {
+	border-color: var(--banner-bg);
+}
+[data-ui-banner][data-color="gray"] {
+	--banner-bg: #f3f4f6;
+	--banner-text: #111827;
+	--banner-border: #9ca3af;
+}
+[data-ui-banner][data-color="gray"][data-variant="solid"] {
+	--banner-bg: #1f2937;
+	--banner-text: #fff;
+}
+[data-ui-banner][data-color="primary"] {
+	--banner-bg: #e0e7ff;
+	--banner-text: #312e81;
+	--banner-border: #818cf8;
+}
+[data-ui-banner][data-color="primary"][data-variant="solid"] {
+	--banner-bg: #4f46e5;
+	--banner-text: #fff;
+}
+[data-ui-banner][data-color="info"] {
+	--banner-bg: #dbeafe;
+	--banner-text: #1e3a8a;
+	--banner-border: #60a5fa;
+}
+[data-ui-banner][data-color="info"][data-variant="solid"] {
+	--banner-bg: #2563eb;
+	--banner-text: #fff;
+}
+[data-ui-banner][data-color="success"] {
+	--banner-bg: #d1fae5;
+	--banner-text: #065f46;
+	--banner-border: #34d399;
+}
+[data-ui-banner][data-color="success"][data-variant="solid"] {
+	--banner-bg: #059669;
+	--banner-text: #fff;
+}
+[data-ui-banner][data-color="warning"] {
+	--banner-bg: #fef3c7;
+	--banner-text: #92400e;
+	--banner-border: #fbbf24;
+}
+[data-ui-banner][data-color="warning"][data-variant="solid"] {
+	--banner-bg: #d97706;
+	--banner-text: #fff;
+}
+[data-ui-banner][data-color="error"] {
+	--banner-bg: #fee2e2;
+	--banner-text: #991b1b;
+	--banner-border: #f87171;
+}
+[data-ui-banner][data-color="error"][data-variant="solid"] {
+	--banner-bg: #dc2626;
+	--banner-text: #fff;
+}
+[data-ui-banner-media] {
+	display: flex;
+	width: 2.5rem;
+	height: 2.5rem;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+}
+[data-ui-banner-avatar-image] {
+	width: 100%;
+	height: 100%;
+	border-radius: 9999px;
+	object-fit: contain;
+}
+.ui-banner-avatar-icon {
+	display: inline-flex;
+	width: 100%;
+	height: 100%;
+}
+.ui-banner-icon {
+	display: inline-flex;
+	width: 1.5rem;
+	height: 1.5rem;
+}
+.ui-banner-avatar-icon gosh-component,
+.ui-banner-avatar-icon [data-ui-icon],
+.ui-banner-icon gosh-component,
+.ui-banner-icon [data-ui-icon] {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+[data-ui-banner-copy] {
+	display: flex;
+	min-width: 0;
+	flex: 1;
+	flex-direction: column;
+	gap: 0.25rem;
+}
+[data-ui-banner-title] {
+	font-weight: 600;
+	line-height: 1.25;
+}
+[data-ui-banner-description] {
+	font-size: 0.875rem;
+	line-height: 1.625;
+	opacity: 0.9;
+}
+[data-ui-banner-close] {
+	display: inline-grid;
+	width: 1.75rem;
+	height: 1.75rem;
+	flex: none;
+	place-items: center;
+	border: 0;
+	border-radius: 0.375rem;
+	background: transparent;
+	color: currentColor;
+	font-size: 1.4rem;
+	line-height: 1;
+	opacity: 0.6;
+	cursor: pointer;
+	transition:
+		opacity 0.15s ease,
+		background-color 0.15s ease;
+}
+[data-ui-banner-close]:hover {
+	background: color-mix(in srgb, currentColor, transparent 92%);
+	opacity: 1;
+}
+[data-ui-banner-close]:focus-visible {
+	outline: 2px solid currentColor;
+	outline-offset: 2px;
+}
+[data-theme="dark"] [data-ui-banner][data-color="gray"] {
+	--banner-bg: #1f2937;
+	--banner-text: #f9fafb;
+	--banner-border: #4b5563;
+}
+[data-theme="dark"] [data-ui-banner][data-color="primary"] {
+	--banner-bg: #312e81;
+	--banner-text: #e0e7ff;
+	--banner-border: #6366f1;
+}
+[data-theme="dark"] [data-ui-banner][data-color="info"] {
+	--banner-bg: #1e3a8a;
+	--banner-text: #dbeafe;
+	--banner-border: #3b82f6;
+}
+[data-theme="dark"] [data-ui-banner][data-color="success"] {
+	--banner-bg: #064e3b;
+	--banner-text: #d1fae5;
+	--banner-border: #10b981;
+}
+[data-theme="dark"] [data-ui-banner][data-color="warning"] {
+	--banner-bg: #78350f;
+	--banner-text: #fef3c7;
+	--banner-border: #f59e0b;
+}
+[data-theme="dark"] [data-ui-banner][data-color="error"] {
+	--banner-bg: #7f1d1d;
+	--banner-text: #fee2e2;
+	--banner-border: #ef4444;
+}
+</style>
+
+<script setup>
+const root = useRoot().querySelector("[data-ui-banner]");
+const close = root && root.querySelector("[data-ui-banner-close]");
+if (!root || !close) return;
+const onClose = () => {
+	root.hidden = true;
+	root.dispatchEvent(
+		new CustomEvent("ui:banner-close", {
+			bubbles: true,
+			detail: { banner: root },
+		}),
+	);
+};
+close.addEventListener("click", onClose);
+onUnmounted(() => close.removeEventListener("click", onClose));
+</script>

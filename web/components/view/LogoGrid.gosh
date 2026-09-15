@@ -1,0 +1,189 @@
+<!-- @server ./system/logic/logo_grid.go#ViewLogoGridData -->
+<template>
+	<section
+		:id="id"
+		:class="class"
+		:data-variant="logoGridVariant"
+		:data-mobile-limit="logoGridMobileLimit"
+		:data-show-more="logoGridShowMore"
+		data-view-logo-grid
+	>
+		<header m-if="logoGridHasTitle" data-view-logo-grid-title>
+			<p>{{ logoGridTitle }}</p>
+		</header>
+		<div data-view-logo-grid-items><slot /></div>
+		<div aria-live="polite" data-view-logo-grid-more></div>
+	</section>
+</template>
+
+<style>
+[data-view-logo-grid] {
+	width: 100%;
+	padding-block: 3rem;
+	overflow: hidden;
+	color: var(--ui-text);
+}
+[data-view-logo-grid-title] {
+	margin-bottom: 4rem;
+	padding-inline: 1rem;
+	text-align: center;
+}
+[data-view-logo-grid-title] p {
+	margin: 0;
+	opacity: 0.4;
+	font-size: 0.75rem;
+	font-weight: 700;
+	letter-spacing: 0.25em;
+	text-transform: uppercase;
+}
+[data-view-logo-grid-items] {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	align-items: center;
+	justify-items: center;
+	row-gap: 2rem;
+}
+[data-view-logo-grid][data-mobile-limit="3"] [data-view-logo-grid-items] {
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+[data-view-logo-grid-item] {
+	display: flex;
+	width: 100%;
+	min-width: 0;
+	padding-inline: 0.5rem;
+	align-items: center;
+	justify-content: center;
+	cursor: default;
+}
+a[data-view-logo-grid-item] {
+	cursor: pointer;
+}
+[data-view-logo-grid] gosh-component,
+[data-view-logo-grid] [data-ui-image-loader] {
+	display: block;
+	width: 100%;
+	height: 1.75rem;
+}
+.view-logo-grid-image {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+	transition:
+		filter 0.7s ease,
+		opacity 0.7s ease;
+}
+[data-view-logo-grid][data-variant="gray-hover"] .view-logo-grid-image {
+	filter: grayscale(1);
+	opacity: 0.4;
+}
+[data-view-logo-grid][data-variant="gray-hover"]
+	a[data-view-logo-grid-item]:hover
+	.view-logo-grid-image {
+	filter: grayscale(0);
+	opacity: 1;
+}
+[data-view-logo-grid][data-variant="color"] .view-logo-grid-image {
+	opacity: 0.6;
+}
+[data-view-logo-grid][data-variant="color"]
+	a[data-view-logo-grid-item]:hover
+	.view-logo-grid-image {
+	opacity: 1;
+}
+[data-view-logo-grid][data-variant="gray"] .view-logo-grid-image {
+	filter: grayscale(1);
+	opacity: 0.4;
+}
+[data-view-logo-grid][data-variant="gray"]
+	a[data-view-logo-grid-item]:hover
+	.view-logo-grid-image {
+	opacity: 0.8;
+}
+[data-view-logo-grid-item][data-dark] .view-logo-grid-image {
+	filter: invert(1);
+}
+[data-view-logo-grid-more] {
+	display: none;
+}
+@media (min-width: 640px) {
+	[data-view-logo-grid-items] {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		row-gap: 3rem;
+	}
+	[data-view-logo-grid-item] {
+		padding-inline: 1rem;
+	}
+}
+@media (min-width: 768px) {
+	[data-view-logo-grid] {
+		padding-block: 6rem;
+	}
+	[data-view-logo-grid-title] {
+		margin-bottom: 6rem;
+	}
+	[data-view-logo-grid-items] {
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+	}
+	[data-view-logo-grid] gosh-component,
+	[data-view-logo-grid] [data-ui-image-loader] {
+		height: 3rem;
+	}
+}
+@media (min-width: 1024px) {
+	[data-view-logo-grid-items] {
+		grid-template-columns: repeat(6, minmax(0, 1fr));
+	}
+	[data-view-logo-grid-item] {
+		padding-inline: 1.5rem;
+	}
+}
+@media (min-width: 1280px) {
+	[data-view-logo-grid-items] {
+		grid-template-columns: repeat(7, minmax(0, 1fr));
+	}
+}
+@media (min-width: 1536px) {
+	[data-view-logo-grid-items] {
+		grid-template-columns: repeat(8, minmax(0, 1fr));
+	}
+}
+@media (max-width: 767px) {
+	[data-view-logo-grid-item][data-mobile-hidden] {
+		display: none;
+	}
+	[data-view-logo-grid][data-show-more] [data-view-logo-grid-more] {
+		display: flex;
+		width: 100%;
+		margin-top: 2rem;
+		justify-content: center;
+	}
+	[data-view-logo-grid-more] span {
+		display: inline-flex;
+		height: 2rem;
+		align-items: center;
+		justify-content: center;
+		padding-inline: 1rem;
+		border: 1px solid color-mix(in srgb, var(--ui-text), transparent 80%);
+		border-radius: 999px;
+		opacity: 0.4;
+		font-size: 0.625rem;
+		font-weight: 700;
+		white-space: nowrap;
+	}
+}
+</style>
+
+<script setup>
+const root = useRoot().querySelector("[data-view-logo-grid]");
+if (!root) return;
+const items = Array.from(root.querySelectorAll("[data-view-logo-grid-item]")),
+	limit = Math.max(0, Number(root.dataset.mobileLimit) || 0),
+	more = root.querySelector("[data-view-logo-grid-more]");
+if (!limit || items.length <= limit) return;
+items.forEach((item, index) => {
+	if (index >= limit) item.setAttribute("data-mobile-hidden", "");
+});
+if (root.hasAttribute("data-show-more"))
+	more.innerHTML = `<span>+${items.length - limit}</span>`;
+</script>

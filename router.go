@@ -8,9 +8,11 @@ import (
 )
 
 type Router struct {
-	static   map[string]map[string]http.Handler
-	dyn      map[string][]*compiledRoute
-	notFound http.Handler
+	static         map[string]map[string]http.Handler
+	dyn            map[string][]*compiledRoute
+	fallbackStatic map[string]map[string]http.Handler
+	fallbackDyn    map[string][]*compiledRoute
+	notFound       http.Handler
 }
 
 type compiledRoute struct {
@@ -41,12 +43,42 @@ const (
 
 var ctxParamsKey = &struct{}{}
 
+func RouteParams(r *http.Request) map[string]string {
+	if r == nil {
+		return map[string]string{}
+	}
+	params, _ := r.Context().Value(ctxParamsKey).(map[string]string)
+	out := make(map[string]string, len(params))
+	for key, value := range params {
+		out[key] = value
+	}
+	return out
+}
+
 func NewRouter() *Router {
 	return &Router{
-		static:   make(map[string]map[string]http.Handler),
-		dyn:      make(map[string][]*compiledRoute),
-		notFound: http.NotFoundHandler(),
+		static:         make(map[string]map[string]http.Handler),
+		dyn:            make(map[string][]*compiledRoute),
+		fallbackStatic: make(map[string]map[string]http.Handler),
+		fallbackDyn:    make(map[string][]*compiledRoute),
+		notFound:       http.NotFoundHandler(),
 	}
+}
+
+func (r *Router) HandleFallback(method, pattern string, handler http.Handler) {
+	m := strings.ToUpper(method)
+	p := cleanPath(pattern)
+	if p == "" {
+		p = "/"
+	}
+	if !strings.Contains(p, ":") && !strings.Contains(p, "*") {
+		if _, ok := r.fallbackStatic[m]; !ok {
+			r.fallbackStatic[m] = map[string]http.Handler{}
+		}
+		r.fallbackStatic[m][p] = handler
+		return
+	}
+	r.fallbackDyn[m] = append(r.fallbackDyn[m], &compiledRoute{pattern: p, segments: compilePattern(p), handler: handler})
 }
 
 func (r *Router) SetNotFoundHandler(h http.HandlerFunc) {
@@ -91,6 +123,23 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	if routes, ok := r.dyn[m]; ok {
+		for _, cr := range routes {
+			if params, ok2 := matchSegments(cr.segments, p); ok2 {
+				if len(params) > 0 {
+					req = req.WithContext(context.WithValue(req.Context(), ctxParamsKey, params))
+				}
+				cr.handler.ServeHTTP(w, req)
+				return
+			}
+		}
+	}
+	if mm, ok := r.fallbackStatic[m]; ok {
+		if h, ok2 := mm[p]; ok2 {
+			h.ServeHTTP(w, req)
+			return
+		}
+	}
+	if routes, ok := r.fallbackDyn[m]; ok {
 		for _, cr := range routes {
 			if params, ok2 := matchSegments(cr.segments, p); ok2 {
 				if len(params) > 0 {

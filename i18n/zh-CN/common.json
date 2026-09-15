@@ -1,0 +1,52 @@
+{
+  "hello": { "world": "你好，世界！" },
+  "web": {
+    "language": "语言",
+    "title": "I18n 示例",
+    "heading": "无需完全重新加载即可切换语言",
+    "description": "此页面由 Go 渲染，并通过 goserver I18n 翻译。"
+  },
+  "myelophone": {
+    "welcome": "欢迎来到",
+    "experiment": "尽情体验、定制，并享受速度与性能！",
+    "poweredBy": "技术支持",
+    "goserverVersion": "GoServer 版本",
+    "toggleTheme": "切换主题"
+  },
+  "errors": {
+    "home": "返回首页", "homeLabel": "MyelophOne GoServer 首页", "toggleTheme": "切换主题", "copyright": "版权所有。",
+    "notFound": { "title": "找不到页面", "description": "地址可能有误、页面可能已移动，或已不再可用。" },
+    "server": { "title": "发生了错误", "description": "服务器无法完成此请求。您的数据未被更改；请稍后重试。" }
+  },
+  "cookies": {
+    "weUseCookies": "我们使用 Cookie 来提供网站功能和分析服务。",
+    "customize": "自定义",
+    "decline": "拒绝",
+    "changePrefs": "更改偏好设置",
+    "acceptAll": "全部接受",
+    "close": "关闭",
+    "privacyTitle": "隐私设置",
+    "cookieNote": "请选择您希望允许的 Cookie 类别。",
+    "necessary": "必要",
+    "analytics": "分析",
+    "marketing": "营销",
+    "functional": "功能性",
+    "necessaryDesc": "网站正常运行所必需，无法禁用。",
+    "analyticsDesc": "帮助我们了解访客如何使用网站。",
+    "marketingDesc": "启用广告和第三方媒体。",
+    "functionalDesc": "启用可选功能和嵌入式服务。",
+    "alwaysOn": "始终开启",
+    "usedServices": "使用的服务",
+    "cookiesList": "此浏览器中存储的 Cookie",
+    "emptyList": "未找到可读取的 Cookie。",
+    "declineAll": "拒绝可选项",
+    "savePrefs": "保存偏好设置",
+    "contentHidden": "内容已隐藏",
+    "setPrefs": "设置偏好",
+    "policyTitle": "Cookie 和类似技术",
+    "privacyPolicy": "隐私政策",
+    "officialDocs": "官方文档",
+    "allowCategory": "允许 %s 类 Cookie 以显示此内容。",
+    "allowService": "允许 %s 类 Cookie 以使用 %s。"
+  }
+}

@@ -1,0 +1,41 @@
+:root {
+	--ui-bg: #f7f7f7;
+	--ui-text: #1a1a1b;
+	--ui-surface: #ffffff;
+	--ui-control-bg: #ffffff;
+	--loader-fill-color: #000;
+	--ui-border: #e5e5e5;
+	--ui-focus: #2563eb;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--ui-bg: #121212;
+		--ui-text: #e0e0e0;
+		--ui-surface: #171717;
+		--ui-control-bg: #171717;
+		--loader-fill-color: #000;
+		--ui-border: #262626;
+		--ui-focus: #60a5fa;
+	}
+}
+
+[data-theme='light'] {
+	--ui-bg: #f7f7f7;
+	--ui-text: #1a1a1b;
+	--ui-surface: #ffffff;
+	--ui-control-bg: #ffffff;
+	--loader-fill-color: #0082e6;
+	--ui-border: #e5e5e5;
+	--ui-focus: #2563eb;
+}
+
+[data-theme='dark'] {
+	--ui-bg: #121212;
+	--ui-text: #e0e0e0;
+	--ui-surface: #171717;
+	--ui-control-bg: #171717;
+	--loader-fill-color: #fff;
+	--ui-border: #262626;
+	--ui-focus: #60a5fa;
+}

@@ -1,0 +1,229 @@
+<!-- @server ./system/logic/icons.go#UiBadgeData -->
+<template>
+	<span
+		:id="id"
+		:class="class"
+		:data-color="badgeColor"
+		:data-variant="badgeVariant"
+		:data-size="badgeSize"
+		:data-rounded="badgeRounded"
+		:data-pill="badgePill"
+		data-ui-badge
+	>
+		<span m-if="badgeHasAvatar" data-ui-badge-avatar>
+			<img
+				m-if="badgeAvatarSrc"
+				:src="badgeAvatarSrc"
+				:alt="badgeAvatarAlt"
+				loading="lazy"
+				data-ui-badge-avatar-image
+			/>
+			<UiIcon
+				m-if="badgeAvatarIcon"
+				:name="badgeAvatarIcon"
+				class="ui-badge-avatar-icon"
+			/>
+		</span>
+		<UiIcon
+			m-if="badgeShowLeading"
+			:name="badgeLeadingIcon"
+			class="ui-badge-icon"
+		/>
+		<span
+			><slot>{{ badgeLabel }}</slot></span
+		>
+		<UiIcon
+			m-if="badgeShowTrailing"
+			:name="badgeTrailingIcon"
+			class="ui-badge-icon"
+		/>
+	</span>
+</template>
+
+<style scoped>
+[data-ui-badge] {
+	--badge-bg: #f3f4f6;
+	--badge-text: #1f2937;
+	--badge-border: #d1d5db;
+	display: inline-flex;
+	width: fit-content;
+	align-items: center;
+	gap: 0.375rem;
+	border: 1px solid transparent;
+	color: var(--badge-text);
+	font-weight: 500;
+	line-height: 1.25;
+	white-space: nowrap;
+}
+[data-ui-badge][data-size="xs"] {
+	gap: 0.25rem;
+	padding: 0.125rem 0.5rem;
+	font-size: 0.75rem;
+}
+[data-ui-badge][data-size="sm"] {
+	gap: 0.375rem;
+	padding: 0.125rem 0.75rem;
+	font-size: 0.75rem;
+}
+[data-ui-badge][data-size="md"] {
+	gap: 0.5rem;
+	padding: 0.25rem 1rem;
+	font-size: 0.875rem;
+}
+[data-ui-badge][data-rounded] {
+	border-radius: 0.375rem;
+}
+[data-ui-badge][data-pill] {
+	border-radius: 9999px;
+}
+[data-ui-badge][data-variant="solid"] {
+	border-color: var(--badge-bg);
+	background: var(--badge-bg);
+}
+[data-ui-badge][data-variant="soft"] {
+	border-color: transparent;
+	background: var(--badge-bg);
+}
+[data-ui-badge][data-variant="outline"] {
+	border-color: var(--badge-border);
+	background: transparent;
+}
+[data-ui-badge][data-color="gray"] {
+	--badge-bg: #f3f4f6;
+	--badge-text: #1f2937;
+	--badge-border: #d1d5db;
+}
+[data-ui-badge][data-color="gray"][data-variant="solid"] {
+	--badge-bg: #1f2937;
+	--badge-text: #fff;
+}
+[data-ui-badge][data-color="primary"] {
+	--badge-bg: #e0e7ff;
+	--badge-text: #312e81;
+	--badge-border: #a5b4fc;
+}
+[data-ui-badge][data-color="primary"][data-variant="solid"] {
+	--badge-bg: #4f46e5;
+	--badge-text: #fff;
+}
+[data-ui-badge][data-color="info"] {
+	--badge-bg: #dbeafe;
+	--badge-text: #1e40af;
+	--badge-border: #93c5fd;
+}
+[data-ui-badge][data-color="info"][data-variant="solid"] {
+	--badge-bg: #2563eb;
+	--badge-text: #fff;
+}
+[data-ui-badge][data-color="success"] {
+	--badge-bg: #d1fae5;
+	--badge-text: #065f46;
+	--badge-border: #6ee7b7;
+}
+[data-ui-badge][data-color="success"][data-variant="solid"] {
+	--badge-bg: #059669;
+	--badge-text: #fff;
+}
+[data-ui-badge][data-color="warning"] {
+	--badge-bg: #fef3c7;
+	--badge-text: #92400e;
+	--badge-border: #fcd34d;
+}
+[data-ui-badge][data-color="warning"][data-variant="solid"] {
+	--badge-bg: #d97706;
+	--badge-text: #fff;
+}
+[data-ui-badge][data-color="error"] {
+	--badge-bg: #fee2e2;
+	--badge-text: #991b1b;
+	--badge-border: #fca5a5;
+}
+[data-ui-badge][data-color="error"][data-variant="solid"] {
+	--badge-bg: #dc2626;
+	--badge-text: #fff;
+}
+.ui-badge-icon {
+	display: inline-flex;
+	width: 0.875rem;
+	height: 0.875rem;
+	flex: none;
+}
+[data-ui-badge][data-size="xs"] .ui-badge-icon {
+	width: 0.75rem;
+	height: 0.75rem;
+}
+[data-ui-badge][data-size="md"] .ui-badge-icon {
+	width: 1rem;
+	height: 1rem;
+}
+.ui-badge-icon gosh-component,
+.ui-badge-icon [data-ui-icon] {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+[data-ui-badge-avatar] {
+	display: inline-flex;
+	width: 1.25rem;
+	height: 1.25rem;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	overflow: hidden;
+	border-radius: 9999px;
+}
+[data-ui-badge][data-size="xs"] [data-ui-badge-avatar] {
+	width: 1rem;
+	height: 1rem;
+}
+[data-ui-badge][data-size="md"] [data-ui-badge-avatar] {
+	width: 1.5rem;
+	height: 1.5rem;
+}
+[data-ui-badge-avatar-image] {
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+}
+.ui-badge-avatar-icon {
+	display: inline-flex;
+	width: 100%;
+	height: 100%;
+}
+.ui-badge-avatar-icon gosh-component,
+.ui-badge-avatar-icon [data-ui-icon] {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+[data-theme="dark"] [data-ui-badge][data-color="gray"] {
+	--badge-bg: #374151;
+	--badge-text: #f3f4f6;
+	--badge-border: #4b5563;
+}
+[data-theme="dark"] [data-ui-badge][data-color="primary"] {
+	--badge-bg: #312e81;
+	--badge-text: #e0e7ff;
+	--badge-border: #4f46e5;
+}
+[data-theme="dark"] [data-ui-badge][data-color="info"] {
+	--badge-bg: #1e3a8a;
+	--badge-text: #dbeafe;
+	--badge-border: #2563eb;
+}
+[data-theme="dark"] [data-ui-badge][data-color="success"] {
+	--badge-bg: #064e3b;
+	--badge-text: #d1fae5;
+	--badge-border: #059669;
+}
+[data-theme="dark"] [data-ui-badge][data-color="warning"] {
+	--badge-bg: #78350f;
+	--badge-text: #fef3c7;
+	--badge-border: #d97706;
+}
+[data-theme="dark"] [data-ui-badge][data-color="error"] {
+	--badge-bg: #7f1d1d;
+	--badge-text: #fee2e2;
+	--badge-border: #dc2626;
+}
+</style>

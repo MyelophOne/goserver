@@ -1,0 +1,284 @@
+<!-- @server ./system/logic/grid.go#GridBackground -->
+<template>
+	<div
+		:id="id"
+		:class="class"
+		:data-span="span"
+		:data-sm-span="smSpan"
+		:data-md-span="mdSpan"
+		:data-order="smOrder"
+		:data-hide-mobile="hideOnMobile"
+		:data-hide-desktop="hideOnDesktop"
+		data-grid-col
+	>
+		<div m-if="bgImage" data-layout-background>
+			<img :src="bgImage" alt="" aria-hidden="true" />
+		</div>
+		<div
+			m-if="bgImageSm"
+			data-layout-background
+			data-layout-background-mobile
+		>
+			<img :src="bgImageSm" alt="" aria-hidden="true" />
+		</div>
+		<video
+			m-if="bgVideo"
+			data-layout-background
+			autoplay
+			muted
+			loop
+			playsinline
+			:poster="bgVideoPoster"
+		>
+			<source :src="bgVideo" />
+		</video>
+		<video
+			m-if="bgVideoSm"
+			data-layout-background
+			data-layout-background-mobile
+			autoplay
+			muted
+			loop
+			playsinline
+			:poster="bgVideoPosterSm"
+		>
+			<source :src="bgVideoSm" />
+		</video>
+		<iframe
+			m-if="youtubeEmbed"
+			data-layout-background
+			:data-youtube-src="youtubeEmbed"
+			:data-youtube-zoom="youtubeZoom"
+			title="Background video"
+			allow="autoplay; encrypted-media; picture-in-picture"
+			referrerpolicy="no-referrer-when-downgrade"
+			loading="lazy"
+		></iframe>
+		<iframe
+			m-if="youtubeEmbedSm"
+			data-layout-background
+			data-layout-background-mobile
+			:data-youtube-src="youtubeEmbedSm"
+			:data-youtube-zoom="youtubeZoom"
+			title="Background video"
+			allow="autoplay; encrypted-media; picture-in-picture"
+			referrerpolicy="no-referrer-when-downgrade"
+			loading="lazy"
+		></iframe>
+		<slot />
+	</div>
+</template>
+
+<style scoped>
+[data-grid-col] {
+	position: relative;
+	display: flex;
+	flex: none;
+	flex-direction: column;
+	flex-basis: 100%;
+	min-width: 0;
+}
+[data-grid-col][data-hide-mobile] {
+	display: none;
+}
+[data-grid-col][data-sm-span="1"] {
+	flex-basis: 8.333333%;
+}
+[data-grid-col][data-sm-span="2"] {
+	flex-basis: 16.666667%;
+}
+[data-grid-col][data-sm-span="3"] {
+	flex-basis: 25%;
+}
+[data-grid-col][data-sm-span="4"] {
+	flex-basis: 33.333333%;
+}
+[data-grid-col][data-sm-span="5"] {
+	flex-basis: 41.666667%;
+}
+[data-grid-col][data-sm-span="6"] {
+	flex-basis: 50%;
+}
+[data-grid-col][data-sm-span="7"] {
+	flex-basis: 58.333333%;
+}
+[data-grid-col][data-sm-span="8"] {
+	flex-basis: 66.666667%;
+}
+[data-grid-col][data-sm-span="9"] {
+	flex-basis: 75%;
+}
+[data-grid-col][data-sm-span="10"] {
+	flex-basis: 83.333333%;
+}
+[data-grid-col][data-sm-span="11"] {
+	flex-basis: 91.666667%;
+}
+[data-grid-col][data-sm-span="12"] {
+	flex-basis: 100%;
+}
+[data-grid-col][data-order="1"] {
+	order: 1;
+}
+[data-grid-col][data-order="2"] {
+	order: 2;
+}
+[data-grid-col][data-order="3"] {
+	order: 3;
+}
+[data-grid-col][data-order="4"] {
+	order: 4;
+}
+[data-grid-col][data-order="5"] {
+	order: 5;
+}
+[data-grid-col][data-order="6"] {
+	order: 6;
+}
+[data-grid-col][data-order="7"] {
+	order: 7;
+}
+[data-grid-col][data-order="8"] {
+	order: 8;
+}
+[data-grid-col][data-order="9"] {
+	order: 9;
+}
+[data-grid-col][data-order="10"] {
+	order: 10;
+}
+[data-grid-col][data-order="11"] {
+	order: 11;
+}
+[data-grid-col][data-order="12"] {
+	order: 12;
+}
+[data-grid-col][data-order="first"] {
+	order: -1;
+}
+[data-grid-col][data-order="last"] {
+	order: 999;
+}
+[data-grid-col] > :not([data-layout-background]) {
+	position: relative;
+	z-index: 1;
+}
+[data-layout-background] {
+	position: absolute;
+	z-index: 0;
+	inset: 0;
+	display: block;
+	width: 100%;
+	height: 100%;
+	border: 0;
+	pointer-events: none;
+}
+[data-layout-background] img,
+[data-layout-background] video {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+[data-layout-background] iframe {
+	width: 115vw;
+	height: 64.68vw;
+	min-width: 204.44vh;
+	min-height: 115vh;
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+}
+[data-layout-background] iframe[data-youtube-zoom] {
+	transform: translate(-50%, -50%) scale(1.12);
+}
+[data-layout-background-mobile] {
+	display: block;
+}
+@media (min-width: 768px) {
+	[data-grid-col][data-hide-mobile] {
+		display: flex;
+	}
+	[data-grid-col][data-hide-desktop] {
+		display: none;
+	}
+	[data-layout-background-mobile] {
+		display: none;
+	}
+	[data-grid-col][data-order] {
+		order: 0;
+	}
+	[data-grid-col][data-span="1"] {
+		flex-basis: 8.333333%;
+	}
+	[data-grid-col][data-span="2"] {
+		flex-basis: 16.666667%;
+	}
+	[data-grid-col][data-span="3"] {
+		flex-basis: 25%;
+	}
+	[data-grid-col][data-span="4"] {
+		flex-basis: 33.333333%;
+	}
+	[data-grid-col][data-span="5"] {
+		flex-basis: 41.666667%;
+	}
+	[data-grid-col][data-span="6"] {
+		flex-basis: 50%;
+	}
+	[data-grid-col][data-span="7"] {
+		flex-basis: 58.333333%;
+	}
+	[data-grid-col][data-span="8"] {
+		flex-basis: 66.666667%;
+	}
+	[data-grid-col][data-span="9"] {
+		flex-basis: 75%;
+	}
+	[data-grid-col][data-span="10"] {
+		flex-basis: 83.333333%;
+	}
+	[data-grid-col][data-span="11"] {
+		flex-basis: 91.666667%;
+	}
+	[data-grid-col][data-span="12"] {
+		flex-basis: 100%;
+	}
+	[data-grid-col][data-md-span="1"] {
+		flex-basis: 8.333333%;
+	}
+	[data-grid-col][data-md-span="2"] {
+		flex-basis: 16.666667%;
+	}
+	[data-grid-col][data-md-span="3"] {
+		flex-basis: 25%;
+	}
+	[data-grid-col][data-md-span="4"] {
+		flex-basis: 33.333333%;
+	}
+	[data-grid-col][data-md-span="5"] {
+		flex-basis: 41.666667%;
+	}
+	[data-grid-col][data-md-span="6"] {
+		flex-basis: 50%;
+	}
+	[data-grid-col][data-md-span="7"] {
+		flex-basis: 58.333333%;
+	}
+	[data-grid-col][data-md-span="8"] {
+		flex-basis: 66.666667%;
+	}
+	[data-grid-col][data-md-span="9"] {
+		flex-basis: 75%;
+	}
+	[data-grid-col][data-md-span="10"] {
+		flex-basis: 83.333333%;
+	}
+	[data-grid-col][data-md-span="11"] {
+		flex-basis: 91.666667%;
+	}
+	[data-grid-col][data-md-span="12"] {
+		flex-basis: 100%;
+	}
+}
+</style>

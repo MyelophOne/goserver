@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"runtime"
 	"strings"
-	"sync/atomic"
 )
 
 //go:embed error.html
@@ -38,12 +37,6 @@ type ErrorPageData struct {
 }
 
 func (s *Server) RenderError(w http.ResponseWriter, r *http.Request, statusCode int, message string) {
-	if statusCode >= 400 && statusCode < 500 {
-		atomic.AddInt64(&s.stats.Errors4xx, 1)
-	} else if statusCode >= 500 {
-		atomic.AddInt64(&s.stats.Errors5xx, 1)
-	}
-
 	if r.Method != http.MethodGet {
 		s.RenderErrorJSON(w, r, statusCode, message)
 		return
@@ -76,12 +69,6 @@ func (s *Server) RenderError(w http.ResponseWriter, r *http.Request, statusCode 
 }
 
 func (s *Server) RenderErrorJSON(w http.ResponseWriter, r *http.Request, statusCode int, message string) {
-	if statusCode >= 400 && statusCode < 500 {
-		atomic.AddInt64(&s.stats.Errors4xx, 1)
-	} else if statusCode >= 500 {
-		atomic.AddInt64(&s.stats.Errors5xx, 1)
-	}
-
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(statusCode)
 	statusText := http.StatusText(statusCode)

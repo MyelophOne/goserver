@@ -1,0 +1,52 @@
+{
+  "hello": { "world": "Bonjour, le monde !" },
+  "web": {
+    "language": "Langue",
+    "title": "Exemple I18n",
+    "heading": "Changez de langue sans rechargement complet",
+    "description": "Cette page est rendue par Go et traduite via goserver I18n."
+  },
+  "myelophone": {
+    "welcome": "Bienvenue sur",
+    "experiment": "Expérimentez, personnalisez et profitez de la vitesse et des performances !",
+    "poweredBy": "Propulsé par",
+    "goserverVersion": "Version de GoServer",
+    "toggleTheme": "Changer de thème"
+  },
+  "errors": {
+    "home": "Retour à l’accueil", "homeLabel": "Accueil MyelophOne GoServer", "toggleTheme": "Changer de thème", "copyright": "Tous droits réservés.",
+    "notFound": { "title": "Page introuvable", "description": "L’adresse peut être erronée, la page a été déplacée ou elle n’est plus disponible." },
+    "server": { "title": "Un problème est survenu", "description": "Le serveur n’a pas pu traiter cette demande. Vos données n’ont pas été modifiées ; réessayez dans un instant." }
+  },
+  "cookies": {
+    "weUseCookies": "Nous utilisons des cookies pour le fonctionnement du site et les analyses.",
+    "customize": "Personnaliser",
+    "decline": "Refuser",
+    "changePrefs": "Modifier les préférences",
+    "acceptAll": "Tout accepter",
+    "close": "Fermer",
+    "privacyTitle": "Paramètres de confidentialité",
+    "cookieNote": "Choisissez les catégories de cookies que vous souhaitez autoriser.",
+    "necessary": "Nécessaires",
+    "analytics": "Analytiques",
+    "marketing": "Marketing",
+    "functional": "Fonctionnels",
+    "necessaryDesc": "Requis pour le fonctionnement du site. Ils ne peuvent pas être désactivés.",
+    "analyticsDesc": "Nous aide à comprendre comment les visiteurs utilisent le site.",
+    "marketingDesc": "Active la publicité et les médias tiers.",
+    "functionalDesc": "Active les fonctionnalités facultatives et les services intégrés.",
+    "alwaysOn": "Toujours actifs",
+    "usedServices": "Services utilisés",
+    "cookiesList": "Cookies enregistrés dans ce navigateur",
+    "emptyList": "Aucun cookie lisible trouvé.",
+    "declineAll": "Refuser les facultatifs",
+    "savePrefs": "Enregistrer les préférences",
+    "contentHidden": "Contenu masqué",
+    "setPrefs": "Définir les préférences",
+    "policyTitle": "Cookies et technologies similaires",
+    "privacyPolicy": "Politique de confidentialité",
+    "officialDocs": "Documentation officielle",
+    "allowCategory": "Autorisez les cookies de la catégorie %s pour afficher ce contenu.",
+    "allowService": "Autorisez les cookies de la catégorie %s pour utiliser %s."
+  }
+}

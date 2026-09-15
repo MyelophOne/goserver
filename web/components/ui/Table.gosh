@@ -1,0 +1,186 @@
+<!-- @server ./system/logic/icons.go#UiTableData -->
+<template>
+	<div :id="id" :class="class" :style="tableHeightStyle" data-ui-table>
+		<div data-ui-table-scroller>
+			<table data-ui-table-element>
+				<slot />
+			</table>
+			<div hidden aria-live="polite" data-ui-table-empty>
+				{{ tableEmptyText }}
+			</div>
+		</div>
+	</div>
+</template>
+
+<style>
+[data-ui-table] {
+	display: flex;
+	width: 100%;
+	height: var(--ui-table-height);
+	min-height: 0;
+	overflow: hidden;
+	border: 1px solid var(--ui-border, #64748b);
+	background: var(--ui-bg);
+	color: var(--ui-text);
+	isolation: isolate;
+}
+[data-ui-table-scroller] {
+	position: relative;
+	width: 100%;
+	flex: 1;
+	overflow: auto;
+	scrollbar-width: thin;
+	scrollbar-color: var(--ui-text) var(--ui-bg);
+}
+[data-ui-table-scroller]::-webkit-scrollbar {
+	width: 10px;
+	height: 10px;
+}
+[data-ui-table-scroller]::-webkit-scrollbar-track {
+	border: 1px solid var(--ui-border, #64748b);
+	background: var(--ui-bg);
+}
+[data-ui-table-scroller]::-webkit-scrollbar-thumb {
+	border: 2px solid var(--ui-bg);
+	background: var(--ui-text);
+}
+[data-ui-table-element] {
+	width: 100%;
+	min-width: max-content;
+	border-collapse: collapse;
+	font-size: 0.875rem;
+}
+[data-ui-table-element] :where(th, td) {
+	height: 2.8125rem;
+	padding: 0 0.875rem;
+	border-right: 1px solid
+		color-mix(in srgb, var(--ui-border, #64748b), transparent 25%);
+	border-bottom: 1px solid
+		color-mix(in srgb, var(--ui-border, #64748b), transparent 25%);
+	text-align: start;
+	vertical-align: middle;
+	white-space: nowrap;
+}
+[data-ui-table-element] :where(th, td):last-child {
+	border-right: 0;
+}
+[data-ui-table-element] th {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	background: var(--ui-bg);
+	font-size: 0.75rem;
+	font-weight: 700;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	user-select: none;
+}
+[data-ui-table-element] th[data-ui-table-sortable] {
+	cursor: pointer;
+}
+[data-ui-table-element] th[data-ui-table-sortable]:hover {
+	background: color-mix(in srgb, var(--ui-text), transparent 95%);
+}
+[data-ui-table-element] th[data-ui-table-sortable]::after {
+	margin-inline-start: 0.5rem;
+	content: "⇅";
+	opacity: 0.35;
+}
+[data-ui-table-element] th[data-ui-table-sort="asc"]::after {
+	content: "▲";
+	opacity: 0.7;
+}
+[data-ui-table-element] th[data-ui-table-sort="desc"]::after {
+	content: "▼";
+	opacity: 0.7;
+}
+[data-ui-table-element] tbody tr {
+	transition: background-color 0.14s ease;
+}
+[data-ui-table-element] tbody tr:hover {
+	background: color-mix(in srgb, var(--ui-text), transparent 95%);
+}
+[data-ui-table-element] tbody tr:last-child td {
+	border-bottom: 0;
+}
+[data-ui-table-empty] {
+	position: absolute;
+	inset: 0;
+	display: grid;
+	place-items: center;
+	padding-top: 2.8125rem;
+	color: color-mix(in srgb, var(--ui-text), transparent 45%);
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-size: 0.875rem;
+	pointer-events: none;
+}
+</style>
+
+<script setup>
+const root = useRoot().querySelector("[data-ui-table]");
+const table = root && root.querySelector("[data-ui-table-element]");
+const empty = root && root.querySelector("[data-ui-table-empty]");
+if (!root || !table) return;
+const body = table.tBodies[0];
+const updateEmpty = () => {
+	if (empty) empty.hidden = !!(body && body.rows.length);
+};
+const headers = Array.from(
+	table.querySelectorAll("th[data-ui-table-sortable]"),
+);
+const listeners = headers.map((header, index) => {
+	const onClick = () => {
+		if (!body) return;
+		const next = header.dataset.uiTableSort === "asc" ? "desc" : "asc";
+		headers.forEach((current) => {
+			if (current !== header) delete current.dataset.uiTableSort;
+		});
+		header.dataset.uiTableSort = next;
+		const rows = Array.from(body.rows);
+		rows.sort((a, b) => {
+			const left = a.cells[index],
+				right = b.cells[index];
+			const aValue = (
+				(left && (left.dataset.sortValue || left.textContent)) ||
+				""
+			).trim();
+			const bValue = (
+				(right && (right.dataset.sortValue || right.textContent)) ||
+				""
+			).trim();
+			const aNumber = Number(aValue.replace(",", ".")),
+				bNumber = Number(bValue.replace(",", "."));
+			const result =
+				!Number.isNaN(aNumber) && !Number.isNaN(bNumber)
+					? aNumber - bNumber
+					: aValue.localeCompare(bValue, undefined, {
+							numeric: true,
+							sensitivity: "base",
+						});
+			return next === "asc" ? result : -result;
+		});
+		rows.forEach((row) => body.append(row));
+		root.dispatchEvent(
+			new CustomEvent("ui:table-sort", {
+				bubbles: true,
+				detail: { index, order: next, header },
+			}),
+		);
+	};
+	header.addEventListener("click", onClick);
+	header.tabIndex = 0;
+	const onKeydown = (event) => {
+		if (event.key === "Enter" || event.key === " ") {
+			event.preventDefault();
+			onClick();
+		}
+	};
+	header.addEventListener("keydown", onKeydown);
+	return () => {
+		header.removeEventListener("click", onClick);
+		header.removeEventListener("keydown", onKeydown);
+	};
+});
+updateEmpty();
+onUnmounted(() => listeners.forEach((remove) => remove()));
+</script>

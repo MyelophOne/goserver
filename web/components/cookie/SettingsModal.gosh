@@ -1,0 +1,632 @@
+<template>
+	<div hidden data-cookie-settings-overlay>
+		<section
+			role="dialog"
+			aria-modal="true"
+			:aria-label="cookieTexts.privacyTitle"
+			data-cookie-settings
+		>
+			<header data-cookie-settings-header>
+				<h2>{{ cookieTexts.privacyTitle }}</h2>
+				<button
+					type="button"
+					:aria-label="cookieTexts.close"
+					data-cookie-settings-close
+				>
+					×
+				</button>
+			</header>
+			<div data-cookie-settings-body>
+				<p data-cookie-settings-note>{{ cookieTexts.cookieNote }}</p>
+				<div data-cookie-categories>
+					<section data-cookie-category="necessary">
+						<div data-cookie-category-copy>
+							<div data-cookie-category-title>
+								<strong>{{ cookieTexts.necessary }}</strong
+								><small>{{ cookieTexts.alwaysOn }}</small>
+							</div>
+							<p>{{ cookieTexts.necessaryDesc }}</p>
+							<div data-cookie-services></div>
+						</div>
+						<UiToggler label="Necessary cookies" checked disabled />
+					</section>
+					<section data-cookie-category="analytics">
+						<div data-cookie-category-copy>
+							<div data-cookie-category-title>
+								<strong>{{ cookieTexts.analytics }}</strong>
+							</div>
+							<p>{{ cookieTexts.analyticsDesc }}</p>
+							<div data-cookie-services></div>
+						</div>
+						<UiToggler label="Analytics cookies" />
+					</section>
+					<section data-cookie-category="marketing">
+						<div data-cookie-category-copy>
+							<div data-cookie-category-title>
+								<strong>{{ cookieTexts.marketing }}</strong>
+							</div>
+							<p>{{ cookieTexts.marketingDesc }}</p>
+							<div data-cookie-services></div>
+						</div>
+						<UiToggler label="Marketing cookies" />
+					</section>
+					<section data-cookie-category="functional">
+						<div data-cookie-category-copy>
+							<div data-cookie-category-title>
+								<strong>{{ cookieTexts.functional }}</strong>
+							</div>
+							<p>{{ cookieTexts.functionalDesc }}</p>
+							<div data-cookie-services></div>
+						</div>
+						<UiToggler label="Functional cookies" />
+					</section>
+				</div>
+				<div m-if="cookieShowCookieList" data-cookie-list>
+					<button
+						type="button"
+						aria-expanded="false"
+						data-cookie-list-toggle
+					>
+						<span
+							>🍪 {{ cookieTexts.cookiesList }} (<span
+								data-cookie-count
+								>0</span
+							>)</span
+						><svg
+							aria-hidden="true"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								d="m6 9 6 6 6-6"
+							/>
+						</svg>
+					</button>
+					<div aria-hidden="true" data-cookie-list-reveal>
+						<div
+							data-cookie-list-body
+							:data-empty-message="cookieTexts.emptyList"
+						></div>
+					</div>
+				</div>
+			</div>
+			<footer data-cookie-settings-footer>
+				<span data-cookie-decline
+					><UiButton size="md" variant="ghost">{{
+						cookieTexts.declineAll
+					}}</UiButton></span
+				>
+				<div data-cookie-settings-primary-actions>
+					<span data-cookie-save
+						><UiButton size="md" variant="outline">{{
+							cookieTexts.savePrefs
+						}}</UiButton></span
+					><span data-cookie-settings-accept
+						><UiButton size="md" variant="solid">{{
+							cookieTexts.acceptAll
+						}}</UiButton></span
+					>
+				</div>
+			</footer>
+		</section>
+	</div>
+</template>
+<style>
+[data-cookie-settings-overlay] {
+	position: fixed;
+	z-index: 70;
+	inset: 0;
+	box-sizing: border-box;
+	display: grid;
+	place-items: center;
+	padding: 1rem;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	background: rgb(0 0 0 / 0.4);
+	backdrop-filter: blur(4px);
+	opacity: 0;
+	transition: opacity 0.15s ease-in;
+}
+[data-cookie-settings-overlay][data-open] {
+	opacity: 1;
+	transition-duration: 0.2s;
+	transition-timing-function: ease-out;
+}
+[data-cookie-settings] {
+	box-sizing: border-box;
+	width: min(48rem, 100%);
+	max-height: calc(100dvh - 2rem);
+	overflow: auto;
+	border: 1px solid var(--ui-border);
+	border-radius: 1rem;
+	background: var(--ui-surface);
+	color: var(--ui-text);
+	box-shadow: 0 1.5rem 4.375rem rgb(0 0 0 / 0.3);
+	opacity: 0;
+	transform: translateY(0.25rem) scale(0.95);
+	transition:
+		opacity 0.2s ease-in,
+		transform 0.2s ease-in;
+}
+[data-cookie-settings-overlay][data-open] [data-cookie-settings] {
+	opacity: 1;
+	transform: translateY(0) scale(1);
+	transition-duration: 0.3s;
+	transition-timing-function: ease-out;
+}
+[data-theme="dark"] [data-cookie-settings] {
+	border-color: #262626;
+	background: #0a0a0a;
+}
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) [data-cookie-settings] {
+		border-color: #262626;
+		background: #0a0a0a;
+	}
+}
+[data-cookie-settings-header] {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	padding: 1.25rem 1.875rem;
+	border-bottom: 1px solid var(--ui-border);
+}
+[data-cookie-settings-header] h2 {
+	margin: 0;
+	font-size: 1.125rem;
+	font-weight: 600;
+	line-height: 1.3;
+}
+[data-cookie-settings-close] {
+	width: 2rem;
+	height: 2rem;
+	margin: -0.375rem;
+	padding: 0;
+	border: 0;
+	border-radius: 0.375rem;
+	background: transparent;
+	color: color-mix(in srgb, var(--ui-text), transparent 42%);
+	font: inherit;
+	font-size: 1.75rem;
+	line-height: 1;
+	cursor: pointer;
+	transition:
+		color 0.15s ease,
+		background-color 0.15s ease;
+}
+[data-cookie-settings-close]:hover {
+	color: var(--ui-text);
+	background: color-mix(in srgb, var(--ui-text), transparent 94%);
+}
+[data-cookie-settings-body] {
+	display: grid;
+	gap: 1.25rem;
+	padding: 1.25rem 1.875rem;
+}
+[data-cookie-settings-note] {
+	margin: 0;
+	color: color-mix(in srgb, var(--ui-text), transparent 35%);
+	font-size: 0.875rem;
+	line-height: 1.625;
+}
+[data-cookie-categories] {
+	display: grid;
+	gap: 0.875rem;
+}
+[data-cookie-category] {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 1rem;
+	padding: 0.875rem 1.25rem;
+	border: 1px solid var(--ui-border);
+	border-radius: 0.75rem;
+	background: color-mix(in srgb, var(--ui-surface), var(--ui-text) 2%);
+	transition:
+		border-color 0.15s ease,
+		box-shadow 0.15s ease;
+}
+[data-cookie-category]:hover {
+	border-color: color-mix(in srgb, var(--ui-text), transparent 78%);
+	box-shadow: 0 0.125rem 0.25rem rgb(0 0 0 / 0.05);
+}
+[data-cookie-category-copy] {
+	min-width: 0;
+}
+[data-cookie-category-title] {
+	display: flex;
+	min-height: 1.5rem;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem;
+}
+[data-cookie-category] strong {
+	font-size: 1rem;
+	font-weight: 600;
+	line-height: 1;
+}
+[data-cookie-category] small {
+	color: color-mix(in srgb, var(--ui-text), transparent 48%);
+	font-size: 1rem;
+	font-weight: 400;
+	line-height: 1;
+}
+[data-cookie-category] p {
+	margin: 0.375rem 0 0;
+	color: color-mix(in srgb, var(--ui-text), transparent 38%);
+	font-size: 0.875rem;
+	line-height: 1.4;
+}
+[data-cookie-category] gosh-component {
+	flex: none;
+}
+[data-cookie-services] {
+	margin-top: 0.75rem;
+	color: color-mix(in srgb, var(--ui-text), transparent 48%);
+	font-size: 0.75rem;
+	line-height: 1.4;
+}
+[data-cookie-services]:empty {
+	display: none;
+}
+[data-cookie-services] span + span::before {
+	content: " · ";
+}
+[data-cookie-list] {
+	overflow: hidden;
+	border: 1px solid var(--ui-border);
+	border-radius: 0.75rem;
+	background: color-mix(in srgb, var(--ui-surface), var(--ui-text) 2%);
+}
+[data-cookie-list-toggle] {
+	display: flex;
+	width: 100%;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	padding: 1rem 1.25rem;
+	border: 0;
+	background: transparent;
+	color: color-mix(in srgb, var(--ui-text), transparent 22%);
+	font: inherit;
+	font-size: 0.875rem;
+	font-weight: 600;
+	line-height: 1.4;
+	text-align: left;
+	cursor: pointer;
+}
+[data-cookie-list-toggle] svg {
+	width: 1rem;
+	height: 1rem;
+	flex: none;
+	color: color-mix(in srgb, var(--ui-text), transparent 38%);
+	transition: transform 0.25s ease;
+}
+[data-cookie-list][data-open] [data-cookie-list-toggle] svg {
+	transform: rotate(180deg);
+}
+[data-cookie-list-reveal] {
+	display: grid;
+	grid-template-rows: 0fr;
+	opacity: 0;
+	transition:
+		grid-template-rows 0.25s ease,
+		opacity 0.2s ease;
+}
+[data-cookie-list][data-open] [data-cookie-list-reveal] {
+	grid-template-rows: 1fr;
+	opacity: 1;
+}
+[data-cookie-list-body] {
+	min-height: 0;
+	overflow: hidden;
+	margin: 0 1.25rem;
+	padding: 0;
+	border-top: 1px solid transparent;
+	color: color-mix(in srgb, var(--ui-text), transparent 42%);
+	font-size: 0.75rem;
+	line-height: 1.5;
+	transition:
+		margin 0.25s ease,
+		padding 0.25s ease,
+		border-color 0.25s ease;
+}
+[data-cookie-list][data-open] [data-cookie-list-body] {
+	max-height: 10rem;
+	margin-bottom: 1rem;
+	padding-top: 0.75rem;
+	overflow: auto;
+	border-top-color: var(--ui-border);
+}
+[data-cookie-list-body] > div {
+	overflow: hidden;
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+[data-cookie-list-empty] {
+	margin: 0;
+	font-style: italic;
+}
+[data-cookie-settings-footer] {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75rem;
+	padding: 1rem 1.875rem;
+	border-top: 1px solid var(--ui-border);
+}
+[data-cookie-settings-primary-actions] {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	gap: 0.75rem;
+}
+[data-cookie-settings-footer] gosh-component,
+[data-cookie-settings-footer] [data-ui-button] {
+	display: block;
+}
+[data-cookie-settings-footer] [data-ui-button] {
+	min-height: 0;
+	padding: 0.625rem 1rem;
+	border-radius: 0.5rem;
+	font-size: 0.875rem;
+	font-weight: 600;
+}
+[data-cookie-decline] [data-ui-button] {
+	color: color-mix(in srgb, var(--ui-text), transparent 36%);
+}
+[data-cookie-decline] [data-ui-button]:hover {
+	color: var(--ui-text);
+	background: color-mix(in srgb, var(--ui-text), transparent 94%);
+}
+[data-cookie-save] [data-ui-button] {
+	background: transparent;
+	box-shadow: 0 0.125rem 0.25rem rgb(0 0 0 / 0.05);
+	transition:
+		background-color 0.15s ease,
+		border-color 0.15s ease,
+		color 0.15s ease;
+}
+[data-cookie-save] [data-ui-button]:hover {
+	border-color: color-mix(in srgb, var(--ui-text), transparent 52%);
+	background: color-mix(in srgb, var(--ui-text), transparent 97%);
+}
+[data-cookie-settings-accept] {
+	--ui-control-bg: #171717;
+	--ui-text: #fff;
+	--ui-border: #171717;
+}
+[data-cookie-settings-accept] [data-ui-button] {
+	font-weight: 700;
+	box-shadow: 0 0.25rem 0.375rem rgb(0 0 0 / 0.12);
+	transition:
+		transform 0.15s ease,
+		background-color 0.15s ease;
+}
+[data-cookie-settings-accept] [data-ui-button]:active {
+	transform: scale(0.95);
+}
+[data-theme="dark"] [data-cookie-settings-accept] {
+	--ui-control-bg: #f5f5f5;
+	--ui-text: #0a0a0a;
+	--ui-border: #f5f5f5;
+}
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) [data-cookie-settings-accept] {
+		--ui-control-bg: #f5f5f5;
+		--ui-text: #0a0a0a;
+		--ui-border: #f5f5f5;
+	}
+}
+@media (max-width: 39.999rem) {
+	[data-cookie-settings-overlay] {
+		padding: 0.75rem;
+		place-items: end center;
+	}
+	[data-cookie-settings] {
+		max-height: calc(100dvh - 1.5rem);
+	}
+	[data-cookie-settings-header],
+	[data-cookie-settings-body],
+	[data-cookie-settings-footer] {
+		padding-right: 1.25rem;
+		padding-left: 1.25rem;
+	}
+	[data-cookie-settings-body] {
+		gap: 1.25rem;
+		padding-top: 1.25rem;
+		padding-bottom: 1.25rem;
+	}
+	[data-cookie-settings-footer] {
+		flex-direction: column-reverse;
+		align-items: stretch;
+	}
+	[data-cookie-settings-primary-actions] {
+		flex-direction: column;
+	}
+	[data-cookie-settings-footer] gosh-component,
+	[data-cookie-settings-footer] [data-ui-button] {
+		width: 100%;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	[data-cookie-list-reveal],
+	[data-cookie-list-body],
+	[data-cookie-list-toggle] svg {
+		transition: none;
+	}
+}
+</style>
+<script setup>
+const overlay = useRoot().querySelector("[data-cookie-settings-overlay]");
+if (!overlay) return;
+const store = useStore("cookies");
+if (!store) return;
+const config = store.getState().config,
+	scripts = config.scripts || {},
+	categories = ["necessary", "analytics", "marketing", "functional"],
+	list = overlay.querySelector("[data-cookie-list]");
+let lastFocused = null;
+const toggler = (category) =>
+	overlay.querySelector(
+		'[data-cookie-category="' + category + '"] [data-ui-toggler]',
+	);
+const setToggler = (category, checked) => {
+	const button = toggler(category);
+	if (!button) return;
+	button.setAttribute("aria-checked", String(checked));
+	button.toggleAttribute("data-on", checked);
+};
+categories.forEach((category) => {
+	const section = overlay.querySelector(
+			'[data-cookie-category="' + category + '"]',
+		),
+		services = scripts[category] || [];
+	if (
+		category !== "necessary" &&
+		category !== "functional" &&
+		!services.length
+	)
+		section.hidden = true;
+	const target = section.querySelector("[data-cookie-services]");
+	services.forEach((service) => {
+		const item = document.createElement("span");
+		item.textContent = service.name || service.id;
+		target.append(item);
+	});
+});
+const cookieList = () => {
+	const body = overlay.querySelector("[data-cookie-list-body]"),
+		count = overlay.querySelector("[data-cookie-count]");
+	if (!body || !count) return;
+	body.replaceChildren();
+	const values = document.cookie
+		? document.cookie
+				.split(";")
+				.map((value) => value.trim())
+				.filter(Boolean)
+		: [];
+	count.textContent = String(values.length);
+	if (!values.length) {
+		const empty = document.createElement("p");
+		empty.dataset.cookieListEmpty = "";
+		empty.textContent = body.dataset.emptyMessage || "";
+		body.append(empty);
+		return;
+	}
+	values.forEach((value) => {
+		const line = document.createElement("div");
+		line.textContent = value;
+		body.append(line);
+	});
+};
+const setListOpen = (open) => {
+	if (!list) return;
+	list.toggleAttribute("data-open", open);
+	list.querySelector("[data-cookie-list-toggle]").setAttribute(
+		"aria-expanded",
+		String(open),
+	);
+	list.querySelector("[data-cookie-list-reveal]").setAttribute(
+		"aria-hidden",
+		String(!open),
+	);
+};
+const render = () => {
+	const state = store.getState(),
+		open = state.settingsOpen;
+	if (open && !lastFocused) {
+		lastFocused = document.activeElement;
+		cookieList();
+	}
+	if (open)
+		categories.forEach((category) =>
+			setToggler(category, state.draftPreferences[category] === true),
+		);
+	if (open) {
+		overlay.hidden = false;
+		requestAnimationFrame(() => {
+			if (store.getState().settingsOpen) overlay.dataset.open = "true";
+		});
+	} else {
+		delete overlay.dataset.open;
+	}
+	document.documentElement.style.overflow = open ? "hidden" : "";
+	document.body.style.overflow = open ? "hidden" : "";
+	if (!open && lastFocused) {
+		if (lastFocused.focus) lastFocused.focus();
+		lastFocused = null;
+	}
+};
+const close = () => store.getState().closeSettings(),
+	decline = () => store.getState().declineAll(),
+	accept = () => store.getState().acceptAll(),
+	save = () => store.getState().savePreferences();
+const onBackdrop = (event) => {
+		if (event.target === overlay) close();
+	},
+	onKey = (event) => {
+		if (event.key === "Escape" && !overlay.hidden) close();
+	},
+	onListToggle = () => setListOpen(!list.hasAttribute("data-open")),
+	onTogglerChange = (event) => {
+		const button = event.target.closest("[data-ui-toggler]"),
+			section = button && button.closest("[data-cookie-category]");
+		if (section)
+			store
+				.getState()
+				.setDraftPreference(
+					section.dataset.cookieCategory,
+					event.detail.checked,
+				);
+	},
+	onTransitionEnd = (event) => {
+		if (
+			event.target === overlay &&
+			event.propertyName === "opacity" &&
+			!store.getState().settingsOpen
+		)
+			overlay.hidden = true;
+	};
+overlay
+	.querySelector("[data-cookie-settings-close]")
+	.addEventListener("click", close);
+overlay
+	.querySelector("[data-cookie-decline]")
+	.addEventListener("click", decline);
+overlay.querySelector("[data-cookie-save]").addEventListener("click", save);
+overlay
+	.querySelector("[data-cookie-settings-accept]")
+	.addEventListener("click", accept);
+if (list)
+	list.querySelector("[data-cookie-list-toggle]").addEventListener(
+		"click",
+		onListToggle,
+	);
+overlay.addEventListener("click", onBackdrop);
+overlay.addEventListener("ui:toggler-change", onTogglerChange);
+overlay.addEventListener("transitionend", onTransitionEnd);
+document.addEventListener("keydown", onKey);
+const unsubscribe = store.subscribe(render);
+render();
+onUnmounted(() => {
+	unsubscribe();
+	document.documentElement.style.overflow = "";
+	document.body.style.overflow = "";
+	document.removeEventListener("keydown", onKey);
+	overlay.removeEventListener("click", onBackdrop);
+	overlay.removeEventListener("ui:toggler-change", onTogglerChange);
+	overlay.removeEventListener("transitionend", onTransitionEnd);
+	if (list)
+		list.querySelector("[data-cookie-list-toggle]").removeEventListener(
+			"click",
+			onListToggle,
+		);
+});
+</script>

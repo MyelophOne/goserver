@@ -1,0 +1,182 @@
+<!-- @server ./system/logic/logo_slider.go#ViewLogoSliderData -->
+<template>
+	<div
+		:id="id"
+		:class="logoSliderClasses"
+		:style="logoSliderStyle"
+		:data-grayscale="logoSliderGrayscale"
+		:aria-label="logoSliderLabel"
+		role="region"
+		data-view-logo-slider
+	>
+		<span aria-hidden="true" data-view-logo-slider-fade="start"></span
+		><span aria-hidden="true" data-view-logo-slider-fade="end"></span>
+		<div data-view-logo-slider-viewport>
+			<div data-view-logo-slider-track>
+				<div data-view-logo-slider-source><slot /></div>
+			</div>
+		</div>
+	</div>
+</template>
+
+<style>
+@keyframes view-logo-slider-scroll {
+	from {
+		transform: translate3d(0, 0, 0);
+	}
+	to {
+		transform: translate3d(
+			calc(-1 * var(--view-logo-slider-distance)),
+			0,
+			0
+		);
+	}
+}
+[data-view-logo-slider] {
+	position: relative;
+	width: 100%;
+	overflow: hidden;
+	padding-block: 0.5rem;
+	color: var(--ui-text);
+	background: var(--ui-bg);
+}
+[data-view-logo-slider-fade] {
+	position: absolute;
+	z-index: 2;
+	top: 0;
+	bottom: 0;
+	width: 3rem;
+	pointer-events: none;
+}
+[data-view-logo-slider-fade="start"] {
+	left: 0;
+	background: linear-gradient(to right, var(--ui-bg), transparent);
+}
+[data-view-logo-slider-fade="end"] {
+	right: 0;
+	background: linear-gradient(to left, var(--ui-bg), transparent);
+}
+[data-view-logo-slider-viewport] {
+	overflow: hidden;
+	user-select: none;
+}
+[data-view-logo-slider-track] {
+	display: flex;
+	width: max-content;
+	animation: view-logo-slider-scroll var(--view-logo-slider-duration) linear
+		infinite;
+	will-change: transform;
+}
+[data-view-logo-slider]:hover [data-view-logo-slider-track] {
+	animation-play-state: paused;
+}
+[data-view-logo-slider-source] {
+	display: flex;
+	min-width: 100%;
+	flex: none;
+	align-items: center;
+	justify-content: space-around;
+	gap: 1.5rem;
+}
+[data-view-logo-slider-item] {
+	display: flex;
+	width: 6rem;
+	height: 2.5rem;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	padding: 0.25rem;
+}
+a[data-view-logo-slider-item] {
+	cursor: pointer;
+}
+[data-view-logo-slider] gosh-component,
+[data-view-logo-slider] [data-ui-image-loader] {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+.view-logo-slider-image {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+	opacity: 0.9;
+	transition:
+		filter 0.3s ease,
+		opacity 0.3s ease;
+}
+[data-view-logo-slider][data-grayscale] .view-logo-slider-image {
+	filter: grayscale(1);
+	opacity: 0.7;
+}
+[data-view-logo-slider][data-grayscale]
+	a[data-view-logo-slider-item]:hover
+	.view-logo-slider-image {
+	filter: grayscale(0);
+	opacity: 1;
+}
+a[data-view-logo-slider-item]:hover .view-logo-slider-image {
+	opacity: 1;
+}
+@media (min-width: 640px) {
+	[data-view-logo-slider] {
+		padding-block: 1rem;
+	}
+	[data-view-logo-slider-fade] {
+		width: 5rem;
+	}
+	[data-view-logo-slider-source] {
+		gap: 2.5rem;
+	}
+	[data-view-logo-slider-item] {
+		width: 8rem;
+		height: 3.5rem;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	[data-view-logo-slider-track] {
+		animation: none;
+	}
+}
+</style>
+
+<script setup>
+const root = useRoot().querySelector("[data-view-logo-slider]");
+if (!root) return;
+const css = window._gosh.setStyleProperty,
+	track = root.querySelector("[data-view-logo-slider-track]"),
+	source = root.querySelector("[data-view-logo-slider-source]");
+if (!track || !source) return;
+const rebuild = () => {
+	track.replaceChildren(source);
+	const width = source.getBoundingClientRect().width;
+	if (!width) return;
+	const copies = Math.max(
+		1,
+		Math.ceil((root.getBoundingClientRect().width * 2) / width),
+	);
+	for (let index = 0; index < copies; index += 1) {
+		const clone = source.cloneNode(true);
+		clone.setAttribute("aria-hidden", "true");
+		clone.querySelectorAll("img[data-ui-image-src]").forEach((image) => {
+			const src = image.getAttribute("data-ui-image-src");
+			if (src) image.setAttribute("src", src);
+			image.classList.add("image-visible");
+			const loader = image.closest("[data-ui-image-loader]");
+			if (loader) loader.classList.add("image-loaded");
+		});
+		track.appendChild(clone);
+	}
+	css(track, "--view-logo-slider-distance", `${width}px`);
+};
+rebuild();
+let observer;
+if (typeof ResizeObserver !== "undefined") {
+	observer = new ResizeObserver(rebuild);
+	observer.observe(root);
+}
+onUnmounted(() => {
+	if (observer) observer.disconnect();
+});
+</script>

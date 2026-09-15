@@ -1,0 +1,212 @@
+<!-- @server ./system/logic/icons.go#UiTextareaData -->
+<template>
+	<div :class="class" data-ui-textarea-wrap>
+		<label m-if="hasLabel" :for="textareaID" data-ui-textarea-label>{{
+			label
+		}}</label>
+
+		<div
+			m-if="buttonsInside"
+			:data-error="hasError"
+			data-ui-textarea-container
+		>
+			<textarea
+				:id="textareaID"
+				:name="name"
+				:rows="textareaRows"
+				:placeholder="textareaPlaceholder"
+				:disabled="disabled"
+				:readonly="readonly"
+				:required="required"
+				:maxlength="maxlength"
+				:minlength="minlength"
+				:aria-describedby="ariaDescribedby"
+				:aria-invalid="ariaInvalid"
+				data-ui-textarea
+				>{{ textareaValue }}</textarea>
+			<div data-ui-textarea-actions>
+				<button
+					m-if="showClearButton"
+					type="button"
+					data-ui-textarea-clear
+				>
+					{{ clearButtonText }}
+				</button>
+				<button
+					m-if="showSaveButton"
+					type="button"
+					data-ui-textarea-save
+				>
+					{{ saveButtonText }}
+				</button>
+			</div>
+		</div>
+
+		<textarea
+			m-if="buttonsNotInside"
+			:id="textareaID"
+			:name="name"
+			:rows="textareaRows"
+			:placeholder="textareaPlaceholder"
+			:disabled="disabled"
+			:readonly="readonly"
+			:required="required"
+			:maxlength="maxlength"
+			:minlength="minlength"
+			:aria-describedby="ariaDescribedby"
+			:aria-invalid="ariaInvalid"
+			:data-error="hasError"
+			data-ui-textarea
+			>{{ textareaValue }}</textarea>
+		<div
+			m-if="buttonsOutside"
+			data-ui-textarea-actions
+			data-ui-textarea-actions-outside
+		>
+			<button m-if="showClearButton" type="button" data-ui-textarea-clear>
+				{{ clearButtonText }}
+			</button>
+			<button m-if="showSaveButton" type="button" data-ui-textarea-save>
+				{{ saveButtonText }}
+			</button>
+		</div>
+	</div>
+</template>
+
+<style scoped>
+[data-ui-textarea-wrap] {
+	display: block;
+	color: var(--ui-text);
+}
+[data-ui-textarea-label] {
+	display: block;
+	margin-bottom: 0.25rem;
+	color: var(--ui-text);
+	font-size: 0.875rem;
+	font-weight: 500;
+	line-height: 1.25;
+}
+[data-ui-textarea-container] {
+	overflow: hidden;
+	border: 1px solid var(--ui-border, #cbd5e1);
+	border-radius: 0.375rem;
+	background: var(--ui-control-bg, var(--ui-surface, var(--ui-bg)));
+	transition:
+		border-color 0.15s ease,
+		box-shadow 0.15s ease;
+}
+[data-ui-textarea] {
+	box-sizing: border-box;
+	display: block;
+	width: 100%;
+	min-height: 2.75rem;
+	padding: 0.625rem 0.75rem;
+	border: 1px solid var(--ui-border, #cbd5e1);
+	border-radius: 0.375rem;
+	outline: none;
+	resize: vertical;
+	background: var(--ui-control-bg, var(--ui-surface, var(--ui-bg)));
+	color: var(--ui-text);
+	font: inherit;
+	font-size: 0.875rem;
+	line-height: 1.5;
+	transition:
+		border-color 0.15s ease,
+		box-shadow 0.15s ease;
+}
+[data-ui-textarea-container] [data-ui-textarea] {
+	padding-bottom: 0.625rem;
+	border: 0;
+	border-radius: 0;
+	resize: none;
+	background: transparent;
+}
+[data-ui-textarea]::placeholder {
+	color: color-mix(in srgb, var(--ui-text), transparent 60%);
+}
+[data-ui-textarea-wrap] > [data-ui-textarea]:focus,
+[data-ui-textarea-container]:focus-within {
+	border-color: var(--ui-focus, #2563eb);
+	box-shadow: none;
+}
+[data-ui-textarea][data-error],
+[data-ui-textarea-container][data-error] {
+	border-color: #ef4444;
+}
+[data-ui-textarea-wrap] > [data-ui-textarea][data-error]:focus,
+[data-ui-textarea-container][data-error]:focus-within {
+	border-color: #ef4444;
+	box-shadow: none;
+}
+[data-ui-textarea]:disabled {
+	cursor: not-allowed;
+	opacity: 0.6;
+}
+[data-ui-textarea-actions] {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 0.5rem;
+	padding: 0.375rem;
+}
+[data-ui-textarea-actions-outside] {
+	margin-top: 0.5rem;
+	padding: 0;
+}
+[data-ui-textarea-actions] button {
+	border: 1px solid transparent;
+	border-radius: 0.375rem;
+	padding: 0.375rem 0.75rem;
+	background: transparent;
+	color: var(--ui-text);
+	font: inherit;
+	font-size: 0.875rem;
+	font-weight: 500;
+	line-height: 1.25;
+	cursor: pointer;
+	transition:
+		opacity 0.15s ease,
+		background-color 0.15s ease;
+}
+[data-ui-textarea-actions] button:hover {
+	opacity: 0.8;
+}
+[data-ui-textarea-actions] [data-ui-textarea-save] {
+	border-color: var(--ui-border, #cbd5e1);
+	background: var(--ui-control-bg, var(--ui-surface, var(--ui-bg)));
+}
+[data-ui-textarea-actions] button:focus-visible {
+	border-color: var(--ui-focus, #2563eb);
+	box-shadow: none;
+	outline: none;
+}
+</style>
+
+<script setup>
+const root = useRoot().querySelector("[data-ui-textarea-wrap]");
+if (!root) return;
+const textarea = root.querySelector("[data-ui-textarea]");
+if (!textarea) return;
+const clear = root.querySelector("[data-ui-textarea-clear]");
+const save = root.querySelector("[data-ui-textarea-save]");
+const emit = (name) =>
+	root.dispatchEvent(
+		new CustomEvent(name, {
+			bubbles: true,
+			detail: { value: textarea.value, textarea },
+		}),
+	);
+const onClear = () => {
+	textarea.value = "";
+	textarea.dispatchEvent(new Event("input", { bubbles: true }));
+	emit("ui:textarea-clear");
+	textarea.focus();
+};
+const onSave = () => emit("ui:textarea-save");
+if (clear) clear.addEventListener("click", onClear);
+if (save) save.addEventListener("click", onSave);
+onUnmounted(() => {
+	if (clear) clear.removeEventListener("click", onClear);
+	if (save) save.removeEventListener("click", onSave);
+});
+</script>

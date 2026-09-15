@@ -1,0 +1,134 @@
+<template>
+	<div
+		:id="id"
+		:class="class"
+		:data-default-image="defaultImage"
+		:data-image-position="imagePosition"
+		:data-mobile-order="mobileOrder"
+		:data-hide-image-mobile="hideImageOnMobile"
+		data-ui-feature-accordion
+	>
+		<div data-ui-feature-accordion-image-wrap>
+			<UiImageWithLoader
+				:src="defaultImage"
+				alt=""
+				img-class="ui-feature-accordion-image"
+				loading="eager"
+			/>
+		</div>
+		<div data-ui-feature-accordion-content><slot /></div>
+	</div>
+</template>
+
+<style scoped>
+[data-ui-feature-accordion] {
+	display: grid;
+	grid-template-columns: 1fr;
+	align-items: start;
+	gap: 2rem;
+	width: 100%;
+}
+[data-ui-feature-accordion-image-wrap] {
+	position: relative;
+	aspect-ratio: 4 / 3;
+	width: 100%;
+	overflow: hidden;
+	border-radius: 1rem;
+	background: color-mix(in srgb, var(--ui-text), transparent 92%);
+	order: 1;
+}
+[data-ui-feature-accordion-image-wrap] gosh-component,
+[data-ui-feature-accordion-image-wrap] [data-ui-image-loader] {
+	position: absolute;
+	inset: 0;
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+[data-ui-feature-accordion-image-wrap] img {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	opacity: 1;
+	transition: opacity 0.25s ease;
+}
+[data-ui-feature-accordion-image-wrap] img.is-changing {
+	opacity: 0;
+}
+[data-ui-feature-accordion-content] {
+	display: flex;
+	min-width: 0;
+	flex-direction: column;
+	order: 2;
+}
+[data-ui-feature-accordion][data-mobile-order="text-first"]
+	[data-ui-feature-accordion-image-wrap] {
+	order: 2;
+}
+[data-ui-feature-accordion][data-mobile-order="text-first"]
+	[data-ui-feature-accordion-content] {
+	order: 1;
+}
+@media (max-width: 767px) {
+	[data-ui-feature-accordion][data-hide-image-mobile]
+		[data-ui-feature-accordion-image-wrap] {
+		display: none;
+	}
+}
+@media (min-width: 768px) {
+	[data-ui-feature-accordion] {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 4rem;
+	}
+	[data-ui-feature-accordion-image-wrap] {
+		aspect-ratio: 1;
+		order: 2;
+	}
+	[data-ui-feature-accordion-content] {
+		order: 1;
+	}
+	[data-ui-feature-accordion][data-image-position="left"]
+		[data-ui-feature-accordion-image-wrap] {
+		order: 1;
+	}
+	[data-ui-feature-accordion][data-image-position="left"]
+		[data-ui-feature-accordion-content] {
+		order: 2;
+	}
+}
+</style>
+
+<script setup>
+const root = useRoot().querySelector("[data-ui-feature-accordion]");
+if (!root) return;
+const image = root.querySelector("[data-ui-image]");
+const items = () =>
+	Array.from(root.querySelectorAll("[data-ui-feature-accordion-item]"));
+const activate = (item) => {
+	if (!item) return;
+	items().forEach((candidate) =>
+		candidate.toggleAttribute("data-active", candidate === item),
+	);
+	const source = item.dataset.image || root.dataset.defaultImage || "";
+	if (!image) return;
+	image.classList.add("is-changing");
+	image.alt = item.dataset.title || "";
+	const reveal = () => {
+		image.classList.remove("is-changing");
+		image.classList.add("image-visible");
+	};
+	image.addEventListener("load", reveal, { once: true });
+	image.setAttribute("data-ui-image-src", source);
+	image.src = source;
+	if (image.complete) reveal();
+};
+const initial =
+	items().find((item) => item.hasAttribute("data-active")) || items()[0];
+activate(initial);
+const onActivate = (event) => activate(event.detail && event.detail.item);
+root.addEventListener("ui:feature-accordion-activate", onActivate);
+onUnmounted(() =>
+	root.removeEventListener("ui:feature-accordion-activate", onActivate),
+);
+</script>

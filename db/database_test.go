@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type mockLogger struct {
@@ -158,11 +159,11 @@ func TestHelperFunctions(t *testing.T) {
 			err      error
 			expected bool
 		}{
-			{"serialization_failure", fmt.Errorf("serialization_failure: could not serialize"), true},
-			{"deadlock_detected", fmt.Errorf("deadlock_detected"), true},
-			{"lock_not_available", fmt.Errorf("lock_not_available"), true},
-			{"connection_failure", fmt.Errorf("connection_failure"), true},
-			{"could not serialize", fmt.Errorf("could not serialize"), true},
+			{"serialization_failure", fmt.Errorf("wrapped: %w", &pgconn.PgError{Code: "40001"}), true},
+			{"deadlock_detected", &pgconn.PgError{Code: "40P01"}, true},
+			{"lock_not_available", &pgconn.PgError{Code: "55P03"}, false},
+			{"connection_failure", &pgconn.PgError{Code: "08006"}, false},
+			{"could not serialize", fmt.Errorf("could not serialize"), false},
 			{"normal error", fmt.Errorf("normal error"), false},
 			{"nil error", nil, false},
 		}
@@ -597,13 +598,13 @@ func TestErrorTypes(t *testing.T) {
 		{
 			name:         "serialization_failure",
 			errMsg:       "serialization_failure: could not serialize access due to concurrent update",
-			isRetryable:  true,
+			isRetryable:  false,
 			isConnection: false,
 		},
 		{
 			name:         "deadlock_detected",
 			errMsg:       "deadlock_detected",
-			isRetryable:  true,
+			isRetryable:  false,
 			isConnection: false,
 		},
 		{

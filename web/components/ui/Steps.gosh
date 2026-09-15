@@ -1,0 +1,584 @@
+<!-- @server ./system/logic/icons.go#UiStepsData -->
+<template>
+	<div
+		:id="id"
+		:class="class"
+		:data-variant="stepsVariant"
+		:data-placement="stepsPlacement"
+		:data-align="stepsAlign"
+		:data-clickable="stepsClickable"
+		:data-linear="stepsLinear"
+		:data-require-previous="stepsRequirePrevious"
+		:data-stack-mobile="stepsStackOnMobile"
+		data-ui-steps
+	>
+		<nav :aria-label="stepsAriaLabel" data-ui-steps-navigation>
+			<div data-ui-steps-progress>
+				<div data-ui-steps-progress-meta>
+					<span data-ui-steps-progress-title></span
+					><span data-ui-steps-progress-count></span>
+				</div>
+				<div data-ui-steps-progress-track>
+					<span role="progressbar" data-ui-steps-progress-fill></span
+					><span data-ui-steps-progress-targets></span>
+				</div>
+			</div>
+			<ol data-ui-steps-list>
+				<slot />
+			</ol>
+		</nav>
+		<div tabindex="0" role="region" data-ui-steps-panel hidden></div>
+	</div>
+</template>
+
+<style>
+[data-ui-steps] {
+	--ui-steps-accent: var(--ui-primary, #00a968);
+	--ui-steps-muted: color-mix(in srgb, var(--ui-text) 46%, transparent);
+	--ui-steps-border: color-mix(in srgb, var(--ui-text) 16%, transparent);
+	--ui-steps-surface: color-mix(in srgb, var(--ui-bg) 92%, var(--ui-text) 8%);
+	display: flex;
+	width: 100%;
+	min-width: 0;
+	flex-direction: column;
+	gap: 1.25rem;
+	color: var(--ui-text);
+}
+[data-ui-steps][data-placement="bottom"] [data-ui-steps-navigation] {
+	order: 2;
+}
+[data-ui-steps][data-align="start"] [data-ui-steps-navigation] {
+	align-self: flex-start;
+}
+[data-ui-steps][data-align="center"] [data-ui-steps-navigation] {
+	align-self: center;
+}
+[data-ui-steps][data-align="end"] [data-ui-steps-navigation] {
+	align-self: flex-end;
+}
+[data-ui-steps-navigation] {
+	min-width: 0;
+	max-width: 100%;
+}
+[data-ui-steps-list] {
+	display: flex;
+	max-width: 100%;
+	margin: 0;
+	padding: 0.3rem;
+	list-style: none;
+}
+[data-ui-steps][data-align="start"] [data-ui-steps-list] {
+	justify-content: flex-start;
+}
+[data-ui-steps][data-align="center"] [data-ui-steps-list] {
+	justify-content: center;
+}
+[data-ui-steps][data-align="end"] [data-ui-steps-list] {
+	justify-content: flex-end;
+}
+[data-ui-steps-list] > gosh-component {
+	display: block;
+	min-width: 0;
+}
+[data-ui-step] {
+	min-width: 0;
+}
+[data-ui-steps][data-variant="steps"] [data-ui-steps-list] {
+	align-items: flex-start;
+	overflow-x: auto;
+	scrollbar-width: thin;
+}
+[data-ui-steps][data-variant="steps"] [data-ui-step] {
+	width: max-content;
+	max-width: 10rem;
+}
+[data-ui-step-button] {
+	display: flex;
+	min-width: 0;
+	padding: 0;
+	border: 0;
+	color: inherit;
+	background: transparent;
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+[data-ui-step-button]:disabled {
+	cursor: not-allowed;
+}
+[data-ui-step-button]:focus-visible,
+[data-ui-steps-progress-target]:focus-visible {
+	outline: 2px solid var(--ui-focus, var(--ui-steps-accent));
+	outline-offset: 0.3rem;
+	border-radius: 0.5rem;
+}
+[data-ui-steps][data-variant="steps"] [data-ui-step-button] {
+	flex-direction: column;
+	align-items: center;
+	gap: 0.55rem;
+	text-align: center;
+}
+[data-ui-step-marker] {
+	display: inline-flex;
+	width: 2.35rem;
+	height: 2.35rem;
+	flex: 0 0 2.35rem;
+	align-items: center;
+	justify-content: center;
+	border: 2px solid var(--ui-steps-border);
+	border-radius: 999px;
+	color: var(--ui-steps-muted);
+	background: var(--ui-bg);
+	font-size: 0.85rem;
+	font-weight: 800;
+	transition: 0.16s ease;
+}
+[data-ui-step-copy] {
+	display: flex;
+	min-width: 0;
+	flex-direction: column;
+	gap: 0.18rem;
+}
+[data-ui-step-title] {
+	font-size: 0.9rem;
+	font-weight: 700;
+	line-height: 1.25;
+}
+[data-ui-step-description] {
+	color: var(--ui-steps-muted);
+	font-size: 0.78rem;
+	line-height: 1.3;
+}
+[data-ui-step][data-status="active"] [data-ui-step-marker] {
+	border-color: var(--ui-steps-accent);
+	color: #fff;
+	background: var(--ui-steps-accent);
+	box-shadow: 0 0 0 0.25rem
+		color-mix(in srgb, var(--ui-steps-accent) 18%, transparent);
+}
+[data-ui-step][data-status="completed"] [data-ui-step-marker] {
+	border-color: var(--ui-steps-accent);
+	color: var(--ui-steps-accent);
+}
+[data-ui-step][data-status="locked"] [data-ui-step-button],
+[data-ui-step][data-status="upcoming"] [data-ui-step-button]:disabled {
+	opacity: 0.48;
+}
+[data-ui-steps][data-variant="steps"] [data-ui-step]:not(:last-child)::after {
+	display: block;
+	width: clamp(1.5rem, 5vw, 5rem);
+	height: 2px;
+	margin: -1.75rem -5rem 0 calc(100% + 0.35rem);
+	background: var(--ui-steps-border);
+	content: "";
+}
+[data-ui-steps][data-variant="steps"]
+	[data-ui-step][data-status="completed"]:not(:last-child)::after {
+	background: var(--ui-steps-accent);
+}
+[data-ui-steps][data-variant="cards"] [data-ui-steps-navigation] {
+	width: 100%;
+}
+[data-ui-steps][data-variant="cards"] [data-ui-steps-list] {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr));
+	gap: 0.75rem;
+	padding: 0;
+}
+[data-ui-steps][data-variant="cards"] [data-ui-step-button] {
+	width: 100%;
+	height: 100%;
+	align-items: flex-start;
+	gap: 0.85rem;
+	padding: 1rem;
+	border: 1px solid var(--ui-steps-border);
+	border-radius: 0.8rem;
+	background: var(--ui-steps-surface);
+	transition:
+		border-color 0.16s ease,
+		box-shadow 0.16s ease,
+		transform 0.16s ease;
+}
+[data-ui-steps][data-variant="cards"]
+	[data-ui-step-button]:not(:disabled):hover {
+	transform: translateY(-1px);
+	border-color: color-mix(
+		in srgb,
+		var(--ui-steps-accent) 55%,
+		var(--ui-steps-border)
+	);
+}
+[data-ui-steps][data-variant="cards"]
+	[data-ui-step][data-status="active"]
+	[data-ui-step-button] {
+	border-color: var(--ui-steps-accent);
+	box-shadow: 0 0 0 2px
+		color-mix(in srgb, var(--ui-steps-accent) 18%, transparent);
+}
+[data-ui-steps-progress] {
+	display: none;
+	width: min(32rem, calc(100vw - 2rem));
+}
+[data-ui-steps][data-variant="progress"] [data-ui-steps-list] {
+	display: none;
+}
+[data-ui-steps][data-variant="progress"] [data-ui-steps-progress] {
+	display: block;
+}
+[data-ui-steps-progress-meta] {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 1rem;
+	margin-bottom: 0.65rem;
+}
+[data-ui-steps-progress-title] {
+	min-width: 0;
+	font-weight: 700;
+}
+[data-ui-steps-progress-count] {
+	flex: none;
+	color: var(--ui-steps-muted);
+	font-size: 0.8rem;
+}
+[data-ui-steps-progress-track] {
+	position: relative;
+	height: 0.5rem;
+	border-radius: 999px;
+	background: var(--ui-steps-border);
+}
+[data-ui-steps-progress-fill] {
+	position: absolute;
+	inset: 0 auto 0 0;
+	width: 0;
+	border-radius: inherit;
+	background: var(--ui-steps-accent);
+	transition: width 0.22s ease;
+}
+[data-ui-steps-progress-targets] {
+	position: absolute;
+	inset: -0.65rem 0;
+	display: grid;
+}
+[data-ui-steps-progress-target] {
+	min-width: 0;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	cursor: pointer;
+}
+[data-ui-steps-progress-target]:disabled {
+	cursor: default;
+}
+[data-ui-steps-panel] {
+	min-width: 0;
+	animation: ui-steps-panel-in 0.16s ease;
+}
+@keyframes ui-steps-panel-in {
+	from {
+		opacity: 0;
+		transform: translateY(0.25rem);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+@media (max-width: 640px) {
+	[data-ui-steps][data-stack-mobile] [data-ui-steps-navigation],
+	[data-ui-steps][data-stack-mobile] [data-ui-steps-progress] {
+		width: 100%;
+	}
+	[data-ui-steps][data-stack-mobile][data-variant="steps"]
+		[data-ui-steps-list] {
+		width: 100%;
+		flex-direction: column;
+		overflow: visible;
+	}
+	[data-ui-steps][data-stack-mobile][data-variant="steps"] [data-ui-step] {
+		width: 100%;
+		max-width: none;
+	}
+	[data-ui-steps][data-stack-mobile][data-variant="steps"]
+		[data-ui-step-button] {
+		width: 100%;
+		flex-direction: row;
+		align-items: center;
+		text-align: left;
+	}
+	[data-ui-steps][data-stack-mobile][data-variant="steps"]
+		[data-ui-step]:not(:last-child)::after {
+		width: 2px;
+		height: 1.25rem;
+		margin: 0.25rem 0 0.25rem 1.12rem;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	[data-ui-step-marker],
+	[data-ui-step-button],
+	[data-ui-steps-progress-fill],
+	[data-ui-steps-panel] {
+		animation: none;
+		transition: none;
+	}
+}
+</style>
+
+<script setup>
+const root = useRoot().querySelector("[data-ui-steps]");
+if (!root) return;
+const css = window._gosh.setStyleProperty,
+	panel = root.querySelector("[data-ui-steps-panel]"),
+	fill = root.querySelector("[data-ui-steps-progress-fill]"),
+	progressTitle = root.querySelector("[data-ui-steps-progress-title]"),
+	progressCount = root.querySelector("[data-ui-steps-progress-count]"),
+	targets = root.querySelector("[data-ui-steps-progress-targets]");
+const items = Array.from(root.querySelectorAll("[data-ui-step]"));
+if (!items.length) return;
+const base = root.id || "ui-steps-" + Math.random().toString(36).slice(2, 8);
+root.id = base;
+let active = items.findIndex(
+	(item) =>
+		item.hasAttribute("data-active") && !item.hasAttribute("data-disabled"),
+);
+if (active < 0)
+	active = items.findIndex((item) => !item.hasAttribute("data-disabled"));
+const completed = new Set(
+	items
+		.filter((item) => item.hasAttribute("data-completed"))
+		.map((item) => item.dataset.value),
+);
+const previousEnabled = (index) => {
+	for (let current = index - 1; current >= 0; current -= 1)
+		if (!items[current].hasAttribute("data-disabled")) return current;
+	return -1;
+};
+const requirementsMet = (item, index) => {
+	const required = (item.dataset.requires || "")
+		.split(",")
+		.map((value) => value.trim())
+		.filter(Boolean);
+	if (!required.every((value) => completed.has(value))) return false;
+	if (
+		root.hasAttribute("data-require-previous") ||
+		item.hasAttribute("data-requires-previous")
+	) {
+		const previous = previousEnabled(index);
+		if (previous >= 0 && !completed.has(items[previous].dataset.value))
+			return false;
+	}
+	return true;
+};
+const canSelect = (item, index) => {
+	if (item.hasAttribute("data-disabled") || !requirementsMet(item, index))
+		return false;
+	if (!root.hasAttribute("data-linear")) return true;
+	const furthest = Math.max(
+		active,
+		...items.map((item, itemIndex) =>
+			completed.has(item.dataset.value) ? itemIndex : 0,
+		),
+	);
+	return index <= furthest + 1;
+};
+const status = (item, index) =>
+	index === active
+		? "active"
+		: completed.has(item.dataset.value)
+			? "completed"
+			: canSelect(item, index)
+				? "upcoming"
+				: "locked";
+const render = (focus) => {
+	items.forEach((item, index) => {
+		const button = item.querySelector("[data-ui-step-button]"),
+			current = index === active,
+			allowed = canSelect(item, index);
+		item.dataset.status = status(item, index);
+		item.toggleAttribute("data-active", current);
+		button.disabled = !root.hasAttribute("data-clickable") || !allowed;
+		button.tabIndex = current ? 0 : -1;
+		button.setAttribute("aria-current", current ? "step" : "false");
+		button.id = base + "-step-" + index;
+		const number = item.querySelector("[data-ui-step-number]");
+		if (number) number.textContent = String(index + 1);
+	});
+	const selected = items[active];
+	if (selected) {
+		const button = selected.querySelector("[data-ui-step-button]"),
+			content = selected.querySelector("[data-ui-step-content]");
+		panel.hidden = !content;
+		panel.innerHTML = content ? content.innerHTML : "";
+		panel.setAttribute("aria-labelledby", button.id);
+		progressTitle.textContent = selected.dataset.title || "";
+		progressCount.textContent = active + 1 + " / " + items.length;
+		if (fill) {
+			const value =
+				items.length <= 1 ? 100 : ((active + 1) / items.length) * 100;
+			css(fill, "width", value + "%");
+			fill.setAttribute("aria-valuemin", "1");
+			fill.setAttribute("aria-valuemax", String(items.length));
+			fill.setAttribute("aria-valuenow", String(active + 1));
+			fill.setAttribute("aria-valuetext", selected.dataset.title || "");
+		}
+		if (focus) button.focus();
+	}
+};
+const select = (index, focus) => {
+	const item = items[index];
+	if (!item || !canSelect(item, index)) return false;
+	active = index;
+	render(focus);
+	root.dispatchEvent(
+		new CustomEvent("ui:steps-change", {
+			bubbles: true,
+			detail: { value: item.dataset.value, index, step: item },
+		}),
+	);
+	return true;
+};
+const complete = (value) => {
+	const item =
+		items.find((entry) => entry.dataset.value === value) || items[active];
+	if (!item || item.hasAttribute("data-disabled")) return;
+	completed.add(item.dataset.value);
+	item.toggleAttribute("data-completed", true);
+	render(false);
+	root.dispatchEvent(
+		new CustomEvent("ui:steps-complete", {
+			bubbles: true,
+			detail: {
+				value: item.dataset.value,
+				index: items.indexOf(item),
+				step: item,
+			},
+		}),
+	);
+};
+const uncomplete = (value) => {
+	const item =
+		items.find((entry) => entry.dataset.value === value) || items[active];
+	if (!item) return;
+	completed.delete(item.dataset.value);
+	item.toggleAttribute("data-completed", false);
+	render(false);
+	root.dispatchEvent(
+		new CustomEvent("ui:steps-uncomplete", {
+			bubbles: true,
+			detail: {
+				value: item.dataset.value,
+				index: items.indexOf(item),
+				step: item,
+			},
+		}),
+	);
+};
+if (targets) {
+	css(
+		targets,
+		"grid-template-columns",
+		"repeat(" + items.length + ", minmax(0, 1fr))",
+	);
+	items.forEach((item, index) => {
+		const target = document.createElement("button");
+		target.type = "button";
+		target.className = "ui-steps-progress-target";
+		target.setAttribute(
+			"aria-label",
+			index + 1 + ". " + (item.dataset.title || ""),
+		);
+		target.addEventListener("click", () => select(index, false));
+		targets.append(target);
+	});
+}
+const onClick = (event) => {
+	const action = event.target.closest("[data-ui-steps-complete]");
+	if (action) {
+		complete(action.dataset.uiStepsComplete || items[active].dataset.value);
+		return;
+	}
+	const undo = event.target.closest("[data-ui-steps-uncomplete]");
+	if (undo) {
+		uncomplete(
+			undo.dataset.uiStepsUncomplete || items[active].dataset.value,
+		);
+		return;
+	}
+	const button = event.target.closest("[data-ui-step-button]");
+	if (button)
+		select(
+			items.findIndex((item) => item.contains(button)),
+			false,
+		);
+};
+const onKeydown = (event) => {
+	const current = event.target.closest("[data-ui-step-button]");
+	if (!current) return;
+	const index = items.findIndex((item) => item.contains(current));
+	const enabled = items
+		.map((item, itemIndex) => ({ item, itemIndex }))
+		.filter(({ item, itemIndex }) => canSelect(item, itemIndex));
+	if (!enabled.length) return;
+	let target = -1;
+	if (event.key === "Home") target = enabled[0].itemIndex;
+	else if (event.key === "End")
+		target = enabled[enabled.length - 1].itemIndex;
+	else if (
+		["ArrowLeft", "ArrowUp", "ArrowRight", "ArrowDown"].includes(event.key)
+	) {
+		const position = enabled.findIndex(
+			({ itemIndex }) => itemIndex === index,
+		);
+		target =
+			enabled[
+				Math.max(
+					0,
+					Math.min(
+						enabled.length - 1,
+						position +
+							(event.key === "ArrowLeft" ||
+							event.key === "ArrowUp"
+								? -1
+								: 1),
+					),
+				)
+			].itemIndex;
+	}
+	if (target >= 0) {
+		event.preventDefault();
+		select(target, true);
+	}
+};
+const completeRequest = (event) =>
+	complete(event.detail && String(event.detail.value));
+const uncompleteRequest = (event) =>
+	uncomplete(event.detail && String(event.detail.value));
+root.addEventListener("click", onClick);
+root.addEventListener("keydown", onKeydown);
+root.addEventListener("ui:steps-complete-request", completeRequest);
+root.addEventListener("ui:steps-uncomplete-request", uncompleteRequest);
+render(false);
+onUnmounted(() => {
+	root.removeEventListener("click", onClick);
+	root.removeEventListener("keydown", onKeydown);
+	root.removeEventListener("ui:steps-complete-request", completeRequest);
+	root.removeEventListener("ui:steps-uncomplete-request", uncompleteRequest);
+});
+{
+	const root = useRoot().querySelector("[data-ui-steps]");
+	if (!root) return;
+	const advance = (event) => {
+		const current = event.detail && event.detail.step;
+		if (!current) return;
+		const steps = Array.from(root.querySelectorAll("[data-ui-step]"));
+		const index = steps.indexOf(current);
+		const next = steps.slice(index + 1).find((step) => {
+			const button = step.querySelector("[data-ui-step-button]");
+			return button && !button.disabled;
+		});
+		if (next) next.querySelector("[data-ui-step-button]").click();
+	};
+	root.addEventListener("ui:steps-complete", advance);
+	onUnmounted(() => root.removeEventListener("ui:steps-complete", advance));
+}
+</script>

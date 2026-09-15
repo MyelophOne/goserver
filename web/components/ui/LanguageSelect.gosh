@@ -1,0 +1,48 @@
+<!-- @server ./system/logic/universal_components.go#UniversalComponentData -->
+<template>
+	<label :class="class" data-ui-language-select
+		><span m-if="label">{{ label }}</span
+		><select :name="name" :aria-label="label" data-ui-language-select-input>
+			<slot /></select
+	></label>
+</template>
+<style>
+[data-ui-language-select] {
+	display: inline-flex;
+	gap: 0.5rem;
+	align-items: center;
+}
+[data-ui-language-select] select {
+	color: inherit;
+	background: var(--ui-surface, var(--ui-bg));
+	border: 1px solid var(--ui-border);
+	border-radius: 0.4rem;
+	padding: 0.4rem;
+}
+</style>
+<script setup>
+const e = useRoot().querySelector("[data-ui-language-select-input]"),
+	s = useStore("ui");
+if (!e || !s) return;
+const sync = () => {
+	const language = s.getState().language || document.documentElement.lang;
+	if (language) e.value = language;
+};
+const change = () => {
+	s.getState().setLanguage(e.value);
+	document.documentElement.lang = e.value;
+	e.dispatchEvent(
+		new CustomEvent("ui:language-change", {
+			bubbles: true,
+			detail: { language: e.value },
+		}),
+	);
+};
+e.addEventListener("change", change);
+const unsubscribe = s.subscribe(sync);
+sync();
+onUnmounted(() => {
+	e.removeEventListener("change", change);
+	unsubscribe();
+});
+</script>

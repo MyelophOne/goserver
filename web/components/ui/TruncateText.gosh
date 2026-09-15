@@ -1,0 +1,96 @@
+<!-- @server ./system/logic/icons.go#UiTruncateTextData -->
+<template>
+	<span
+		:id="id"
+		:class="class"
+		:data-mobile-limit="truncateMobileLimit"
+		:data-desktop-limit="truncateDesktopLimit"
+		:data-expand-text="truncateExpandText"
+		:data-collapse-text="truncateCollapseText"
+		data-ui-truncate-text
+	>
+		<span data-ui-truncate-text-content
+			><slot>{{ text }}</slot></span
+		>
+	</span>
+</template>
+
+<style scoped>
+[data-ui-truncate-text] {
+	display: inline;
+}
+[data-ui-truncate-text-toggle] {
+	margin-inline-start: 0.25rem;
+	border: 0;
+	padding: 0;
+	background: transparent;
+	color: var(--ui-focus, #2563eb);
+	font: inherit;
+	text-decoration: underline;
+	text-decoration-style: dotted;
+	text-underline-offset: 0.15em;
+	cursor: pointer;
+}
+[data-ui-truncate-text-toggle]:hover {
+	filter: brightness(1.15);
+}
+[data-ui-truncate-text-toggle]:focus-visible {
+	outline: 2px solid var(--ui-focus, #2563eb);
+	outline-offset: 2px;
+}
+</style>
+
+<script setup>
+const root = useRoot().querySelector("[data-ui-truncate-text]");
+const content = root && root.querySelector("[data-ui-truncate-text-content]");
+if (!root || !content) return;
+const rawText = content.textContent || "";
+let expanded = false,
+	button;
+const limit = () =>
+	innerWidth < 768
+		? Number(root.dataset.mobileLimit || 0)
+		: Number(root.dataset.desktopLimit || 0);
+const shortened = (text, max) => {
+	if (!max || text.length <= max) return text;
+	const slice = text.slice(0, Math.max(1, max - 12));
+	const space = slice.lastIndexOf(" ");
+	return (space > 0 ? slice.slice(0, space) : slice).trimEnd();
+};
+const render = () => {
+	const currentLimit = limit(),
+		canExpand = currentLimit > 0 && rawText.length > currentLimit;
+	content.textContent =
+		expanded || !canExpand
+			? rawText
+			: shortened(rawText, currentLimit) + "…";
+	if (button) button.remove();
+	button = null;
+	if (!canExpand) return;
+	button = document.createElement("button");
+	button.type = "button";
+	button.dataset.uiTruncateTextToggle = "";
+	button.setAttribute("aria-expanded", String(expanded));
+	button.textContent = expanded
+		? root.dataset.collapseText || "Свернуть"
+		: root.dataset.expandText || "Развернуть";
+	button.addEventListener("click", () => {
+		expanded = !expanded;
+		render();
+		root.dispatchEvent(
+			new CustomEvent("ui:truncate-text-toggle", {
+				bubbles: true,
+				detail: { expanded, text: rawText },
+			}),
+		);
+	});
+	root.append(button);
+};
+const onResize = () => render();
+window.addEventListener("resize", onResize, { passive: true });
+render();
+onUnmounted(() => {
+	window.removeEventListener("resize", onResize);
+	if (button) button.remove();
+});
+</script>

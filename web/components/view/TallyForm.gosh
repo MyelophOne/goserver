@@ -1,0 +1,19 @@
+<!-- @server ./system/logic/universal_components.go#UniversalComponentData -->
+<template>
+	<div :id="id" :class="class" :data-src="src" data-view-tally-form>
+		<noscript
+			><a :href="src">{{ label }}</a></noscript
+		>
+	</div>
+</template>
+<script setup>
+const e = useRoot().querySelector("[data-view-tally-form]");
+if (!e || !e.dataset.src) return;
+const f = document.createElement("iframe");
+f.src = e.dataset.src;
+f.title = e.dataset.label || "Form";
+f.loading = "lazy";
+f.style.cssText = "width:100%;min-height:30rem;border:0";
+e.append(f);
+onUnmounted(() => f.remove());
+</script>

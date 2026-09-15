@@ -1,0 +1,40 @@
+<!-- @server ./system/logic/icons.go#UiStickyWrapperData -->
+<template>
+	<div
+		:id="id"
+		:class="class"
+		:style="stickyWrapperStyle"
+		data-ui-sticky-wrapper
+	>
+		<div data-ui-sticky-wrapper-scroll><slot /></div>
+	</div>
+</template>
+
+<style scoped>
+[data-ui-sticky-wrapper] {
+	position: relative;
+	z-index: 10;
+	width: 100%;
+	align-self: start;
+}
+[data-ui-sticky-wrapper-scroll] {
+	width: 100%;
+	max-height: none;
+	overflow-y: visible;
+	-ms-overflow-style: none;
+	scrollbar-width: none;
+}
+[data-ui-sticky-wrapper-scroll]::-webkit-scrollbar {
+	display: none;
+}
+@media (min-width: 1024px) {
+	[data-ui-sticky-wrapper] {
+		position: sticky;
+		top: var(--ui-sticky-offset);
+	}
+	[data-ui-sticky-wrapper-scroll] {
+		max-height: var(--ui-sticky-max-height);
+		overflow-y: auto;
+	}
+}
+</style>

@@ -1,0 +1,129 @@
+<!-- @server ./system/logic/icons.go#UiHeadingData -->
+<template>
+	<h1
+		m-if="isH1"
+		:id="id"
+		:class="class"
+		:data-level="headingLevel"
+		:data-size="headingSize"
+		data-ui-heading
+	>
+		<slot />
+	</h1>
+	<h2
+		m-if="isH2"
+		:id="id"
+		:class="class"
+		:data-level="headingLevel"
+		:data-size="headingSize"
+		data-ui-heading
+	>
+		<slot />
+	</h2>
+	<h3
+		m-if="isH3"
+		:id="id"
+		:class="class"
+		:data-level="headingLevel"
+		:data-size="headingSize"
+		data-ui-heading
+	>
+		<slot />
+	</h3>
+	<h4
+		m-if="isH4"
+		:id="id"
+		:class="class"
+		:data-level="headingLevel"
+		:data-size="headingSize"
+		data-ui-heading
+	>
+		<slot />
+	</h4>
+	<h5
+		m-if="isH5"
+		:id="id"
+		:class="class"
+		:data-level="headingLevel"
+		:data-size="headingSize"
+		data-ui-heading
+	>
+		<slot />
+	</h5>
+	<h6
+		m-if="isH6"
+		:id="id"
+		:class="class"
+		:data-level="headingLevel"
+		:data-size="headingSize"
+		data-ui-heading
+	>
+		<slot />
+	</h6>
+</template>
+
+<style scoped>
+[data-ui-heading] {
+	margin: 0;
+	color: inherit;
+	line-height: 1.2;
+}
+[data-ui-heading][data-level="1"] {
+	font-size: 2.25rem;
+	font-weight: 600;
+}
+[data-ui-heading][data-level="2"] {
+	font-size: 1.875rem;
+	font-weight: 600;
+}
+[data-ui-heading][data-level="3"] {
+	font-size: 1.5rem;
+	font-weight: 600;
+}
+[data-ui-heading][data-level="4"] {
+	font-size: 1.25rem;
+	font-weight: 500;
+}
+[data-ui-heading][data-level="5"] {
+	font-size: 1.125rem;
+	font-weight: 500;
+}
+[data-ui-heading][data-level="6"] {
+	font-size: 1rem;
+	font-weight: 400;
+}
+[data-ui-heading][data-size="xs"] {
+	font-size: 1.25rem;
+}
+[data-ui-heading][data-size="sm"] {
+	font-size: 1.5rem;
+}
+[data-ui-heading][data-size="md"] {
+	font-size: 1.875rem;
+}
+[data-ui-heading][data-size="lg"] {
+	font-size: 2.25rem;
+}
+[data-ui-heading][data-size="xl"] {
+	font-size: 3rem;
+}
+[data-ui-heading][data-size="display"] {
+	font-size: 3rem;
+}
+@media (min-width: 768px) {
+	[data-ui-heading][data-size="lg"] {
+		font-size: 3rem;
+	}
+	[data-ui-heading][data-size="xl"] {
+		font-size: 3.75rem;
+	}
+	[data-ui-heading][data-size="display"] {
+		font-size: 4.5rem;
+	}
+}
+@media (min-width: 1024px) {
+	[data-ui-heading][data-size="display"] {
+		font-size: 6rem;
+	}
+}
+</style>

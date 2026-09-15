@@ -1,0 +1,147 @@
+<!-- @server ./system/logic/sticky_heading_content.go#ViewStickyHeadingContentData -->
+<template>
+	<section
+		m-if="stickyContentIsSection"
+		:id="id"
+		:class="stickyContentRootClass"
+		:style="stickyContentStyle + ';' + stickyContentSpanStyle"
+		:data-side="stickyContentSide"
+		:data-sticky="stickyContentSticky"
+		:data-sticky-from="stickyContentFrom"
+		:aria-label="stickyContentLabel"
+		data-view-sticky-heading-content
+	>
+		<GridContainer
+			:size="stickyContentContainerSize"
+			:class="stickyContentContainerClass"
+			><GridRow align="stretch" :class="stickyContentRowClass"
+				><GridCol
+					:span="stickyContentHeadingSpan"
+					:class="stickyContentHeadingColumnClass"
+					><div data-view-sticky-heading>
+						<UiHeading
+							m-if="stickyContentHasTitle"
+							:level="stickyContentHeadingLevel"
+							:size="stickyContentHeadingSize"
+							:class="stickyContentHeadingClass"
+							>{{ stickyContentTitle }}</UiHeading
+						>
+					</div></GridCol
+				><GridCol
+					:span="stickyContentBodySpan"
+					:class="stickyContentBodyColumnClass"
+					><div :class="stickyContentBodyClass" data-view-sticky-body>
+						<slot /></div></GridCol></GridRow
+		></GridContainer>
+	</section>
+	<div
+		m-if="stickyContentIsDiv"
+		:id="id"
+		:class="stickyContentRootClass"
+		:style="stickyContentStyle + ';' + stickyContentSpanStyle"
+		:data-side="stickyContentSide"
+		:data-sticky="stickyContentSticky"
+		:data-sticky-from="stickyContentFrom"
+		:aria-label="stickyContentLabel"
+		data-view-sticky-heading-content
+	>
+		<GridContainer
+			:size="stickyContentContainerSize"
+			:class="stickyContentContainerClass"
+			><GridRow align="stretch" :class="stickyContentRowClass"
+				><GridCol
+					:span="stickyContentHeadingSpan"
+					:class="stickyContentHeadingColumnClass"
+					><div data-view-sticky-heading>
+						<UiHeading
+							m-if="stickyContentHasTitle"
+							:level="stickyContentHeadingLevel"
+							:size="stickyContentHeadingSize"
+							:class="stickyContentHeadingClass"
+							>{{ stickyContentTitle }}</UiHeading
+						>
+					</div></GridCol
+				><GridCol
+					:span="stickyContentBodySpan"
+					:class="stickyContentBodyColumnClass"
+					><div :class="stickyContentBodyClass" data-view-sticky-body>
+						<slot /></div></GridCol></GridRow
+		></GridContainer>
+	</div>
+	<article
+		m-if="stickyContentIsArticle"
+		:id="id"
+		:class="stickyContentRootClass"
+		:style="stickyContentStyle + ';' + stickyContentSpanStyle"
+		:data-side="stickyContentSide"
+		:data-sticky="stickyContentSticky"
+		:data-sticky-from="stickyContentFrom"
+		:aria-label="stickyContentLabel"
+		data-view-sticky-heading-content
+	>
+		<GridContainer
+			:size="stickyContentContainerSize"
+			:class="stickyContentContainerClass"
+			><GridRow align="stretch" :class="stickyContentRowClass"
+				><GridCol
+					:span="stickyContentHeadingSpan"
+					:class="stickyContentHeadingColumnClass"
+					><div data-view-sticky-heading>
+						<UiHeading
+							m-if="stickyContentHasTitle"
+							:level="stickyContentHeadingLevel"
+							:size="stickyContentHeadingSize"
+							:class="stickyContentHeadingClass"
+							>{{ stickyContentTitle }}</UiHeading
+						>
+					</div></GridCol
+				><GridCol
+					:span="stickyContentBodySpan"
+					:class="stickyContentBodyColumnClass"
+					><div :class="stickyContentBodyClass" data-view-sticky-body>
+						<slot /></div></GridCol></GridRow
+		></GridContainer>
+	</article>
+</template>
+
+<style>
+[data-view-sticky-heading-content] {
+	width: 100%;
+}
+[data-view-sticky-heading-content] [data-grid-row] {
+	row-gap: 2rem;
+}
+[data-view-sticky-heading] {
+	width: 100%;
+	align-self: flex-start;
+}
+[data-view-sticky-heading-content][data-sticky][data-sticky-from="always"]
+	[data-view-sticky-heading] {
+	position: sticky;
+	top: var(--view-sticky-heading-offset);
+}
+@media (min-width: 640px) {
+	[data-view-sticky-heading-content][data-sticky][data-sticky-from="sm"]
+		[data-view-sticky-heading] {
+		position: sticky;
+		top: var(--view-sticky-heading-offset);
+	}
+}
+@media (min-width: 768px) {
+	[data-view-sticky-heading-content][data-sticky][data-sticky-from="md"]
+		[data-view-sticky-heading] {
+		position: sticky;
+		top: var(--view-sticky-heading-offset);
+	}
+	[data-view-sticky-heading-content][data-side="right"] [data-grid-row] {
+		flex-direction: row-reverse;
+	}
+}
+@media (min-width: 1024px) {
+	[data-view-sticky-heading-content][data-sticky][data-sticky-from="lg"]
+		[data-view-sticky-heading] {
+		position: sticky;
+		top: var(--view-sticky-heading-offset);
+	}
+}
+</style>

@@ -1,5 +1,57 @@
 {
   "hello": {
     "world": "Hello, World!"
+  },
+  "web": {
+    "language": "Language",
+    "title": "I18n example",
+    "heading": "Switch languages without a full reload",
+    "description": "This page is rendered by Go and translated through goserver I18n."
+  },
+  "myelophone": {
+    "welcome": "Welcome to",
+    "experiment": "Experiment, customize and enjoy the speed and the performance!",
+    "poweredBy": "Powered by",
+    "goserverVersion": "GoServer version",
+    "toggleTheme": "Toggle theme"
+  },
+  "errors": {
+    "home": "Back to home",
+    "homeLabel": "MyelophOne GoServer home",
+    "toggleTheme": "Toggle theme",
+    "copyright": "All rights reserved.",
+    "notFound": { "title": "Page not found", "description": "The address may be incorrect, the page may have moved, or it may no longer be available." },
+    "server": { "title": "Something went wrong", "description": "The server could not complete this request. Your data has not been changed; please try again shortly." }
+  },
+  "cookies": {
+    "weUseCookies": "We use cookies for site functionality and analytics.",
+    "customize": "Customize",
+    "decline": "Decline",
+    "changePrefs": "Change preferences",
+    "acceptAll": "Accept all",
+    "close": "Close",
+    "privacyTitle": "Privacy settings",
+    "cookieNote": "Choose which cookie categories you want to allow.",
+    "necessary": "Necessary",
+    "analytics": "Analytics",
+    "marketing": "Marketing",
+    "functional": "Functional",
+    "necessaryDesc": "Required for the website to work. Cannot be disabled.",
+    "analyticsDesc": "Helps us understand how visitors use the website.",
+    "marketingDesc": "Enables advertising and third-party media.",
+    "functionalDesc": "Enables optional features and embedded services.",
+    "alwaysOn": "Always on",
+    "usedServices": "Services used",
+    "cookiesList": "Cookies stored by this browser",
+    "emptyList": "No readable cookies found.",
+    "declineAll": "Reject optional",
+    "savePrefs": "Save preferences",
+    "contentHidden": "Content hidden",
+    "setPrefs": "Set preferences",
+    "policyTitle": "Cookies and similar technologies",
+    "privacyPolicy": "Privacy policy",
+    "officialDocs": "Official documentation",
+    "allowCategory": "Allow %s cookies to display this content.",
+    "allowService": "Allow %s cookies to use %s."
   }
 }

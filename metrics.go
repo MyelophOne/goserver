@@ -11,6 +11,47 @@ type metricsWriter struct {
 	isStream *bool
 }
 
+type statusWriter struct {
+	http.ResponseWriter
+	status      int
+	wroteHeader bool
+}
+
+func newStatusWriter(w http.ResponseWriter) *statusWriter {
+	return &statusWriter{ResponseWriter: w, status: http.StatusOK}
+}
+
+func (w *statusWriter) WriteHeader(status int) {
+	if status >= 100 && status < 200 {
+		w.ResponseWriter.WriteHeader(status)
+		return
+	}
+	if w.wroteHeader {
+		return
+	}
+	w.status = status
+	w.wroteHeader = true
+	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *statusWriter) Write(data []byte) (int, error) {
+	if !w.wroteHeader {
+		w.WriteHeader(http.StatusOK)
+	}
+	return w.ResponseWriter.Write(data)
+}
+
+func (w *statusWriter) Flush() {
+	if !w.wroteHeader {
+		w.WriteHeader(http.StatusOK)
+	}
+	if flusher, ok := w.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
+func (w *statusWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+
 func (mw *metricsWriter) WriteHeader(statusCode int) {
 	if mw.isStream != nil && isStreamResponse(mw) {
 		*mw.isStream = true

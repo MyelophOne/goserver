@@ -1,0 +1,9 @@
+<template>
+	<p
+		id="gosh-route-announcer"
+		role="status"
+		aria-live="polite"
+		aria-atomic="true"
+		class="gosh-visually-hidden"
+	></p>
+</template>

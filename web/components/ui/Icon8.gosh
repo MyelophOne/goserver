@@ -1,0 +1,14 @@
+<!-- @server ./system/logic/icons.go#UiIconData -->
+<template>
+	<img
+		:id="id"
+		:class="class"
+		:src="icon8Url"
+		:alt="icon8Alt"
+		:width="icon8Size"
+		:height="icon8Size"
+		loading="lazy"
+		decoding="async"
+		data-ui-icon8
+	/>
+</template>

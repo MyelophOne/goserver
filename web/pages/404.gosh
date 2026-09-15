@@ -1,0 +1,110 @@
+<!-- @server ./system/logic/error_page.go#NotFoundPageData -->
+<template>
+	<main
+		class="min-h-dvh flex flex-col items-center justify-center overflow-hidden bg-[var(--ui-bg)] px-4 text-center text-[var(--ui-text)] transition-colors duration-300"
+	>
+		<div class="not-found-code mb-5" aria-label="404">
+			<span class="not-found-four">4</span
+			><span class="not-found-zero" aria-hidden="true"><i></i></span
+			><span class="not-found-four">4</span>
+		</div>
+		<h1 class="mb-3 text-2xl font-semibold">{{ errorTitle }}</h1>
+		<p class="mb-6 max-w-xl dark:opacity-70">{{ errorDescription }}</p>
+		<a
+			href="/"
+			class="inline-flex items-center rounded-md bg-[#00dc82] px-4 py-2 font-semibold text-[#07110d] transition-opacity hover:opacity-90"
+			>{{ errorHome }}</a
+		>
+	</main>
+</template>
+<style scoped>
+.not-found-code {
+	display: grid;
+	height: 10rem;
+	grid-template-columns: 6.5rem 7rem 6.5rem;
+	align-items: center;
+	justify-content: center;
+	column-gap: 1.35rem;
+	color: #00dc82;
+}
+.not-found-four {
+	display: block;
+	color: #00dc82;
+	font:
+		800 9.5rem/0.78 ui-monospace,
+		SFMono-Regular,
+		Menlo,
+		Monaco,
+		Consolas,
+		monospace;
+	letter-spacing: 0;
+	-webkit-text-fill-color: transparent;
+	-webkit-text-stroke: 2px currentColor;
+	filter: drop-shadow(0 0 1rem rgb(0 220 130 / 0.24));
+	animation: error-four 2.8s cubic-bezier(0.45, 0, 0.2, 1) infinite alternate;
+}
+.not-found-four:last-child {
+	animation-delay: -0.9s;
+}
+.not-found-zero {
+	position: relative;
+	display: grid;
+	width: 7rem;
+	height: 7rem;
+	place-items: center;
+	border: 2px solid currentColor;
+	border-radius: 2.25rem;
+	box-shadow:
+		inset 0 0 0 0.65rem color-mix(in srgb, currentColor, transparent 88%),
+		0 0 1.8rem rgb(0 220 130 / 0.2);
+	transform: rotate(18deg);
+	animation: error-zero 5s linear infinite;
+}
+.not-found-zero::before,
+.not-found-zero::after {
+	position: absolute;
+	width: 128%;
+	height: 1px;
+	background: currentColor;
+	content: "";
+	opacity: 0.6;
+}
+.not-found-zero::before {
+	transform: rotate(-35deg);
+}
+.not-found-zero::after {
+	transform: rotate(55deg);
+}
+.not-found-zero i {
+	width: 0.7rem;
+	height: 0.7rem;
+	border-radius: 999px;
+	background: currentColor;
+	box-shadow: 0 0 1rem currentColor;
+	animation: error-core 1.5s ease-in-out infinite alternate;
+}
+@keyframes error-four {
+	to {
+		transform: translateY(-0.35rem);
+		opacity: 0.72;
+	}
+}
+@keyframes error-zero {
+	to {
+		transform: rotate(378deg);
+	}
+}
+@keyframes error-core {
+	to {
+		transform: scale(0.55);
+		opacity: 0.4;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.not-found-four,
+	.not-found-zero,
+	.not-found-zero i {
+		animation: none;
+	}
+}
+</style>

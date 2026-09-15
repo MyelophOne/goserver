@@ -1,0 +1,21 @@
+<!-- @server ./system/logic/universal_components.go#UniversalComponentData -->
+<template>
+	<time
+		:id="id"
+		:class="class"
+		:datetime="datetime"
+		:data-date="datetime"
+		data-ui-local-time
+		><slot>{{ datetime }}</slot></time
+	>
+</template>
+<script setup>
+const e = useRoot().querySelector("[data-ui-local-time]");
+if (!e) return;
+const d = new Date(e.dataset.date);
+if (!Number.isNaN(+d))
+	e.textContent = new Intl.DateTimeFormat(
+		document.documentElement.lang || undefined,
+		{ dateStyle: "medium", timeStyle: "short" },
+	).format(d);
+</script>

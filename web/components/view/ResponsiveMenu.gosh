@@ -1,0 +1,44 @@
+<!-- @server ./system/logic/universal_components.go#UniversalComponentData -->
+<template>
+	<nav :id="id" :class="class" :aria-label="label" data-view-responsive-menu>
+		<button type="button" aria-expanded="false" data-view-menu-toggle>
+			{{ toggleLabel }}
+		</button>
+		<div data-view-menu-panel><slot /></div>
+	</nav>
+</template>
+<style>
+[data-view-responsive-menu] button {
+	display: none;
+}
+@media (max-width: 48rem) {
+	[data-view-responsive-menu] button {
+		display: inline-flex;
+	}
+	[data-view-responsive-menu] [data-view-menu-panel][hidden] {
+		display: none;
+	}
+}
+</style>
+<script setup>
+const r = useRoot().querySelector("[data-view-responsive-menu]");
+if (!r) return;
+const b = r.querySelector("[data-view-menu-toggle]"),
+	p = r.querySelector("[data-view-menu-panel]");
+const u = () => {
+	const mobile = matchMedia("(max-width:48rem)").matches;
+	p.hidden = mobile;
+	b.setAttribute("aria-expanded", String(!mobile));
+};
+const t = () => {
+	p.hidden = !p.hidden;
+	b.setAttribute("aria-expanded", String(!p.hidden));
+};
+b.addEventListener("click", t);
+addEventListener("resize", u, { passive: true });
+u();
+onUnmounted(() => {
+	b.removeEventListener("click", t);
+	removeEventListener("resize", u);
+});
+</script>

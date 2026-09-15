@@ -1,0 +1,24 @@
+<!-- @server ./system/logic/logo_slider.go#ViewLogoSliderItemData -->
+<template>
+	<a
+		m-if="logoSliderItemIsLink"
+		:class="class"
+		:href="logoSliderItemHref"
+		:target="logoSliderItemTarget"
+		:rel="logoSliderItemRel"
+		data-view-logo-slider-item
+		><UiImageWithLoader
+			:src="logoSliderItemSrc"
+			:alt="logoSliderItemAlt"
+			img-class="view-logo-slider-image"
+			loading="lazy"
+	/></a>
+	<div m-if="logoSliderItemIsDiv" :class="class" data-view-logo-slider-item>
+		<UiImageWithLoader
+			:src="logoSliderItemSrc"
+			:alt="logoSliderItemAlt"
+			img-class="view-logo-slider-image"
+			loading="lazy"
+		/>
+	</div>
+</template>

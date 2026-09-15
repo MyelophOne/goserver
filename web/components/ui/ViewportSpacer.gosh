@@ -1,0 +1,35 @@
+<!-- @server ./system/logic/icons.go#UiViewportSpacerData -->
+<template>
+	<div
+		:id="id"
+		:class="class"
+		:style="spacerStyle"
+		:data-horizontal="spacerHorizontal"
+		aria-hidden="true"
+		data-ui-viewport-spacer
+	></div>
+</template>
+
+<style scoped>
+[data-ui-viewport-spacer] {
+	display: block;
+	flex: none;
+	pointer-events: none;
+	--ui-viewport-spacer-size: var(--sp-mobile);
+	--ui-viewport-spacer-size: var(--sp-mobile-d);
+}
+[data-ui-viewport-spacer][data-horizontal] {
+	width: var(--ui-viewport-spacer-size);
+	height: 100%;
+}
+[data-ui-viewport-spacer]:not([data-horizontal]) {
+	width: 100%;
+	height: var(--ui-viewport-spacer-size);
+}
+@media (min-width: 768px) {
+	[data-ui-viewport-spacer] {
+		--ui-viewport-spacer-size: var(--sp-desktop);
+		--ui-viewport-spacer-size: var(--sp-desktop-d);
+	}
+}
+</style>

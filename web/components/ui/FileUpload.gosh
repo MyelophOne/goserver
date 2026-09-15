@@ -1,0 +1,467 @@
+<!-- @server ./system/logic/icons.go#UiFileUploadData -->
+<template>
+	<div
+		:id="id"
+		:class="class"
+		:data-accept="accept"
+		:data-max-size="maxSize"
+		:data-max-files="maxFiles"
+		:data-layout="fileUploadLayout"
+		:data-multiple="fileUploadMultiple"
+		:data-dropzone="fileUploadDropzone"
+		:data-interactive="fileUploadInteractive"
+		:data-preview="fileUploadPreview"
+		:data-append="fileUploadAppend"
+		:data-disabled="fileUploadDisabled"
+		:data-error="fileUploadError"
+		data-ui-file-upload
+	>
+		<input
+			:id="fileUploadID"
+			:name="name"
+			:accept="accept"
+			:multiple="fileUploadMultiple"
+			:required="fileUploadRequired"
+			:disabled="fileUploadDisabled"
+			:capture="capture"
+			type="file"
+			data-ui-file-upload-input
+		/>
+		<div
+			:role="fileUploadRole"
+			:tabindex="fileUploadTabindex"
+			:aria-controls="fileUploadID"
+			:aria-disabled="fileUploadDisabled"
+			data-ui-file-upload-dropzone
+		>
+			<svg
+				viewBox="0 0 24 24"
+				fill="none"
+				aria-hidden="true"
+				data-ui-file-upload-icon
+			>
+				<path
+					d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"
+					stroke="currentColor"
+					stroke-width="1.7"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				/>
+			</svg>
+			<span data-ui-file-upload-copy>
+				<span data-ui-file-upload-label>{{ fileUploadLabel }}</span>
+				<span
+					m-if="fileUploadDescription"
+					data-ui-file-upload-description
+					>{{ fileUploadDescription }}</span
+				>
+				<span
+					m-if="!fileUploadDescription && fileUploadDropzone"
+					data-ui-file-upload-description
+					>{{ fileUploadEmptyText }}</span
+				>
+			</span>
+			<span
+				m-if="fileUploadInteractive"
+				aria-hidden="true"
+				data-ui-file-upload-select
+				>{{ fileUploadSelectText }}</span
+			>
+			<button
+				m-if="!fileUploadInteractive"
+				type="button"
+				:disabled="fileUploadDisabled"
+				data-ui-file-upload-select
+			>
+				{{ fileUploadSelectText }}
+			</button>
+		</div>
+		<p m-if="fileUploadErrorMessage" role="alert" data-ui-file-upload-error>
+			{{ fileUploadErrorMessage }}
+		</p>
+		<p hidden aria-live="polite" data-ui-file-upload-status></p>
+		<ul
+			hidden
+			:data-layout="fileUploadLayout"
+			data-ui-file-upload-files
+		></ul>
+	</div>
+</template>
+
+<style scoped>
+[data-ui-file-upload] {
+	width: 100%;
+	color: var(--ui-text);
+}
+[data-ui-file-upload-input] {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	padding: 0;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
+[data-ui-file-upload-dropzone] {
+	display: flex;
+	min-height: 11rem;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 0.75rem;
+	padding: 1.5rem;
+	border: 1px dashed color-mix(in srgb, var(--ui-text), transparent 68%);
+	border-radius: 0.5rem;
+	background: color-mix(in srgb, var(--ui-text), transparent 98%);
+	text-align: center;
+	transition:
+		border-color 0.14s ease,
+		background-color 0.14s ease;
+}
+[data-ui-file-upload][data-interactive]:not([data-disabled])
+	[data-ui-file-upload-dropzone] {
+	cursor: pointer;
+}
+[data-ui-file-upload][data-interactive]:not([data-disabled])
+	[data-ui-file-upload-dropzone]:hover,
+[data-ui-file-upload].is-dragging [data-ui-file-upload-dropzone] {
+	border-color: color-mix(in srgb, var(--ui-text), transparent 35%);
+	background: color-mix(in srgb, var(--ui-text), transparent 94%);
+}
+[data-ui-file-upload][data-error] [data-ui-file-upload-dropzone] {
+	border-color: var(--ui-error, #ef4444);
+}
+[data-ui-file-upload][data-disabled] {
+	opacity: 0.55;
+}
+[data-ui-file-upload][data-disabled] [data-ui-file-upload-dropzone] {
+	cursor: not-allowed;
+}
+[data-ui-file-upload-dropzone]:focus-visible {
+	outline: 2px solid var(--ui-focus, #2563eb);
+	outline-offset: 2px;
+}
+[data-ui-file-upload-icon] {
+	width: 2rem;
+	height: 2rem;
+	opacity: 0.65;
+}
+[data-ui-file-upload-copy],
+[data-ui-file-upload-file-copy] {
+	display: flex;
+	min-width: 0;
+	flex-direction: column;
+	gap: 0.2rem;
+}
+[data-ui-file-upload-label],
+[data-ui-file-upload-file-name] {
+	font-size: 0.9rem;
+	font-weight: 600;
+}
+[data-ui-file-upload-description],
+[data-ui-file-upload-file-size] {
+	font-size: 0.78rem;
+	opacity: 0.62;
+}
+[data-ui-file-upload-select],
+[data-ui-file-upload-remove] {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border: 1px solid color-mix(in srgb, var(--ui-text), transparent 76%);
+	border-radius: 0.4rem;
+	background: var(--ui-control-bg, var(--ui-surface, var(--ui-bg)));
+	color: var(--ui-text);
+	font: inherit;
+	cursor: pointer;
+}
+[data-ui-file-upload-select] {
+	min-height: 2.25rem;
+	padding: 0.45rem 0.8rem;
+	font-size: 0.82rem;
+	font-weight: 600;
+}
+[data-ui-file-upload-files] {
+	display: grid;
+	gap: 0.6rem;
+	margin: 0.75rem 0 0;
+	padding: 0;
+	list-style: none;
+}
+[data-ui-file-upload-files][data-layout="grid"] {
+	grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+}
+[data-ui-file-upload-file] {
+	display: flex;
+	min-width: 0;
+	align-items: center;
+	gap: 0.7rem;
+	padding: 0.6rem;
+	border: 1px solid color-mix(in srgb, var(--ui-text), transparent 86%);
+	border-radius: 0.45rem;
+	background: color-mix(in srgb, var(--ui-text), transparent 97%);
+}
+[data-ui-file-upload-preview],
+[data-ui-file-upload-file-icon] {
+	width: 2.6rem;
+	height: 2.6rem;
+	flex: none;
+	border-radius: 0.35rem;
+}
+[data-ui-file-upload-preview] {
+	object-fit: cover;
+}
+[data-ui-file-upload-file-icon] {
+	display: grid;
+	place-items: center;
+	background: color-mix(in srgb, var(--ui-text), transparent 90%);
+	font-size: 0.58rem;
+	font-weight: 700;
+}
+[data-ui-file-upload-file-name] {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+[data-ui-file-upload-remove] {
+	width: 1.8rem;
+	height: 1.8rem;
+	margin-inline-start: auto;
+	font-size: 1.2rem;
+	line-height: 1;
+}
+[data-ui-file-upload-error] {
+	margin: 0.45rem 0 0;
+	color: var(--ui-error, #ef4444);
+	font-size: 0.78rem;
+}
+[data-ui-file-upload-files][data-layout="grid"] [data-ui-file-upload-file] {
+	position: relative;
+	align-items: stretch;
+	flex-direction: column;
+}
+[data-ui-file-upload-files][data-layout="grid"] [data-ui-file-upload-preview],
+[data-ui-file-upload-files][data-layout="grid"]
+	[data-ui-file-upload-file-icon] {
+	width: 100%;
+	height: 7rem;
+}
+[data-ui-file-upload-files][data-layout="grid"] [data-ui-file-upload-remove] {
+	position: absolute;
+	top: 0.85rem;
+	inset-inline-end: 0.85rem;
+	background: var(--ui-control-bg, var(--ui-surface, var(--ui-bg)));
+}
+@media (prefers-reduced-motion: reduce) {
+	[data-ui-file-upload-dropzone] {
+		transition: none;
+	}
+}
+</style>
+
+<script setup>
+const root = useRoot().querySelector("[data-ui-file-upload]");
+if (!root) return;
+const input = root.querySelector("[data-ui-file-upload-input]"),
+	dropzone = root.querySelector("[data-ui-file-upload-dropzone]"),
+	list = root.querySelector("[data-ui-file-upload-files]"),
+	status = root.querySelector("[data-ui-file-upload-status]");
+if (!input || !dropzone || !list) return;
+let files = [],
+	dragDepth = 0,
+	urls = [];
+const disabled = () => root.hasAttribute("data-disabled"),
+	multiple = () => root.hasAttribute("data-multiple"),
+	preview = () => root.hasAttribute("data-preview"),
+	append = () => root.hasAttribute("data-append"),
+	dropzoneEnabled = () => root.hasAttribute("data-dropzone"),
+	interactive = () => root.hasAttribute("data-interactive");
+const emit = (name, detail) =>
+	root.dispatchEvent(new CustomEvent(name, { bubbles: true, detail }));
+const formatSize = (size) =>
+	size < 1024
+		? size + " B"
+		: size < 1048576
+			? (size / 1024).toFixed(1) + " KB"
+			: (size / 1048576).toFixed(1) + " MB";
+const accepted = (file) => {
+	const rules = (root.dataset.accept || "")
+		.split(",")
+		.map((rule) => rule.trim().toLowerCase())
+		.filter(Boolean);
+	return (
+		!rules.length ||
+		rules.some((rule) =>
+			rule[0] === "."
+				? file.name.toLowerCase().endsWith(rule)
+				: rule.endsWith("/*")
+					? file.type.toLowerCase().startsWith(rule.slice(0, -1))
+					: file.type.toLowerCase() === rule,
+		)
+	);
+};
+const duplicate = (file, values) =>
+	values.some(
+		(item) =>
+			item.name === file.name &&
+			item.size === file.size &&
+			item.type === file.type &&
+			item.lastModified === file.lastModified,
+	);
+const syncInput = () => {
+	try {
+		const transfer = new DataTransfer();
+		files.forEach((file) => transfer.items.add(file));
+		input.files = transfer.files;
+	} catch (_) {
+		if (!files.length) input.value = "";
+	}
+};
+const render = () => {
+	urls.forEach((url) => URL.revokeObjectURL(url));
+	urls = [];
+	list.textContent = "";
+	list.hidden = !files.length;
+	files.forEach((file, index) => {
+		const item = document.createElement("li");
+		item.dataset.uiFileUploadFile = "";
+		const image =
+			preview() && file.type.startsWith("image/")
+				? document.createElement("img")
+				: null;
+		if (image) {
+			const url = URL.createObjectURL(file);
+			urls.push(url);
+			image.src = url;
+			image.alt = "";
+			image.dataset.uiFileUploadPreview = "";
+			item.append(image);
+		} else {
+			const icon = document.createElement("div");
+			icon.dataset.uiFileUploadFileIcon = "";
+			icon.setAttribute("aria-hidden", "true");
+			icon.textContent = (file.name.split(".").pop() || "FILE")
+				.slice(0, 4)
+				.toUpperCase();
+			item.append(icon);
+		}
+		const copy = document.createElement("div");
+		copy.dataset.uiFileUploadFileCopy = "";
+		const name = document.createElement("span");
+		name.dataset.uiFileUploadFileName = "";
+		name.title = file.name;
+		name.textContent = file.name;
+		const size = document.createElement("span");
+		size.dataset.uiFileUploadFileSize = "";
+		size.textContent = formatSize(file.size);
+		copy.append(name, size);
+		const remove = document.createElement("button");
+		remove.type = "button";
+		remove.dataset.uiFileUploadRemove = "";
+		remove.setAttribute("aria-label", "Remove " + file.name);
+		remove.textContent = "×";
+		remove.addEventListener("click", () => {
+			if (disabled()) return;
+			const file = files[index];
+			files = files.filter((_, current) => current !== index);
+			syncInput();
+			render();
+			emit("ui:file-upload-remove", { file, index });
+			emit("ui:file-upload-change", { files: files.slice() });
+		});
+		item.append(copy, remove);
+		list.append(item);
+	});
+	syncInput();
+	if (status)
+		status.textContent = files.length
+			? files.length + " file(s) selected"
+			: "No files selected";
+};
+const add = (incoming) => {
+	if (disabled() || !incoming.length) return;
+	const next = multiple() && append() ? files.slice() : [];
+	const rejected = [];
+	const maxSize = Number(root.dataset.maxSize || 0),
+		maxFiles = Number(root.dataset.maxFiles || 0);
+	incoming.forEach((file) => {
+		const reasons = [];
+		if (!accepted(file)) reasons.push("type");
+		if (maxSize && file.size > maxSize) reasons.push("size");
+		if (!multiple() && next.length) reasons.push("count");
+		if (multiple() && maxFiles && next.length >= maxFiles)
+			reasons.push("count");
+		if (duplicate(file, next)) reasons.push("duplicate");
+		if (reasons.length) rejected.push({ file, reasons });
+		else next.push(file);
+	});
+	files = next;
+	root.classList.toggle("has-rejection", !!rejected.length);
+	render();
+	if (rejected.length)
+		emit("ui:file-upload-reject", { rejections: rejected });
+	emit("ui:file-upload-change", { files: files.slice() });
+};
+const open = () => {
+	if (!disabled()) input.click();
+};
+const onInput = () => add(Array.from(input.files || []));
+const onClick = (event) => {
+	if (interactive() && !event.target.closest("button,a")) open();
+};
+const onKeydown = (event) => {
+	if (interactive() && (event.key === "Enter" || event.key === " ")) {
+		event.preventDefault();
+		open();
+	}
+};
+const onDragEnter = (event) => {
+	if (
+		!dropzoneEnabled() ||
+		disabled() ||
+		!event.dataTransfer.types.includes("Files")
+	)
+		return;
+	dragDepth++;
+	root.classList.add("is-dragging");
+};
+const onDragLeave = () => {
+	dragDepth = Math.max(0, dragDepth - 1);
+	if (!dragDepth) root.classList.remove("is-dragging");
+};
+const onDrop = (event) => {
+	dragDepth = 0;
+	root.classList.remove("is-dragging");
+	if (dropzoneEnabled() && !disabled())
+		add(Array.from(event.dataTransfer.files || []));
+};
+input.addEventListener("change", onInput);
+dropzone.addEventListener("click", onClick);
+dropzone.addEventListener("keydown", onKeydown);
+dropzone.addEventListener("dragenter", onDragEnter);
+dropzone.addEventListener("dragover", (event) => event.preventDefault());
+dropzone.addEventListener("dragleave", onDragLeave);
+dropzone.addEventListener("drop", (event) => {
+	event.preventDefault();
+	onDrop(event);
+});
+const form = input.form;
+const onReset = () => {
+	files = [];
+	render();
+	emit("ui:file-upload-change", { files: [] });
+};
+if (form) form.addEventListener("reset", onReset);
+render();
+onUnmounted(() => {
+	urls.forEach((url) => URL.revokeObjectURL(url));
+	input.removeEventListener("change", onInput);
+	dropzone.removeEventListener("click", onClick);
+	dropzone.removeEventListener("keydown", onKeydown);
+	dropzone.removeEventListener("dragenter", onDragEnter);
+	dropzone.removeEventListener("dragleave", onDragLeave);
+	if (form) form.removeEventListener("reset", onReset);
+});
+</script>

@@ -1,0 +1,9 @@
+:root {
+	--layout-container-tablet: 37.5rem;
+	--layout-container-content: 67.5rem;
+	--layout-container-boxed: min(90%, 93.75rem);
+	--layout-container-laptop: 85.4375rem;
+	--layout-container-medium: 57.5rem;
+	--layout-container-mobile: 30rem;
+	--layout-container-text: 45.5rem;
+}

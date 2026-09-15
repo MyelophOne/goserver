@@ -78,11 +78,17 @@
 				local("Android Emoji");
 		}
 	</style>
+	<meta name="color-scheme" content="dark light" />
+	<link rel="icon" href="/favicon.ico" sizes="any">
+	<link rel="icon" href="/icon.svg" type="image/svg+xml">
+	<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 	{{.GlobalHead}}
 	{{.PageHead}}
 	{{.GlobalStyles}}
 	{{.PageStyles}}
-	<script async>document.documentElement.classList.replace('nojs', 'js');console.info(
+	<script async>document.documentElement.classList.replace('nojs', 'js');
+	(function(){try{let e={light:`light`,dark:`dark`},t=window?.localStorage?.getItem(`theme`)||``,n=window.matchMedia(`(prefers-color-scheme: dark)`),r=Object.values(e).includes(t)?t:n.matches?e.dark:e.light;document.documentElement.setAttribute(`data-theme`,r)}catch{}})(),document.documentElement.classList.replace(`nojs`,`js`);
+	console.info(
 		"%cBuilt on top of @myelophone/goserver, licensed under the PolyForm Noncommercial License 1.0.0. Copyright (c) 2026 Aliaksandr Ivanou. https://aleksivanov.me/ \nExperiment, customize and enjoy the speed and the performance! With ❤️ from @myeloph.one. Necessariam et Sufficientem.",
 		"font-size:14px",
 	);</script>

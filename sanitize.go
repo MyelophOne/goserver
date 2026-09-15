@@ -25,6 +25,12 @@ func (s *Server) SanitizeURLMiddleware(next http.Handler) http.Handler {
 		cleanURL := sanitizedURL.String()
 
 		if originalURL != cleanURL {
+			if r.URL.Path == "/_gosh/site-search/query" {
+				r.URL.Path = sanitizedPath
+				r.URL.RawQuery = sanitizedQuery.Encode()
+				next.ServeHTTP(w, r)
+				return
+			}
 			if r.Method == http.MethodGet {
 				http.Redirect(w, r, cleanURL, http.StatusFound)
 				return

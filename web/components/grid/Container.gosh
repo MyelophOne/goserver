@@ -1,0 +1,162 @@
+<!-- @server ./system/logic/grid.go#GridBackground -->
+<template>
+	<div
+		:id="id"
+		:class="class"
+		:data-size="layoutSize"
+		:data-hide-mobile="hideOnMobile"
+		:data-hide-desktop="hideOnDesktop"
+		data-grid-container
+	>
+		<div m-if="bgImage" data-layout-background>
+			<img :src="bgImage" alt="" aria-hidden="true" />
+		</div>
+		<div
+			m-if="bgImageSm"
+			data-layout-background
+			data-layout-background-mobile
+		>
+			<img :src="bgImageSm" alt="" aria-hidden="true" />
+		</div>
+		<video
+			m-if="bgVideo"
+			data-layout-background
+			autoplay
+			muted
+			loop
+			playsinline
+			:poster="bgVideoPoster"
+		>
+			<source :src="bgVideo" />
+		</video>
+		<video
+			m-if="bgVideoSm"
+			data-layout-background
+			data-layout-background-mobile
+			autoplay
+			muted
+			loop
+			playsinline
+			:poster="bgVideoPosterSm"
+		>
+			<source :src="bgVideoSm" />
+		</video>
+		<iframe
+			m-if="youtubeEmbed"
+			data-layout-background
+			:data-youtube-src="youtubeEmbed"
+			:data-youtube-zoom="youtubeZoom"
+			title="Background video"
+			allow="autoplay; encrypted-media; picture-in-picture"
+			referrerpolicy="no-referrer-when-downgrade"
+			loading="lazy"
+		></iframe>
+		<iframe
+			m-if="youtubeEmbedSm"
+			data-layout-background
+			data-layout-background-mobile
+			:data-youtube-src="youtubeEmbedSm"
+			:data-youtube-zoom="youtubeZoom"
+			title="Background video"
+			allow="autoplay; encrypted-media; picture-in-picture"
+			referrerpolicy="no-referrer-when-downgrade"
+			loading="lazy"
+		></iframe>
+		<slot />
+	</div>
+</template>
+
+<style scoped>
+[data-grid-container] {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	margin-inline: auto;
+	padding-inline: 1rem;
+}
+[data-grid-container][data-size="tablet"] {
+	max-width: var(--layout-container-tablet);
+}
+[data-grid-container][data-size="boxed"] {
+	max-width: var(--layout-container-boxed);
+}
+[data-grid-container][data-size="laptop"] {
+	max-width: var(--layout-container-laptop);
+}
+[data-grid-container][data-size="medium"] {
+	max-width: var(--layout-container-medium);
+}
+[data-grid-container][data-size="mobile"] {
+	max-width: var(--layout-container-mobile);
+}
+[data-grid-container][data-size="text"] {
+	max-width: var(--layout-container-text);
+}
+[data-grid-container][data-size="fullwidth"] {
+	max-width: none;
+	padding-inline: 0;
+}
+[data-grid-container][data-size="full"] {
+	max-width: none;
+	padding-inline: 0;
+}
+[data-grid-container]:not([data-size]),
+[data-grid-container][data-size=""],
+[data-grid-container][data-size="content"] {
+	max-width: var(--layout-container-content);
+}
+[data-grid-container][data-hide-mobile] {
+	display: none;
+}
+[data-grid-container] > :not([data-layout-background]) {
+	position: relative;
+	z-index: 1;
+}
+[data-layout-background] {
+	position: absolute;
+	z-index: 0;
+	inset: 0;
+	display: block;
+	width: 100%;
+	height: 100%;
+	border: 0;
+	pointer-events: none;
+}
+[data-layout-background] img,
+[data-layout-background] video {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+[data-layout-background] iframe {
+	width: 115vw;
+	height: 64.68vw;
+	min-width: 204.44vh;
+	min-height: 115vh;
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+}
+[data-layout-background] iframe[data-youtube-zoom] {
+	transform: translate(-50%, -50%) scale(1.12);
+}
+[data-layout-background-mobile] {
+	display: block;
+}
+@media (min-width: 768px) {
+	[data-grid-container] {
+		padding-inline: 0;
+	}
+	[data-grid-container][data-hide-mobile] {
+		display: flex;
+	}
+	[data-grid-container][data-hide-desktop] {
+		display: none;
+	}
+	[data-layout-background-mobile] {
+		display: none;
+	}
+}
+</style>

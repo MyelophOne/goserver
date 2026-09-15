@@ -1,0 +1,16 @@
+<!-- @server ./system/logic/universal_components.go#UniversalComponentData -->
+<template>
+	<label :id="id" :class="class" data-view-currency-select
+		><span m-if="label">{{ label }}</span
+		><select :name="name" data-view-currency-select-input>
+			<slot /></select
+	></label>
+</template>
+<script setup>
+const e = useRoot().querySelector("[data-view-currency-select-input]");
+if (!e) return;
+const s = useStore("ui");
+const set = () => s && s.getState().setLanguage(e.value);
+e.addEventListener("change", set);
+onUnmounted(() => e.removeEventListener("change", set));
+</script>

@@ -1,0 +1,90 @@
+.preloader {
+	position: relative;
+	width: 15px;
+	height: 15px;
+	border: solid 2px transparent;
+	border-top-color: #0082e6;
+	border-top-color: var(--loader-fill-color);
+	border-radius: 10px;
+	animation: preloader-spinner 400ms linear infinite;
+	pointer-events: none;
+	user-select: none;
+	margin: 1rem;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+}
+
+.preloader.hidden {
+	display: none;
+}
+
+.nojs #gosh-preloader {
+	display: none !important;
+}
+
+.js #gosh-preloader {
+	position: fixed;
+	top: 7px;
+	right: 10px;
+	z-index: 2147483000;
+	margin: 0;
+	opacity: 0;
+	visibility: hidden;
+	transition:
+		opacity 120ms ease,
+		visibility 120ms ease;
+}
+
+.js #gosh-preloader.is-loading {
+	opacity: 1;
+	visibility: visible;
+}
+
+@keyframes preloader-spinner {
+	0% {
+		transform: rotate(0deg);
+	}
+	100% {
+		transform: rotate(360deg);
+	}
+}
+
+.lineloader {
+	display: block;
+	width: 100%;
+	height: 2px;
+	background-color: transparent;
+	position: relative;
+	overflow: hidden;
+	margin-top: -2px;
+}
+
+.lineloader::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	background-color: #0066cc;
+	background-color: var(--loader-fill-color);
+	transform: translateX(-100%);
+	animation: lineloader-animation 2s linear infinite;
+	opacity: 0.5;
+}
+
+@keyframes lineloader-animation {
+	0% {
+		transform: translateX(-100%);
+	}
+	100% {
+		transform: translateX(100%);
+	}
+}
+
+.preloaderBox {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}

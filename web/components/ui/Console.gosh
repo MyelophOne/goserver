@@ -1,0 +1,155 @@
+<!-- @server ./system/logic/universal_components.go#UniversalComponentData -->
+<template>
+	<div
+		:id="id"
+		:class="class"
+		:style="style"
+		:data-delay="lineDelay"
+		:data-start-delay="startDelay"
+		:data-autoplay="autoplay"
+		:data-loop="loop"
+		:data-cursor="cursor"
+		data-ui-console
+	>
+		<div m-if="chrome" class="ui-console-header">
+			<span class="ui-console-traffic"><i></i><i></i><i></i></span
+			><span class="ui-console-title">{{ title }}</span>
+		</div>
+		<div class="ui-console-body" :aria-label="ariaLabel" role="log">
+			<div class="ui-console-lines"><slot /></div>
+			<span class="ui-console-cursor" aria-hidden="true"></span>
+		</div>
+	</div>
+</template>
+<style>
+[data-ui-console] {
+	--c-bg: #f6f8fa;
+	--c-header: #f6f8fa;
+	--c-text: #1f2328;
+	--c-muted: #656d76;
+	--c-border: #d0d7de;
+	width: 100%;
+	min-width: 0;
+	overflow: hidden;
+	color: var(--ui-console-text, var(--c-text));
+	background: var(--ui-console-bg, var(--c-bg));
+	border: 1px solid var(--ui-console-border, var(--c-border));
+	border-radius: var(--ui-console-radius, 0.9rem);
+	box-shadow: var(--ui-console-shadow, 0 1.25rem 4rem rgb(31 35 40/0.08));
+}
+.ui-console-header {
+	position: relative;
+	display: flex;
+	align-items: center;
+	min-height: 3.25rem;
+	padding: 0 1.25rem;
+	background: var(--ui-console-header-bg, var(--c-header));
+	border-bottom: 1px solid var(--ui-console-border, var(--c-border));
+}
+.ui-console-traffic {
+	display: flex;
+	gap: 0.5rem;
+}
+.ui-console-traffic i {
+	width: 0.75rem;
+	height: 0.75rem;
+	border: 1px solid color-mix(in srgb, var(--c-muted) 12%, transparent);
+	border-radius: 50%;
+	background: color-mix(in srgb, var(--c-muted) 24%, var(--c-bg));
+}
+.ui-console-title {
+	position: absolute;
+	left: 50%;
+	max-width: 55%;
+	overflow: hidden;
+	font-size: 0.75rem;
+	font-weight: 600;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	transform: translateX(-50%);
+	opacity: 0.5;
+}
+.ui-console-body {
+	min-height: var(--ui-console-min-height, 12rem);
+	max-height: var(--ui-console-max-height, 32rem);
+	padding: clamp(1.25rem, 4vw, 2rem);
+	overflow: auto;
+	font-family: var(
+		--ui-font-mono,
+		ui-monospace,
+		SFMono-Regular,
+		Menlo,
+		Monaco,
+		Consolas,
+		monospace
+	);
+	font-size: clamp(0.78rem, 1.8vw, 0.95rem);
+	line-height: 1.7;
+}
+.ui-console-lines {
+	display: grid;
+	gap: 0.2rem;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+.ui-console-cursor {
+	display: none;
+	width: 0.58em;
+	height: 1.05em;
+	margin-top: 0.35rem;
+	background: currentColor;
+	animation: ui-console-cursor 900ms steps(1, end) infinite;
+}
+[data-ui-console][data-cursor] .ui-console-cursor {
+	display: block;
+}
+@keyframes ui-console-cursor {
+	50% {
+		opacity: 0;
+	}
+}
+@media (prefers-color-scheme: dark) {
+	[data-ui-console] {
+		--c-bg: #0d1117;
+		--c-header: #161b22;
+		--c-text: #e6edf3;
+		--c-muted: #8b949e;
+		--c-border: #30363d;
+		box-shadow: var(--ui-console-shadow, 0 1.25rem 4rem rgb(1 4 9/0.38));
+	}
+}
+</style>
+<script setup>
+const root = useRoot().querySelector("[data-ui-console]");
+if (!root || !root.hasAttribute("data-autoplay")) return;
+const lines = Array.from(
+	root.querySelector(".ui-console-lines").childNodes,
+).filter((n) => n.nodeType === 1 || n.textContent.trim());
+if (!lines.length) return;
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches,
+	delay = Math.max(0, Number(root.dataset.delay) || 400),
+	start = Math.max(0, Number(root.dataset.startDelay) || 0);
+lines.forEach((line, i) => (line.hidden = i > 0));
+let timers = [];
+const play = () => {
+	timers.forEach(clearTimeout);
+	timers = [];
+	lines.forEach((line, i) => {
+		line.hidden = i > 0;
+		if (i) {
+			timers.push(
+				setTimeout(
+					() => {
+						line.hidden = false;
+						root.querySelector(".ui-console-body").scrollTop =
+							root.querySelector(".ui-console-body").scrollHeight;
+					},
+					start + i * delay,
+				),
+			);
+		}
+	});
+};
+play();
+onUnmounted(() => timers.forEach(clearTimeout));
+</script>

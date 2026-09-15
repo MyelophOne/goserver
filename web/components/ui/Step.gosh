@@ -1,0 +1,31 @@
+<!-- @server ./system/logic/icons.go#UiStepData -->
+<template>
+	<li
+		:data-value="stepValue"
+		:data-title="stepTitle"
+		:data-requires="stepRequires"
+		:data-disabled="stepDisabled"
+		:data-active="stepActive"
+		:data-completed="stepCompleted"
+		:data-requires-previous="stepRequiresPrevious"
+		data-ui-step
+	>
+		<button type="button" :disabled="stepDisabled" data-ui-step-button>
+			<span aria-hidden="true" data-ui-step-marker
+				><UiIcon m-if="stepHasIcon" :name="stepIcon" size="1em" /><span
+					m-if="!stepHasIcon"
+					data-ui-step-number
+				></span
+			></span>
+			<span data-ui-step-copy
+				><span data-ui-step-title>{{ stepTitle }}</span
+				><span m-if="stepDescription" data-ui-step-description>{{
+					stepDescription
+				}}</span></span
+			>
+		</button>
+		<div hidden data-ui-step-content>
+			<slot>{{ stepContent }}</slot>
+		</div>
+	</li>
+</template>

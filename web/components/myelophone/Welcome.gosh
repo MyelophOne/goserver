@@ -1,0 +1,153 @@
+<!-- @server ./system/logic/welcome.go#WelcomeComponent -->
+<template>
+	<div
+		class="min-h-dvh flex flex-col items-center justify-center bg-[var(--ui-bg)] px-4 text-center text-[var(--ui-text)] transition-colors duration-300"
+	>
+		<div class="mb-6 flex items-center gap-3">
+			<a
+				href="/"
+				class="flex items-center gap-2 transition-opacity hover:opacity-90"
+				aria-label="MyelophOne GoServer home"
+			>
+				<div class="flex items-center gap-3">
+					<img
+						src="/assets/myelophone_eng.png"
+						width="221"
+						class="welcome-logo welcome-logo--light"
+						alt="MyelophOne"
+					/>
+					<img
+						src="/assets/myelophone_eng_white.png"
+						width="221"
+						class="welcome-logo welcome-logo--dark"
+						alt="MyelophOne"
+					/>
+					<span class="go-server-mark"
+						><span class="text-[#00dc82]">Go</span>Server</span
+					>
+				</div>
+			</a>
+		</div>
+
+		<p class="mb-6 max-w-xl dark:opacity-70">
+			{{ welcomeTitle }} <strong>MyelophOne GoServer</strong>!<br />
+			{{ welcomeExperiment }}<br />
+			<span class="italic"
+				>{{ welcomePoweredBy }}
+				<strong
+					><a
+						href="https://github.com/MyelophOne"
+						target="_blank"
+						rel="noreferrer"
+						>MyelophOne</a
+					></strong
+				>.</span
+			>
+			💚<br /><br />
+			<span class="text-sm">
+				{{ welcomeGoServerVersion }}
+				<span class="welcome-version">{{ welcomeVersion }}</span>
+			</span>
+		</p>
+
+		<p class="mb-6 max-w-xl font-semibold dark:opacity-70">
+			<button
+				type="button"
+				data-gosh-store-action="preferences.toggleTheme"
+				class="mb-2 inline-flex items-center gap-1.5"
+				:aria-label="welcomeToggleTheme"
+				:title="welcomeToggleTheme"
+			>
+				<span>{{ welcomeToggleTheme }}</span>
+				<svg
+					class="theme-icon theme-icon--moon"
+					aria-hidden="true"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="1.75"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				>
+					<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+				</svg>
+				<svg
+					class="theme-icon theme-icon--sun"
+					aria-hidden="true"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="1.75"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				>
+					<circle cx="12" cy="12" r="4" />
+					<path
+						d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"
+					/>
+				</svg>
+			</button>
+		</p>
+
+		<p
+			class="sticky top-[100vh] mb-6 max-w-xl text-sm opacity-30 transition-opacity duration-500 hover:opacity-100"
+		>
+			© 2026
+			<a
+				href="https://github.com/MyelophOne"
+				target="_blank"
+				rel="noreferrer"
+				>MyelophOne</a
+			>. All rights reserved.
+		</p>
+	</div>
+</template>
+
+<style scoped>
+.welcome-version {
+	display: inline-block;
+	margin: 0.15rem;
+	padding: 0.125rem 0.5rem;
+	border: 1px solid rgb(0 220 66 / 0.5);
+	border-radius: 0.25rem;
+	color: #00dc82;
+	background: rgb(0 220 66 / 0.1);
+	font-family:
+		ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+	font-size: 0.75rem;
+	font-weight: 600;
+	line-height: 1;
+}
+.go-server-mark {
+	display: inline-flex;
+	height: 2.8125rem;
+	align-items: center;
+	font-size: 2.3rem;
+	font-weight: 500;
+	line-height: 1;
+}
+.theme-icon {
+	display: block;
+	width: 1.25rem;
+	height: 1.25rem;
+	flex: none;
+}
+.theme-icon--sun,
+.welcome-logo--dark {
+	display: none;
+}
+:global([data-theme="dark"] .theme-icon--moon),
+:global([data-theme="dark"] .welcome-logo--light) {
+	display: none;
+}
+:global([data-theme="dark"] .theme-icon--sun),
+:global([data-theme="dark"] .welcome-logo--dark) {
+	display: block;
+}
+@media (min-width: 640px) {
+	.welcome-version {
+		padding: 0.25rem 0.625rem;
+		font-size: 0.875rem;
+	}
+}
+</style>

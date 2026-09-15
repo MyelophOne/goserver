@@ -1,0 +1,39 @@
+<!-- @server ./system/logic/icons.go#UiProtectedEmailData -->
+<template>
+	<span
+		:id="id"
+		:class="class"
+		:data-email-user="emailUser"
+		:data-email-domain="emailDomain"
+		:data-email-tld="emailTLD"
+		:data-email-subject="emailSubject"
+		data-ui-protected-email
+	>
+		<noscript>[email protected]</noscript>
+		<span data-ui-protected-email-placeholder>{{ emailPlaceholder }}</span>
+	</span>
+</template>
+
+<script setup>
+const root = useRoot().querySelector("[data-ui-protected-email]");
+if (!root) return;
+const user = root.dataset.emailUser || "";
+const domain = root.dataset.emailDomain || "";
+const tld = root.dataset.emailTld || "";
+if (!user || !domain || !tld) return;
+const email = user + "@" + domain + "." + tld;
+const subject = root.dataset.emailSubject || "";
+const link = document.createElement("a");
+link.id = root.id;
+link.className = root.className;
+link.href =
+	"mailto:" +
+	email +
+	(subject ? "?subject=" + encodeURIComponent(subject) : "");
+link.textContent = email;
+link.setAttribute("aria-label", email);
+const onClick = (event) => event.stopPropagation();
+link.addEventListener("click", onClick);
+root.replaceWith(link);
+onUnmounted(() => link.removeEventListener("click", onClick));
+</script>

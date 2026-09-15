@@ -1,0 +1,6 @@
+<!-- @server ./system/logic/universal_components.go#UniversalComponentData -->
+<template>
+	<span :id="id" :class="class" :lang="lang" data-ui-lang-visible
+		><slot
+	/></span>
+</template>

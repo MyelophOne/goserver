@@ -1,0 +1,30 @@
+<!-- @server ./system/logic/logo_grid.go#ViewLogoGridItemData -->
+<template>
+	<a
+		m-if="logoGridItemIsLink"
+		:class="class"
+		:href="logoGridItemHref"
+		:target="logoGridItemTarget"
+		:rel="logoGridItemRel"
+		:data-dark="logoGridItemDark"
+		data-view-logo-grid-item
+		><UiImageWithLoader
+			:src="logoGridItemSrc"
+			:alt="logoGridItemAlt"
+			img-class="view-logo-grid-image"
+			loading="lazy"
+	/></a>
+	<div
+		m-if="logoGridItemIsDiv"
+		:class="class"
+		:data-dark="logoGridItemDark"
+		data-view-logo-grid-item
+	>
+		<UiImageWithLoader
+			:src="logoGridItemSrc"
+			:alt="logoGridItemAlt"
+			img-class="view-logo-grid-image"
+			loading="lazy"
+		/>
+	</div>
+</template>

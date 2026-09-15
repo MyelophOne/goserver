@@ -1,0 +1,104 @@
+<!-- @server ./system/logic/icons.go#UiScrollToTopData -->
+<template>
+	<button
+		hidden
+		type="button"
+		:class="class"
+		:aria-label="scrollToTopLabel"
+		:data-threshold="scrollToTopThreshold"
+		:data-behavior="scrollToTopBehavior"
+		data-ui-scroll-to-top
+	>
+		<svg
+			aria-hidden="true"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			stroke-width="2.5"
+			stroke-linecap="round"
+			stroke-linejoin="round"
+		>
+			<path d="m18 15-6-6-6 6" />
+		</svg>
+	</button>
+</template>
+
+<style scoped>
+[data-ui-scroll-to-top] {
+	position: fixed;
+	right: 2rem;
+	bottom: 2rem;
+	z-index: 100;
+	display: inline-flex;
+	width: 3.5rem;
+	height: 3.5rem;
+	align-items: center;
+	justify-content: center;
+	padding: 1rem;
+	border: 1px solid var(--ui-border);
+	border-radius: 999px;
+	color: var(--ui-text);
+	background: var(--ui-surface, var(--ui-bg));
+	box-shadow:
+		0 20px 25px -5px rgb(0 0 0 / 0.16),
+		0 8px 10px -6px rgb(0 0 0 / 0.16);
+	cursor: pointer;
+	opacity: 0;
+	transform: translateY(0.65rem);
+	transition:
+		opacity 0.18s ease,
+		transform 0.18s ease,
+		scale 0.12s ease;
+}
+[data-ui-scroll-to-top][data-visible] {
+	opacity: 1;
+	transform: none;
+}
+[data-ui-scroll-to-top]:active {
+	scale: 0.9;
+}
+[data-ui-scroll-to-top]:focus-visible {
+	outline: 2px solid var(--ui-focus, #2563eb);
+	outline-offset: 3px;
+}
+[data-ui-scroll-to-top] svg {
+	width: 1.5rem;
+	height: 1.5rem;
+}
+@media (max-width: 640px) {
+	[data-ui-scroll-to-top] {
+		right: 1rem;
+		bottom: 1rem;
+		width: 3rem;
+		height: 3rem;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	[data-ui-scroll-to-top] {
+		transition: none;
+	}
+}
+</style>
+
+<script setup>
+const button = useRoot().querySelector("[data-ui-scroll-to-top]");
+if (!button) return;
+const parent = button.parentNode,
+	next = button.nextSibling;
+document.body.append(button);
+const update = () => {
+	const visible = window.scrollY > Number(button.dataset.threshold || 600);
+	button.hidden = !visible;
+	button.toggleAttribute("data-visible", visible);
+};
+const click = () =>
+	window.scrollTo({ top: 0, behavior: button.dataset.behavior || "smooth" });
+button.addEventListener("click", click);
+addEventListener("scroll", update, { passive: true });
+update();
+onUnmounted(() => {
+	button.removeEventListener("click", click);
+	removeEventListener("scroll", update);
+	if (parent) parent.insertBefore(button, next);
+});
+</script>

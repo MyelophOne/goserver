@@ -1,0 +1,3 @@
+<template>
+	<div :class="class" data-ui-card-header><slot /></div>
+</template>

@@ -1,0 +1,16 @@
+<!-- @server ./system/logic/universal_components.go#UniversalComponentData -->
+<template>
+	<div :id="id" :class="class" :data-country="country" data-ui-geo-dependent>
+		<slot />
+	</div>
+</template>
+<script setup>
+const e = useRoot().querySelector("[data-ui-geo-dependent]");
+if (!e) return;
+const wanted = (e.dataset.country || "").toUpperCase();
+if (wanted && Intl.DateTimeFormat().resolvedOptions().timeZone) {
+	const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+	e.toggleAttribute("data-geo-pending", true);
+	e.dataset.timezone = zone;
+}
+</script>

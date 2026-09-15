@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
@@ -25,9 +26,41 @@ type CacheStore interface {
 }
 
 type HybridCache struct {
-	group       singleflight.Group
-	memoryCache *lru.Cache
-	dataDir     string
+	group        singleflight.Group
+	memoryCache  *lru.Cache
+	memoryMu     sync.Mutex
+	revalidating sync.Map
+	dataDir      string
+}
+
+func (c *HybridCache) memoryGet(key string) (any, bool) {
+	c.memoryMu.Lock()
+	defer c.memoryMu.Unlock()
+	return c.memoryCache.Get(key)
+}
+
+func (c *HybridCache) memoryAdd(key string, value cacheItem) {
+	c.memoryMu.Lock()
+	defer c.memoryMu.Unlock()
+	c.memoryCache.Add(key, value)
+}
+
+func (c *HybridCache) memoryRemove(key string) {
+	c.memoryMu.Lock()
+	defer c.memoryMu.Unlock()
+	c.memoryCache.Remove(key)
+}
+
+func (c *HybridCache) memoryKeys() []interface{} {
+	c.memoryMu.Lock()
+	defer c.memoryMu.Unlock()
+	return c.memoryCache.Keys()
+}
+
+func (c *HybridCache) memoryPeek(key interface{}) (any, bool) {
+	c.memoryMu.Lock()
+	defer c.memoryMu.Unlock()
+	return c.memoryCache.Peek(key)
 }
 
 type cacheItem struct {
@@ -70,7 +103,7 @@ func (c *HybridCache) getSafePath(key string) string {
 
 func (c *HybridCache) save(key string, data []byte, maxAge time.Duration) {
 	expiration := time.Now().Add(maxAge).UnixNano()
-	c.memoryCache.Add(key, cacheItem{Value: data, Expiration: expiration})
+	c.memoryAdd(key, cacheItem{Value: data, Expiration: expiration})
 
 	if c.dataDir != "" {
 		filePath := c.getSafePath(key)
@@ -85,7 +118,11 @@ func (c *HybridCache) save(key string, data []byte, maxAge time.Duration) {
 }
 
 func (c *HybridCache) triggerRevalidate(originalCtx context.Context, key string, maxAge time.Duration, generate func(ctx context.Context) ([]byte, error)) {
+	if _, loaded := c.revalidating.LoadOrStore(key, struct{}{}); loaded {
+		return
+	}
 	go func() {
+		defer c.revalidating.Delete(key)
 		bgCtx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 		defer cancel()
 
@@ -97,7 +134,6 @@ func (c *HybridCache) triggerRevalidate(originalCtx context.Context, key string,
 			}
 			if len(newData) > 0 {
 				c.save(key, newData, maxAge)
-				log.Printf("[SWR Cache] Successfully updated '%s' in background", key)
 			}
 			return nil, nil
 		})
@@ -107,7 +143,7 @@ func (c *HybridCache) triggerRevalidate(originalCtx context.Context, key string,
 func (c *HybridCache) GetOrSetSWR(ctx context.Context, key string, maxAge time.Duration, generate func(ctx context.Context) ([]byte, error)) ([]byte, error) {
 	now := time.Now().UnixNano()
 
-	if val, found := c.memoryCache.Get(key); found {
+	if val, found := c.memoryGet(key); found {
 		item := val.(cacheItem)
 		if now <= item.Expiration {
 			return item.Value, nil
@@ -121,7 +157,7 @@ func (c *HybridCache) GetOrSetSWR(ctx context.Context, key string, maxAge time.D
 		if info, err := os.Stat(filePath); err == nil {
 			if data, readErr := os.ReadFile(filePath); readErr == nil {
 				fileExpiration := info.ModTime().Add(maxAge).UnixNano()
-				c.memoryCache.Add(key, cacheItem{Value: data, Expiration: fileExpiration})
+				c.memoryAdd(key, cacheItem{Value: data, Expiration: fileExpiration})
 
 				if now <= fileExpiration {
 					return data, nil
@@ -133,7 +169,7 @@ func (c *HybridCache) GetOrSetSWR(ctx context.Context, key string, maxAge time.D
 	}
 
 	v, err, _ := c.group.Do(key, func() (any, error) {
-		if val, found := c.memoryCache.Get(key); found {
+		if val, found := c.memoryGet(key); found {
 			item := val.(cacheItem)
 			if now <= item.Expiration {
 				return item.Value, nil
@@ -161,12 +197,12 @@ func (c *HybridCache) GetOrSetSWR(ctx context.Context, key string, maxAge time.D
 func (c *HybridCache) GetOrSet(ctx context.Context, key string, maxAge time.Duration, generate func(ctx context.Context) ([]byte, error)) ([]byte, error) {
 	now := time.Now().UnixNano()
 
-	if val, found := c.memoryCache.Get(key); found {
+	if val, found := c.memoryGet(key); found {
 		item := val.(cacheItem)
 		if now <= item.Expiration {
 			return item.Value, nil
 		}
-		c.memoryCache.Remove(key)
+		c.memoryRemove(key)
 	}
 
 	if c.dataDir != "" {
@@ -176,7 +212,7 @@ func (c *HybridCache) GetOrSet(ctx context.Context, key string, maxAge time.Dura
 				fileExpiration := info.ModTime().Add(maxAge).UnixNano()
 
 				if now <= fileExpiration {
-					c.memoryCache.Add(key, cacheItem{Value: data, Expiration: fileExpiration})
+					c.memoryAdd(key, cacheItem{Value: data, Expiration: fileExpiration})
 					return data, nil
 				}
 			}
@@ -184,6 +220,13 @@ func (c *HybridCache) GetOrSet(ctx context.Context, key string, maxAge time.Dura
 	}
 
 	v, err, _ := c.group.Do(key, func() (any, error) {
+		if val, found := c.memoryGet(key); found {
+			item := val.(cacheItem)
+			if time.Now().UnixNano() <= item.Expiration {
+				return item.Value, nil
+			}
+			c.memoryRemove(key)
+		}
 		newData, genErr := generate(ctx)
 		if genErr != nil {
 			return nil, genErr
@@ -298,13 +341,13 @@ func (c *HybridCache) startMemoryCleanupLoop() {
 	for range ticker.C {
 		now := time.Now().UnixNano()
 
-		keys := c.memoryCache.Keys()
+		keys := c.memoryKeys()
 
 		for _, k := range keys {
-			if val, ok := c.memoryCache.Peek(k); ok {
+			if val, ok := c.memoryPeek(k); ok {
 				item := val.(cacheItem)
 				if now > item.Expiration {
-					c.memoryCache.Remove(k)
+					c.memoryRemove(k.(string))
 				}
 			}
 		}
@@ -327,7 +370,7 @@ func (s *Server) SetCache(w http.ResponseWriter, value string) {
 func (c *HybridCache) Get(ctx context.Context, key string) (any, bool) {
 	now := time.Now().UnixNano()
 
-	if val, found := c.memoryCache.Get(key); found {
+	if val, found := c.memoryGet(key); found {
 		item := val.(cacheItem)
 		if now <= item.Expiration {
 			return item.Value, true

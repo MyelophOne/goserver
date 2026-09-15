@@ -1,0 +1,127 @@
+<!-- @server ./system/logic/infinite_marquee.go#ViewInfiniteMarqueeData -->
+<template>
+	<div
+		:id="id"
+		:class="marqueeClasses"
+		:style="marqueeStyle"
+		:data-delay="marqueeDelay"
+		:aria-label="marqueeAriaLabel"
+		role="region"
+		data-view-infinite-marquee
+	>
+		<div data-view-infinite-marquee-track>
+			<div data-view-infinite-marquee-source><slot /></div>
+		</div>
+	</div>
+</template>
+
+<style scoped>
+@keyframes view-infinite-marquee {
+	from {
+		transform: translate3d(0, 0, 0);
+	}
+	to {
+		transform: translate3d(calc(-1 * var(--view-marquee-distance)), 0, 0);
+	}
+}
+@keyframes view-infinite-marquee-fade {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+[data-view-infinite-marquee] {
+	position: relative;
+	width: 100%;
+	overflow: hidden;
+	mask-image: linear-gradient(
+		to right,
+		transparent,
+		#000 2rem,
+		#000 calc(100% - 2rem),
+		transparent
+	);
+	-webkit-mask-image: linear-gradient(
+		to right,
+		transparent,
+		#000 2rem,
+		#000 calc(100% - 2rem),
+		transparent
+	);
+}
+[data-view-infinite-marquee-track] {
+	display: flex;
+	width: max-content;
+	animation: view-infinite-marquee var(--view-marquee-duration) linear
+		infinite;
+	animation-play-state: paused;
+	will-change: transform;
+}
+[data-view-infinite-marquee][data-running] [data-view-infinite-marquee-track] {
+	animation-play-state: running;
+}
+[data-view-infinite-marquee]:hover [data-view-infinite-marquee-track] {
+	animation-play-state: paused;
+}
+[data-view-infinite-marquee-source] {
+	display: flex;
+	flex: none;
+	align-items: center;
+	white-space: nowrap;
+}
+[data-view-infinite-marquee-source] > * {
+	flex: none;
+	padding-inline: 2rem;
+	text-transform: uppercase;
+}
+[data-view-infinite-marquee-source].is-clone {
+	animation: view-infinite-marquee-fade 0.5s ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+	[data-view-infinite-marquee-track] {
+		animation: none !important;
+		transform: none !important;
+	}
+}
+</style>
+
+<script setup>
+const root = useRoot().querySelector("[data-view-infinite-marquee]");
+if (!root) return;
+const css = window._gosh.setStyleProperty,
+	track = root.querySelector("[data-view-infinite-marquee-track]"),
+	source = root.querySelector("[data-view-infinite-marquee-source]");
+if (!track || !source) return;
+let timer, observer;
+const rebuild = () => {
+	root.removeAttribute("data-running");
+	window.clearTimeout(timer);
+	track.replaceChildren(source);
+	const width = source.getBoundingClientRect().width,
+		containerWidth = root.getBoundingClientRect().width;
+	if (!width || !containerWidth) return;
+	const copies = Math.max(1, Math.ceil((containerWidth * 2) / width));
+	for (let index = 0; index < copies; index += 1) {
+		const clone = source.cloneNode(true);
+		clone.setAttribute("aria-hidden", "true");
+		clone.classList.add("is-clone");
+		track.appendChild(clone);
+	}
+	css(track, "--view-marquee-distance", `${width}px`);
+	timer = window.setTimeout(
+		() => root.setAttribute("data-running", ""),
+		Math.max(0, Number(root.dataset.delay) || 0),
+	);
+};
+rebuild();
+if (typeof ResizeObserver !== "undefined") {
+	observer = new ResizeObserver(rebuild);
+	observer.observe(root);
+}
+onUnmounted(() => {
+	window.clearTimeout(timer);
+	if (observer) observer.disconnect();
+});
+</script>

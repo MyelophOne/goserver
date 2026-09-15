@@ -1,0 +1,52 @@
+{
+  "hello": { "world": "こんにちは、世界！" },
+  "web": {
+    "language": "言語",
+    "title": "I18n の例",
+    "heading": "ページ全体を再読み込みせずに言語を切り替える",
+    "description": "このページは Go でレンダリングされ、goserver I18n により翻訳されています。"
+  },
+  "myelophone": {
+    "welcome": "ようこそ",
+    "experiment": "試して、カスタマイズして、速度とパフォーマンスをお楽しみください！",
+    "poweredBy": "提供",
+    "goserverVersion": "GoServer バージョン",
+    "toggleTheme": "テーマを切り替える"
+  },
+  "errors": {
+    "home": "ホームに戻る", "homeLabel": "MyelophOne GoServer ホーム", "toggleTheme": "テーマを切り替える", "copyright": "All rights reserved.",
+    "notFound": { "title": "ページが見つかりません", "description": "アドレスが正しくないか、ページが移動されたか、利用できなくなった可能性があります。" },
+    "server": { "title": "問題が発生しました", "description": "サーバーはこのリクエストを完了できませんでした。データは変更されていません。しばらくしてからもう一度お試しください。" }
+  },
+  "cookies": {
+    "weUseCookies": "サイトの機能と分析のために Cookie を使用しています。",
+    "customize": "カスタマイズ",
+    "decline": "拒否",
+    "changePrefs": "設定を変更",
+    "acceptAll": "すべて承認",
+    "close": "閉じる",
+    "privacyTitle": "プライバシー設定",
+    "cookieNote": "許可する Cookie のカテゴリを選択してください。",
+    "necessary": "必要",
+    "analytics": "分析",
+    "marketing": "マーケティング",
+    "functional": "機能",
+    "necessaryDesc": "サイトの動作に必要です。無効にできません。",
+    "analyticsDesc": "訪問者によるサイトの利用方法を理解するのに役立ちます。",
+    "marketingDesc": "広告および第三者のメディアを有効にします。",
+    "functionalDesc": "任意の機能と埋め込みサービスを有効にします。",
+    "alwaysOn": "常に有効",
+    "usedServices": "使用するサービス",
+    "cookiesList": "このブラウザに保存された Cookie",
+    "emptyList": "読み取り可能な Cookie が見つかりません。",
+    "declineAll": "任意項目を拒否",
+    "savePrefs": "設定を保存",
+    "contentHidden": "コンテンツは非表示です",
+    "setPrefs": "設定する",
+    "policyTitle": "Cookie および類似技術",
+    "privacyPolicy": "プライバシーポリシー",
+    "officialDocs": "公式ドキュメント",
+    "allowCategory": "このコンテンツを表示するには、%s カテゴリの Cookie を許可してください。",
+    "allowService": "%s を使用するには、%s カテゴリの Cookie を許可してください。"
+  }
+}
