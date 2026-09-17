@@ -14,17 +14,17 @@ COPY . .
 COPY --from=web-deps /usr/local/bin/node /usr/local/bin/node
 
 RUN APP_ENV=prod GIT_COMMIT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo unknown) \
-    go run -tags webcli ./cmd generate \
-    && APP_ENV=prod GIT_COMMIT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo unknown) \
-    go run -tags webcli ./cmd build
+	go run -tags "webcli webbuild" ./cmd generate \
+	&& APP_ENV=prod GIT_COMMIT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo unknown) \
+	go run -tags "webcli webbuild" ./cmd build
 
 FROM alpine:latest
 
 WORKDIR /app
 
-RUN apk add --no-cache ca-certificates \
-    && addgroup -S goserver \
-    && adduser -S -G goserver -h /app goserver
+RUN apk add --no-cache ca-certificates wget \
+	&& addgroup -S goserver \
+	&& adduser -S -G goserver -h /app goserver
 
 COPY --chown=goserver:goserver --from=builder /app/dist/ ./
 COPY --chown=goserver:goserver --from=builder /app/LICENSE ./LICENSE

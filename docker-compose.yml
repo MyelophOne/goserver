@@ -3,8 +3,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
-      - "${DOCKER_PORT_BINDING:-8080}:8080"
     expose:
       - "${HTTP_PORT:-8080}"
     env_file:
@@ -20,7 +18,10 @@ services:
         max_attempts: 5
         window: 300s
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:${HTTP_PORT:-8080}/healthz"]
+      test: [
+        "CMD-SHELL",
+        "wget -q --user-agent='Mozilla/5.0' -O /dev/null http://127.0.0.1:8080/healthz || exit 1"
+          ]
       interval: 30s
       timeout: 5s
       retries: 3

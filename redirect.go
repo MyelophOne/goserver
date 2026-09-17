@@ -12,6 +12,10 @@ func (s *Server) RedirectMiddleware(next http.Handler) http.Handler {
 		scheme := "http"
 		if r.TLS != nil {
 			scheme = "https"
+		} else if forwardedProto := r.Header.Get("X-Forwarded-Proto"); forwardedProto != "" {
+			scheme = strings.ToLower(strings.TrimSpace(
+				strings.Split(forwardedProto, ",")[0],
+			))
 		}
 
 		needsRedirect := false
