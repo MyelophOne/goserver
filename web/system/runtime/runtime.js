@@ -1342,7 +1342,6 @@
 			var url = location.href;
 			var entry = history.state && history.state[STATE_KEY];
 			var id = entry && entry.id;
-			// Scroll events are sampled every frame, but history writes must not be.
 			this.scrollHistoryTimer = setTimeout(function () {
 				self.scrollHistoryTimer = null;
 				var current = history.state && history.state[STATE_KEY];
