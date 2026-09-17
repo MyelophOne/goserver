@@ -68,6 +68,13 @@ func main() { if err := goserver.RunWebCLI(os.Args[1:]); err != nil { log.Fatal(
 	if output, err := generate.CombinedOutput(); err != nil {
 		t.Fatalf("bootstrap consumer CLI: %v\n%s", err, output)
 	}
+	entry, err := os.ReadFile("cmd/web_import_gen.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(entry), "//go:build !webcli || webbuild") {
+		t.Fatalf("generated entry does not load handlers for the production builder: %s", entry)
+	}
 	_, err = writeProductionEmbed([]string{"web/pages/index.gosh", "web/components/Probe.gosh"}, logic.ProductionBundle{
 		TailwindCSS: map[string]string{"index.gosh": "h1{color:red}"},
 		FinalCSS:    map[string]string{hashText(systemBaseCSS): minifyCSS(systemBaseCSS)},

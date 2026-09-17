@@ -60,7 +60,7 @@ tasks:
       GIT_COMMIT_HASH: "{{.GIT_HASH}}"
     cmds:
       - go run -tags webcli ./cmd generate
-      - go run -tags webcli ./cmd build
+      - go run -tags "webcli webbuild" ./cmd build
   web:build:profile:
     desc: Build a production web distribution with Server-Timing profiling enabled
     silent: true
@@ -71,7 +71,7 @@ tasks:
       MYELOPHONE_WEB_RENDER_SERVER_TIMING: "true"
     cmds:
       - go run -tags webcli ./cmd generate
-      - go run -tags webcli ./cmd build
+      - go run -tags "webcli webbuild" ./cmd build
   run:
     env:
       APP_ENV: dev

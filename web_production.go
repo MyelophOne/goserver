@@ -367,7 +367,7 @@ func writeWebEntry() (string, error) {
 		return "", err
 	}
 	file := filepath.Join("cmd", "web_import_gen.go")
-	data := fmt.Sprintf("//go:build !webcli\n\npackage main\n\nimport _ %q\n", modulePath+"/"+generatedWebDir)
+	data := fmt.Sprintf("//go:build !webcli || webbuild\n\npackage main\n\nimport _ %q\n", modulePath+"/"+generatedWebDir)
 	if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
 		return "", err
 	}
