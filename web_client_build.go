@@ -1,3 +1,5 @@
+//go:build !myelophone_prod
+
 package goserver
 
 import (
@@ -27,12 +29,17 @@ func clientToolBinary() (string, error) {
 		}
 		return "", fmt.Errorf("MYELOPHONE_ESBUILD_BIN=%q does not point to an executable", override)
 	}
-	candidates := []string{filepath.Join(systemClientDir, "node_modules", ".bin", "esbuild")}
+	tools, err := webToolchain()
+	if err != nil {
+		return "", err
+	}
+	candidates := []string{filepath.Join(tools.Client, "node_modules", ".bin", "esbuild")}
 	if runtime.GOOS == "windows" {
+		arch := map[string]string{"amd64": "x64", "arm64": "arm64", "386": "ia32"}[runtime.GOARCH]
 		candidates = []string{
-			filepath.Join(systemClientDir, "node_modules", "@esbuild", "win32-x64", "esbuild.exe"),
-			filepath.Join(systemClientDir, "node_modules", ".bin", "esbuild.cmd"),
-			filepath.Join(systemClientDir, "node_modules", ".bin", "esbuild"),
+			filepath.Join(tools.Client, "node_modules", "@esbuild", "win32-"+arch, "esbuild.exe"),
+			filepath.Join(tools.Client, "node_modules", ".bin", "esbuild.cmd"),
+			filepath.Join(tools.Client, "node_modules", ".bin", "esbuild"),
 		}
 	}
 	for _, p := range candidates {
@@ -43,7 +50,7 @@ func clientToolBinary() (string, error) {
 	if p, err := exec.LookPath("esbuild"); err == nil {
 		return p, nil
 	}
-	return "", fmt.Errorf("client build requires dependencies in web/system/client; run `yarn --cwd web/system/client install`")
+	return "", fmt.Errorf("esbuild executable is missing from web toolchain %s", tools.Client)
 }
 
 type clientSource struct {
@@ -51,7 +58,7 @@ type clientSource struct {
 	name string
 }
 
-func buildSiteSearchWorker(bin string) (string, error) {
+func buildSiteSearchWorker(bin, sourceRoot string) (string, error) {
 	config, err := logic.UseRuntimeConfig()
 	if err != nil {
 		return "", err
@@ -60,15 +67,13 @@ func buildSiteSearchWorker(bin string) (string, error) {
 	if config.SiteSearch.ServerSearch {
 		name = "site-search-server-worker.js"
 	}
-	source := sourceFilePath(filepath.Join(systemClientDir, name))
+	source := filepath.Join(sourceRoot, sourcePath(filepath.Join(systemClientDir, name)))
 	if _, err := os.Stat(source); err != nil {
 		if os.IsNotExist(err) {
 			return "", nil
 		}
 		return "", err
 	}
-	// A worker is a build product, not a public source file. Keeping it under
-	// tmp also prevents a build for one search mode leaking into the other.
 	outputDir := filepath.Join("tmp", "site-search")
 	if err := os.MkdirAll(outputDir, 0o755); err != nil {
 		return "", err
@@ -79,7 +84,11 @@ func buildSiteSearchWorker(bin string) (string, error) {
 		other = "site-search-worker.js"
 	}
 	_ = os.Remove(filepath.Join(outputDir, other))
-	nodeModules, _ := filepath.Abs(filepath.Join(systemClientDir, "node_modules"))
+	tools, err := webToolchain()
+	if err != nil {
+		return "", err
+	}
+	nodeModules := filepath.Join(tools.Client, "node_modules")
 	cmd := exec.Command(bin, source, "--bundle", "--format=iife", "--platform=browser", "--target=es2020", "--minify", "--outfile="+output)
 	cmd.Dir = "."
 	cmd.Env = append(os.Environ(), "NODE_PATH="+nodeModules)
@@ -114,6 +123,9 @@ func clientSourceFiles(root string) ([]clientSource, error) {
 		}
 		return nil
 	})
+	if os.IsNotExist(err) {
+		err = nil
+	}
 	sort.Slice(out, func(i, j int) bool { return out[i].name < out[j].name })
 	return out, err
 }
@@ -160,15 +172,24 @@ func BuildClientEntry(sharedSources map[string]string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := os.MkdirAll(systemClientDir, 0o755); err != nil {
-		return nil, err
-	}
-	workerURL, err := buildSiteSearchWorker(bin)
+	sourceRoot, err := materializeClientLayers()
 	if err != nil {
 		return nil, err
 	}
-	entry := filepath.Join(systemClientDir, ".myelophone-entry.mjs")
-	output := filepath.Join(systemClientDir, ".myelophone-entry.js")
+	defer os.RemoveAll(sourceRoot)
+	for i := range stores {
+		stores[i].path = filepath.Join(sourceRoot, sourcePath(stores[i].path))
+	}
+	for i := range plugins {
+		plugins[i].path = filepath.Join(sourceRoot, sourcePath(plugins[i].path))
+	}
+	workerURL, err := buildSiteSearchWorker(bin, sourceRoot)
+	if err != nil {
+		return nil, err
+	}
+	workDir := sourceRoot
+	entry := filepath.Join(workDir, ".myelophone-entry.mjs")
+	output := filepath.Join(workDir, ".myelophone-entry.js")
 	defer os.Remove(entry)
 	defer os.Remove(output)
 	sharedModulePaths := make([]string, 0, len(sharedSources))
@@ -179,10 +200,10 @@ func BuildClientEntry(sharedSources map[string]string) ([]byte, error) {
 	}()
 
 	var b strings.Builder
-	runtimePath := sourceFilePath(filepath.Join(systemRuntimeDir, "runtime.js"))
-	runtimeRel, _ := filepath.Rel(systemClientDir, runtimePath)
+	runtimePath := filepath.Join(sourceRoot, sourcePath(filepath.Join(systemRuntimeDir, "runtime.js")))
+	runtimeRel, _ := filepath.Rel(workDir, runtimePath)
 	runtimeRel = filepath.ToSlash(runtimeRel)
-	if !strings.HasPrefix(runtimeRel, ".") {
+	if !strings.HasPrefix(runtimeRel, "./") && !strings.HasPrefix(runtimeRel, "../") {
 		runtimeRel = "./" + runtimeRel
 	}
 	b.WriteString("import " + strconv.Quote(runtimeRel) + ";\n")
@@ -193,7 +214,7 @@ func BuildClientEntry(sharedSources map[string]string) ([]byte, error) {
 	}
 	sort.Strings(sharedIDs)
 	for i, id := range sharedIDs {
-		modulePath := filepath.Join(systemClientDir, ".myelophone-entry-"+id+".mjs")
+		modulePath := filepath.Join(workDir, ".myelophone-entry-"+id+".mjs")
 		if err := os.WriteFile(modulePath, []byte(sharedSources[id]), 0o644); err != nil {
 			return nil, fmt.Errorf("write shared client module %s: %w", id, err)
 		}
@@ -201,17 +222,17 @@ func BuildClientEntry(sharedSources map[string]string) ([]byte, error) {
 		b.WriteString(fmt.Sprintf("import * as M%d from %s;\n", i, strconv.Quote("./"+filepath.Base(modulePath))))
 	}
 	for i, store := range stores {
-		rel, _ := filepath.Rel(systemClientDir, store.path)
+		rel, _ := filepath.Rel(workDir, store.path)
 		rel = filepath.ToSlash(rel)
-		if !strings.HasPrefix(rel, ".") {
+		if !strings.HasPrefix(rel, "./") && !strings.HasPrefix(rel, "../") {
 			rel = "./" + rel
 		}
 		b.WriteString(fmt.Sprintf("import * as S%d from %s;\n", i, strconv.Quote(rel)))
 	}
 	for i, plugin := range plugins {
-		rel, _ := filepath.Rel(systemClientDir, plugin.path)
+		rel, _ := filepath.Rel(workDir, plugin.path)
 		rel = filepath.ToSlash(rel)
-		if !strings.HasPrefix(rel, ".") {
+		if !strings.HasPrefix(rel, "./") && !strings.HasPrefix(rel, "../") {
 			rel = "./" + rel
 		}
 		b.WriteString(fmt.Sprintf("import * as P%d from %s;\n", i, strconv.Quote(rel)))
@@ -250,7 +271,11 @@ func BuildClientEntry(sharedSources map[string]string) ([]byte, error) {
 	if err := os.WriteFile(entry, []byte(b.String()), 0o644); err != nil {
 		return nil, err
 	}
-	nodeModules, _ := filepath.Abs(filepath.Join(systemClientDir, "node_modules"))
+	tools, err := webToolchain()
+	if err != nil {
+		return nil, err
+	}
+	nodeModules := filepath.Join(tools.Client, "node_modules")
 	cmd := exec.Command(bin, entry, "--bundle", "--format=iife", "--platform=browser", "--target=es2020", "--minify", "--outfile="+output)
 	cmd.Dir = "."
 	cmd.Env = append(os.Environ(), "NODE_PATH="+nodeModules)
@@ -280,9 +305,14 @@ func BuildRouteClientChunk(sources map[string]string) ([]byte, error) {
 	}
 	sort.Strings(ids)
 	tag := hashText(strings.Join(ids, ","))
-	workDir, err := filepath.Abs(sourceFilePath(systemClientDir))
+	workDir, err := webBuildTemp("route-")
 	if err != nil {
 		return nil, fmt.Errorf("resolve route client build directory: %w", err)
+	}
+	defer os.RemoveAll(workDir)
+	workDir, err = filepath.Abs(workDir)
+	if err != nil {
+		return nil, err
 	}
 	entry := filepath.Join(workDir, ".gosh-route-"+tag+".mjs")
 	output := filepath.Join(workDir, ".gosh-route-"+tag+".js")
@@ -310,7 +340,11 @@ func BuildRouteClientChunk(sources map[string]string) ([]byte, error) {
 	for i := range ids {
 		defer os.Remove(filepath.Join(workDir, ".gosh-route-"+tag+"-"+strconv.Itoa(i)+".mjs"))
 	}
-	nodeModules, _ := filepath.Abs(filepath.Join(systemClientDir, "node_modules"))
+	tools, err := webToolchain()
+	if err != nil {
+		return nil, err
+	}
+	nodeModules := filepath.Join(tools.Client, "node_modules")
 	cmd := exec.Command(bin, filepath.Base(entry), "--bundle", "--format=esm", "--platform=browser", "--target=es2020", "--minify", "--outfile="+filepath.Base(output))
 	cmd.Dir = workDir
 	cmd.Env = append(os.Environ(), "NODE_PATH="+nodeModules)
@@ -320,4 +354,60 @@ func BuildRouteClientChunk(sources map[string]string) ([]byte, error) {
 		return nil, fmt.Errorf("route client chunk build: %w: %s", err, strings.TrimSpace(stderr.String()))
 	}
 	return os.ReadFile(output)
+}
+
+func routeClientSources(page *Page, components, layouts *Components, defaultLayout string, entrySources map[string]bool, scriptUsage map[string]int, cookieControlEnabled bool) map[string]string {
+	sources := map[string]string{}
+	seen := map[string]bool{}
+	var visit func(*Component)
+	var nodes func([]Node)
+	visit = func(component *Component) {
+		if component == nil || seen[component.Path] {
+			return
+		}
+		if !cookieControlEnabled && disabledCookieGlobalComponent(component.Name) {
+			return
+		}
+		seen[component.Path] = true
+		for _, block := range component.Scripts {
+			source := strings.TrimSpace(block.Content)
+			id := hashText(source)
+			if source != "" && !entrySources[id] && scriptUsage[id] <= 1 {
+				sources[id] = source
+			}
+		}
+		if component.PreparedSetupSource != "" {
+			source := component.PreparedSetupSource
+			id := hashText(source)
+			if strings.TrimSpace(component.ScriptSetup.Content) != "" && !entrySources[id] && scriptUsage[id] <= 1 {
+				sources[id] = source
+			}
+		}
+		nodes(component.Template)
+	}
+	nodes = func(items []Node) {
+		for _, node := range items {
+			e, ok := node.(*ElementNode)
+			if !ok {
+				continue
+			}
+			if e.IsComponent {
+				if component, ok := components.Get(e.Tag); ok {
+					visit(component)
+				}
+			}
+			nodes(e.Children)
+		}
+	}
+	visit(page.View)
+	layoutName := page.Layout
+	if layoutName == "" {
+		layoutName = defaultLayout
+	}
+	if layoutName != "" && layoutName != "none" && layouts != nil {
+		if layout, ok := layouts.Get(layoutName); ok {
+			visit(layout)
+		}
+	}
+	return sources
 }

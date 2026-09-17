@@ -1238,7 +1238,7 @@
 				requestAnimationFrame(function () {
 					self.scrollPosition.x = window.scrollX || 0;
 					self.scrollPosition.y = window.scrollY || 0;
-					self.updateScrollHistory();
+					self.updateScrollHistory(true);
 					self.scrollSamplePending = false;
 				});
 			},
@@ -1334,9 +1334,34 @@
 		} catch (_) {}
 	};
 
-	Runtime.prototype.updateScrollHistory = function () {
+	Runtime.prototype.updateScrollHistory = function (deferred) {
+		clearTimeout(this.scrollHistoryTimer);
+		this.scrollHistoryTimer = null;
+		if (deferred) {
+			var self = this;
+			var url = location.href;
+			var entry = history.state && history.state[STATE_KEY];
+			var id = entry && entry.id;
+			// Scroll events are sampled every frame, but history writes must not be.
+			this.scrollHistoryTimer = setTimeout(function () {
+				self.scrollHistoryTimer = null;
+				var current = history.state && history.state[STATE_KEY];
+				if (location.href !== url || (current && current.id) !== id)
+					return;
+				self.updateScrollHistory();
+			}, 250);
+			return;
+		}
+
 		var state = Object.assign({}, history.state || {});
 		var s = Object.assign({}, state[STATE_KEY] || {});
+		if (
+			s.id &&
+			s.url === location.href &&
+			s.x === this.scrollPosition.x &&
+			s.y === this.scrollPosition.y
+		)
+			return;
 
 		s.id = s.id || uid();
 		s.url = location.href;

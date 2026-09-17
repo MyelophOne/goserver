@@ -75,7 +75,7 @@ func NewServer(addr string) *Server {
 	s := &Server{
 		addr:        addr,
 		router:      r,
-		fileServer:  http.FileServer(http.Dir("./assets")),
+		fileServer:  http.FileServer(http.FS(publicAssetsFS("./assets"))),
 		middlewares: make([]Middleware, 0),
 		Logger:      log.New(logWriter, "[goserver] ", log.LstdFlags),
 		stats: ServerStats{
@@ -373,8 +373,13 @@ func (s *Server) buildHandler(cfg Config) http.Handler {
 	}
 
 	compiledHandler := s.compileMiddlewareChain(handler)
+	maintenance := newMaintenanceMode(cfg)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if maintenance.enabled() && !maintenance.allows(r) {
+			serveMaintenance(w, r)
+			return
+		}
 		if !s.beginWork() {
 			http.Error(w, "Server shutting down", http.StatusServiceUnavailable)
 			return

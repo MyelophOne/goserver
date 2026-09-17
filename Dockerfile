@@ -1,14 +1,5 @@
 FROM node:26-alpine AS web-deps
 
-WORKDIR /app
-
-COPY web/system/tailwind/package.json web/system/tailwind/yarn.lock ./web/system/tailwind/
-COPY web/system/client/package.json web/system/client/yarn.lock ./web/system/client/
-
-RUN corepack enable \
-    && yarn --cwd web/system/tailwind install \
-    && yarn --cwd web/system/client install
-
 FROM golang:alpine AS builder
 
 RUN apk add --no-cache git libstdc++
@@ -21,8 +12,6 @@ RUN go mod download
 
 COPY . .
 COPY --from=web-deps /usr/local/bin/node /usr/local/bin/node
-COPY --from=web-deps /app/web/system/tailwind/node_modules ./web/system/tailwind/node_modules
-COPY --from=web-deps /app/web/system/client/node_modules ./web/system/client/node_modules
 
 RUN APP_ENV=prod GIT_COMMIT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo unknown) \
     go run -tags webcli ./cmd generate \

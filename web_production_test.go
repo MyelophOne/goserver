@@ -1,3 +1,5 @@
+//go:build !myelophone_prod
+
 package goserver
 
 import (
@@ -30,6 +32,19 @@ func TestProductionRuntimeConfigEmbedsResolvedSettings(t *testing.T) {
 }
 
 func TestReachableProductionFilesIncludesTeleportDependencies(t *testing.T) {
+	t.Chdir(t.TempDir())
+	for path, source := range map[string]string{
+		"web/components/ui/Probe.gosh": "<template><span>probe</span></template>",
+		"web/teleport/Overlay.gosh":    "<template><UiProbe /></template>",
+		"web/content/probe.md":         "# Probe content",
+	} {
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(source), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
 	components, err := LoadComponents(systemComponentsDir)
 	if err != nil {
 		t.Fatal(err)
@@ -56,8 +71,8 @@ func TestReachableProductionFilesIncludesTeleportDependencies(t *testing.T) {
 		contained[file] = true
 	}
 	for _, want := range []string{
-		sourcePath(filepath.Join(systemComponentsDir, "ui", "CursorCreative.gosh")),
-		sourcePath(filepath.Join(systemContentDir, "demo.md")),
+		sourcePath(filepath.Join(systemComponentsDir, "ui", "Probe.gosh")),
+		sourcePath(filepath.Join(systemContentDir, "probe.md")),
 	} {
 		if !contained[want] {
 			t.Fatalf("production files do not include %q", want)

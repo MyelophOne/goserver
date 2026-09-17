@@ -13,53 +13,56 @@ import (
 )
 
 type Config struct {
-	LogLevel               string
-	LogClientIP            string
-	APIPrefix              string
-	WsTokenKey             string
-	CsrfTrustedOrigins     string
-	DatabaseUrl            string
-	PostgresHost           string
-	PostgresUser           string
-	PostgresPassword       string
-	PostgresDb             string
-	DbExecMode             string
-	DbMaxConns             string
-	DbMinConns             string
-	DbLogMode              string
-	SmtpHost               string
-	SmtpPort               string
-	SmtpUser               string
-	SmtpPassword           string
-	SmtpFrom               string
-	SmtpQueueSize          string
-	SmtpWorkers            string
-	I18nDefaultLanguage    string
-	I18nLanguages          []string
-	sessionKey             string
-	TZ                     string
-	JWTSecret              string
-	metricsToken           string
-	MaxURLLength           int
-	MaxHeaders             int
-	MaxConnections         int64
-	ReadTimeout            time.Duration
-	WriteTimeout           time.Duration
-	IdleTimeout            time.Duration
-	ReadHeaderTimeout      time.Duration
-	MaxHeaderBytes         int
-	ShutdownTimeout        time.Duration
-	PingTimeout            time.Duration
-	WriteByteTimeout       time.Duration
-	maxConcurrent          int
-	MaxBodySize            int64
-	RateLimiteSize         int
-	RateLimiteRate         int
-	RateLimiteWindow       time.Duration
-	EnableSlowlorisCheck   bool
-	RateLimitSkipLocalhost bool
-	EnableGzip             bool
-	metricsEnabled         bool
+	LogLevel                 string
+	LogClientIP              string
+	APIPrefix                string
+	WsTokenKey               string
+	CsrfTrustedOrigins       string
+	DatabaseUrl              string
+	PostgresHost             string
+	PostgresUser             string
+	PostgresPassword         string
+	PostgresDb               string
+	DbExecMode               string
+	DbMaxConns               string
+	DbMinConns               string
+	DbLogMode                string
+	SmtpHost                 string
+	SmtpPort                 string
+	SmtpUser                 string
+	SmtpPassword             string
+	SmtpFrom                 string
+	SmtpQueueSize            string
+	SmtpWorkers              string
+	I18nDefaultLanguage      string
+	I18nLanguages            []string
+	MaintenanceCheckInterval time.Duration
+	sessionKey               string
+	TZ                       string
+	JWTSecret                string
+	metricsToken             string
+	MaxURLLength             int
+	MaxHeaders               int
+	MaxConnections           int64
+	ReadTimeout              time.Duration
+	WriteTimeout             time.Duration
+	IdleTimeout              time.Duration
+	ReadHeaderTimeout        time.Duration
+	MaxHeaderBytes           int
+	ShutdownTimeout          time.Duration
+	PingTimeout              time.Duration
+	WriteByteTimeout         time.Duration
+	maxConcurrent            int
+	MaxBodySize              int64
+	RateLimiteSize           int
+	RateLimiteRate           int
+	RateLimiteWindow         time.Duration
+	EnableSlowlorisCheck     bool
+	MaintenanceMode          bool
+	maintenanceBypassToken   string
+	RateLimitSkipLocalhost   bool
+	EnableGzip               bool
+	metricsEnabled           bool
 }
 
 func (s *Server) loadConfig() {
@@ -70,53 +73,56 @@ func (s *Server) loadConfig() {
 	}
 
 	s.Config = Config{
-		LogLevel:               ParseLogLevel(GetEnv("LOG_LEVEL", "info")).String(),
-		LogClientIP:            ParseClientIPLogMode(GetEnv("LOG_CLIENT_IP", "off")).String(),
-		APIPrefix:              GetEnv("API_PREFIX", ""),
-		MaxURLLength:           GetEnvInt("MAX_URL_LENGTH", 2048),
-		MaxHeaders:             GetEnvInt("MAX_HEADERS", 100),
-		MaxConnections:         int64(GetEnvInt("MAX_CONNECTIONS", 10000)),
-		ReadTimeout:            GetEnvDuration("READ_TIMEOUT", 15*time.Second),
-		WriteTimeout:           GetEnvDuration("WRITE_TIMEOUT", 15*time.Second),
-		WriteByteTimeout:       GetEnvDuration("WRITE_BYTE_TIMEOUT", 5*time.Second),
-		IdleTimeout:            GetEnvDuration("IDLE_TIMEOUT", 90*time.Second),
-		PingTimeout:            GetEnvDuration("PING_TIMEOUT", 15*time.Second),
-		ReadHeaderTimeout:      GetEnvDuration("READ_HEADER_TIMEOUT", 500*time.Millisecond),
-		MaxHeaderBytes:         GetEnvInt("MAX_HEADER_BYTES", 1<<16),
-		ShutdownTimeout:        GetEnvDuration("RELOAD_SHUTDOWN_TIMEOUT", 30*time.Second),
-		EnableSlowlorisCheck:   GetEnv("ENABLE_SLOWLORIS_CHECK", "false") == "true",
-		WsTokenKey:             GetEnv("WS_TOKEN_KEY", generateRandomKey()),
-		CsrfTrustedOrigins:     GetEnv("CSRF_TRUSTED_ORIGINS", ""),
-		DatabaseUrl:            GetEnv("DATABASE_URL", ""),
-		PostgresHost:           GetEnv("POSTGRES_HOST", ""),
-		PostgresUser:           GetEnv("POSTGRES_USER", "postgres"),
-		PostgresPassword:       GetEnv("POSTGRES_PASSWORD", ""),
-		PostgresDb:             GetEnv("POSTGRES_DB", "postgres"),
-		DbExecMode:             GetEnv("DB_EXEC_MODE", ""),
-		DbMaxConns:             GetEnv("DB_MAX_CONNS", ""),
-		DbMinConns:             GetEnv("DB_MIN_CONNS", ""),
-		DbLogMode:              GetEnv("DB_LOG_MODE", "sanitized"),
-		SmtpHost:               GetEnv("SMTP_HOST", ""),
-		SmtpPort:               GetEnv("SMTP_PORT", ""),
-		SmtpUser:               GetEnv("SMTP_USER", ""),
-		SmtpPassword:           GetEnv("SMTP_PASS", ""),
-		SmtpFrom:               GetEnv("SMTP_FROM", ""),
-		SmtpWorkers:            GetEnv("SMTP_WORKERS", "1"),
-		SmtpQueueSize:          GetEnv("SMTP_QUEUE_SIZE", "20"),
-		I18nDefaultLanguage:    GetEnv("I18N_DEFAULT_LANGUAGE", "en"),
-		I18nLanguages:          configuredLanguages(GetEnv("I18N_LANGUAGES", ""), GetEnv("I18N_DEFAULT_LANGUAGE", "en")),
-		sessionKey:             GetEnv("SESSION_KEY", "DefaultSessionKey_CHANGE_IT!"+hex.EncodeToString(b)),
-		maxConcurrent:          GetEnvInt("CONCURRENCY_LIMIT", 100),
-		MaxBodySize:            GetEnvBytes("MAX_BODY_SIZE", 1<<20),
-		TZ:                     GetEnv("TZ", "Europe/Warsaw"),
-		RateLimitSkipLocalhost: GetEnvBool("RATE_LIMIT_SKIP_LOCALHOST", true),
-		EnableGzip:             GetEnvBool("ENABLE_GZIP", true),
-		RateLimiteSize:         GetEnvInt("RATE_LIMIT_SIZE", 10000),
-		RateLimiteRate:         GetEnvInt("RATE_LIMIT_RATE", 360),
-		RateLimiteWindow:       GetEnvDuration("RATE_LIMIT_WINDOW", time.Minute),
-		JWTSecret:              GetEnv("JWT_SECRET", "DefaultJWTSecret_CHANGE_IT!"+hex.EncodeToString(b)),
-		metricsToken:           GetEnv("METRICS_SECRET", "DefaultMetricToken_CHANGE_IT!"+hex.EncodeToString(b)),
-		metricsEnabled:         GetEnvBool("METRICS_ENABLED", false),
+		LogLevel:                 ParseLogLevel(GetEnv("LOG_LEVEL", "info")).String(),
+		LogClientIP:              ParseClientIPLogMode(GetEnv("LOG_CLIENT_IP", "off")).String(),
+		APIPrefix:                GetEnv("API_PREFIX", ""),
+		MaxURLLength:             GetEnvInt("MAX_URL_LENGTH", 2048),
+		MaxHeaders:               GetEnvInt("MAX_HEADERS", 100),
+		MaxConnections:           int64(GetEnvInt("MAX_CONNECTIONS", 10000)),
+		ReadTimeout:              GetEnvDuration("READ_TIMEOUT", 15*time.Second),
+		WriteTimeout:             GetEnvDuration("WRITE_TIMEOUT", 15*time.Second),
+		WriteByteTimeout:         GetEnvDuration("WRITE_BYTE_TIMEOUT", 5*time.Second),
+		IdleTimeout:              GetEnvDuration("IDLE_TIMEOUT", 90*time.Second),
+		PingTimeout:              GetEnvDuration("PING_TIMEOUT", 15*time.Second),
+		ReadHeaderTimeout:        GetEnvDuration("READ_HEADER_TIMEOUT", 500*time.Millisecond),
+		MaxHeaderBytes:           GetEnvInt("MAX_HEADER_BYTES", 1<<16),
+		ShutdownTimeout:          GetEnvDuration("RELOAD_SHUTDOWN_TIMEOUT", 30*time.Second),
+		EnableSlowlorisCheck:     GetEnv("ENABLE_SLOWLORIS_CHECK", "false") == "true",
+		MaintenanceMode:          GetEnvBool("MAINTENANCE_MODE", false),
+		MaintenanceCheckInterval: GetEnvDuration("MAINTENANCE_CHECK_INTERVAL", 5*time.Second),
+		maintenanceBypassToken:   GetEnv("MAINTENANCE_BYPASS_TOKEN", ""),
+		WsTokenKey:               GetEnv("WS_TOKEN_KEY", generateRandomKey()),
+		CsrfTrustedOrigins:       GetEnv("CSRF_TRUSTED_ORIGINS", ""),
+		DatabaseUrl:              GetEnv("DATABASE_URL", ""),
+		PostgresHost:             GetEnv("POSTGRES_HOST", ""),
+		PostgresUser:             GetEnv("POSTGRES_USER", "postgres"),
+		PostgresPassword:         GetEnv("POSTGRES_PASSWORD", ""),
+		PostgresDb:               GetEnv("POSTGRES_DB", "postgres"),
+		DbExecMode:               GetEnv("DB_EXEC_MODE", ""),
+		DbMaxConns:               GetEnv("DB_MAX_CONNS", ""),
+		DbMinConns:               GetEnv("DB_MIN_CONNS", ""),
+		DbLogMode:                GetEnv("DB_LOG_MODE", "sanitized"),
+		SmtpHost:                 GetEnv("SMTP_HOST", ""),
+		SmtpPort:                 GetEnv("SMTP_PORT", ""),
+		SmtpUser:                 GetEnv("SMTP_USER", ""),
+		SmtpPassword:             GetEnv("SMTP_PASS", ""),
+		SmtpFrom:                 GetEnv("SMTP_FROM", ""),
+		SmtpWorkers:              GetEnv("SMTP_WORKERS", "1"),
+		SmtpQueueSize:            GetEnv("SMTP_QUEUE_SIZE", "20"),
+		I18nDefaultLanguage:      GetEnv("I18N_DEFAULT_LANGUAGE", "en"),
+		I18nLanguages:            configuredLanguages(GetEnv("I18N_LANGUAGES", ""), GetEnv("I18N_DEFAULT_LANGUAGE", "en")),
+		sessionKey:               GetEnv("SESSION_KEY", "DefaultSessionKey_CHANGE_IT!"+hex.EncodeToString(b)),
+		maxConcurrent:            GetEnvInt("CONCURRENCY_LIMIT", 100),
+		MaxBodySize:              GetEnvBytes("MAX_BODY_SIZE", 1<<20),
+		TZ:                       GetEnv("TZ", "Europe/Warsaw"),
+		RateLimitSkipLocalhost:   GetEnvBool("RATE_LIMIT_SKIP_LOCALHOST", true),
+		EnableGzip:               GetEnvBool("ENABLE_GZIP", true),
+		RateLimiteSize:           GetEnvInt("RATE_LIMIT_SIZE", 10000),
+		RateLimiteRate:           GetEnvInt("RATE_LIMIT_RATE", 360),
+		RateLimiteWindow:         GetEnvDuration("RATE_LIMIT_WINDOW", time.Minute),
+		JWTSecret:                GetEnv("JWT_SECRET", "DefaultJWTSecret_CHANGE_IT!"+hex.EncodeToString(b)),
+		metricsToken:             GetEnv("METRICS_SECRET", "DefaultMetricToken_CHANGE_IT!"+hex.EncodeToString(b)),
+		metricsEnabled:           GetEnvBool("METRICS_ENABLED", false),
 	}
 }
 
@@ -142,6 +148,7 @@ func (c Config) String() string {
 		&aux.SmtpPassword,
 		&aux.JWTSecret,
 		&aux.metricsToken,
+		&aux.maintenanceBypassToken,
 	} {
 		if *s != "" {
 			*s = "[REDACTED]"

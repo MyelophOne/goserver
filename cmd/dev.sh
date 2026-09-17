@@ -1,2 +1,2 @@
 #!/bin/sh
-go build -o ./tmp/goserver ./cmd/main.go
+go build -o ./tmp/goserver ./cmd

@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
@@ -207,17 +206,6 @@ func mergeConfig(path string, cfg *RuntimeConfig) error {
 		return err
 	}
 	return json.Unmarshal(merged, cfg)
-}
-
-func environment() string {
-	value := strings.TrimSpace(os.Getenv("APP_ENV"))
-	if value == "" {
-		value = strings.TrimSpace(os.Getenv("MYELOPHONE_ENV"))
-	}
-	if strings.EqualFold(value, "prod") || strings.EqualFold(value, "production") {
-		return "Production"
-	}
-	return "Development"
 }
 
 func UseRuntimeConfig() (RuntimeConfig, error) {

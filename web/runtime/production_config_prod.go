@@ -2,13 +2,16 @@
 
 package runtime
 
-import "os"
+import "io/fs"
 
-var productionConfigFiles map[string][]byte
+func environment() string { return "Production" }
 
 func configFile(path string) ([]byte, error) {
-	if data, ok := productionConfigFiles[path]; ok {
-		return append([]byte(nil), data...), nil
+	productionState.RLock()
+	data, ok := productionState.config[path]
+	productionState.RUnlock()
+	if !ok {
+		return nil, &fs.PathError{Op: "open", Path: path, Err: fs.ErrNotExist}
 	}
-	return os.ReadFile(path)
+	return append([]byte(nil), data...), nil
 }

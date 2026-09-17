@@ -44,6 +44,23 @@ func TestConfigStringFormatsDurationsForHumans(t *testing.T) {
 	}
 }
 
+func TestLoadConfigReadsMaintenanceMode(t *testing.T) {
+	t.Setenv("MAINTENANCE_MODE", "true")
+	t.Setenv("MAINTENANCE_CHECK_INTERVAL", "10s")
+	t.Setenv("MAINTENANCE_BYPASS_TOKEN", "test-token")
+	s := NewServer("")
+
+	if !s.Config.MaintenanceMode {
+		t.Fatal("MAINTENANCE_MODE=true must enable maintenance mode")
+	}
+	if s.Config.MaintenanceCheckInterval != 10*time.Second {
+		t.Fatalf("maintenance check interval = %s, want 10s", s.Config.MaintenanceCheckInterval)
+	}
+	if s.Config.maintenanceBypassToken != "test-token" {
+		t.Fatal("MAINTENANCE_BYPASS_TOKEN was not loaded")
+	}
+}
+
 func TestFormatConfiguredValuesOmitsEmptyWebSettings(t *testing.T) {
 	var cfg logic.RuntimeConfig
 	cfg.Render.DefaultLayout = "default"

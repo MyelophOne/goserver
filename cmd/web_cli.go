@@ -1,4 +1,4 @@
-//go:build webcli
+//go:build webcli && !myelophone_prod
 
 package main
 

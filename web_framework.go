@@ -20,7 +20,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -323,8 +322,6 @@ var embeddedVitalsJS []byte
 
 var embeddedWebSocketJS []byte
 
-var playgroundEnabled atomic.Bool
-
 type Component struct {
 	Name         string
 	Path         string
@@ -430,7 +427,6 @@ const (
 	systemWebCSSDir            = "./web/css"
 	systemFrameworkCSSDir      = "./web/system/css"
 	systemTailwindGlobal       = "./web/system/tailwind/global.css"
-	playgroundDir              = "./web/playground"
 	tenantRootDir              = "./web/tenants"
 )
 
@@ -2134,130 +2130,17 @@ func clonePublicRouteParams(source map[string]any) map[string]any {
 
 func sourceFS() (fs.FS, bool) { return productionSourceFS() }
 
-func playgroundPath(name string) (string, bool) {
-	if _, production := sourceFS(); production || !playgroundEnabled.Load() {
-		return "", false
-	}
-	webRoot, err := filepath.Abs("web")
-	if err != nil {
-		return "", false
-	}
-	absolute, err := filepath.Abs(name)
-	if err != nil {
-		return "", false
-	}
-	relative, err := filepath.Rel(webRoot, absolute)
-	if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
-		return "", false
-	}
-	if relative == "tenants" || strings.HasPrefix(relative, "tenants"+string(filepath.Separator)) {
-		return "", false
-	}
-	return filepath.Join(playgroundDir, relative), true
-}
-
-func sourceFilePath(name string) string {
-	if candidate, ok := playgroundPath(name); ok {
-		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
-			return candidate
+func sourcePath(name string) string {
+	if filepath.IsAbs(name) {
+		if workingDir, err := os.Getwd(); err == nil {
+			if relative, err := filepath.Rel(workingDir, name); err == nil && relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+				name = relative
+			}
 		}
 	}
-	return name
-}
-
-func sourcePath(name string) string {
 	name = filepath.ToSlash(filepath.Clean(name))
 	name = strings.TrimPrefix(name, "./")
 	return name
-}
-
-func sourceReadFile(name string) ([]byte, error) {
-	if f, ok := sourceFS(); ok {
-		return fs.ReadFile(f, sourcePath(name))
-	}
-	return os.ReadFile(sourceFilePath(name))
-}
-
-func sourceReadDir(name string) ([]fs.DirEntry, error) {
-	if f, ok := sourceFS(); ok {
-		return fs.ReadDir(f, sourcePath(name))
-	}
-	items := map[string]fs.DirEntry{}
-	entries, baseErr := os.ReadDir(name)
-	if baseErr == nil {
-		for _, entry := range entries {
-			items[entry.Name()] = entry
-		}
-	}
-	if overlay, ok := playgroundPath(name); ok {
-		entries, overlayErr := os.ReadDir(overlay)
-		if overlayErr == nil {
-			for _, entry := range entries {
-				items[entry.Name()] = entry
-			}
-		} else if !os.IsNotExist(overlayErr) {
-			return nil, overlayErr
-		}
-	}
-	if len(items) == 0 && baseErr != nil {
-		return nil, baseErr
-	}
-	out := make([]fs.DirEntry, 0, len(items))
-	for _, entry := range items {
-		out = append(out, entry)
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Name() < out[j].Name() })
-	return out, nil
-}
-
-func sourceWalkDir(root string, fn fs.WalkDirFunc) error {
-	if f, ok := sourceFS(); ok {
-		return fs.WalkDir(f, sourcePath(root), fn)
-	}
-	paths := map[string]fs.DirEntry{}
-	collect := func(physical string, replace bool) error {
-		return filepath.WalkDir(physical, func(path string, entry fs.DirEntry, err error) error {
-			if err != nil {
-				return err
-			}
-			relative, err := filepath.Rel(physical, path)
-			if err != nil {
-				return err
-			}
-			if _, exists := paths[relative]; !exists || replace {
-				paths[relative] = entry
-			}
-			return nil
-		})
-	}
-	baseErr := collect(root, false)
-	if overlay, ok := playgroundPath(root); ok {
-		if err := collect(overlay, true); err != nil && !os.IsNotExist(err) {
-			return err
-		}
-	}
-	if len(paths) == 0 && baseErr != nil {
-		return baseErr
-	}
-	ordered := make([]string, 0, len(paths))
-	for relative := range paths {
-		ordered = append(ordered, relative)
-	}
-	sort.Slice(ordered, func(i, j int) bool {
-		if ordered[i] == "." {
-			return true
-		}
-		if ordered[j] == "." {
-			return false
-		}
-		return ordered[i] < ordered[j]
-	})
-	for _, relative := range ordered {
-		if err := fn(filepath.Join(root, relative), paths[relative], nil); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 type BasePageData struct {
@@ -3294,7 +3177,7 @@ func newAppWithLogger(logger *log.Logger) (*App, error) {
 	if err != nil {
 		return nil, fmt.Errorf("config: %w", err)
 	}
-	playgroundEnabled.Store(strings.EqualFold(cfg.Environment, "Development"))
+	configureSourceEnvironment(cfg.Environment)
 	if err := logic.SetupModules(cfg); err != nil {
 		return nil, err
 	}
@@ -3364,35 +3247,11 @@ func newAppWithLogger(logger *log.Logger) (*App, error) {
 		layouts = &Components{items: map[string]*Component{}}
 	}
 	ensureDefaultLayout(layouts, cfg.Render.DefaultLayout)
-	tailwind := TailwindBuild{CSSByPage: map[string]string{}, Sources: map[string][]string{}}
-	if prebuilt, ok := productionTailwindCSS(); ok {
-		tailwind.CSSByPage = prebuilt
-	} else {
-		tailwind, err = BuildTailwind(pages, components, layouts, cfg)
-		if err != nil {
-			return nil, err
-		}
+	tailwind, clientEntry, entrySources, err := loadApplicationAssets(pages, components, layouts, teleports, cfg)
+	if err != nil {
+		return nil, err
 	}
 	scriptUsage := AnalyzeScriptUsage(pages, components)
-	sharedSources := sharedLayoutScriptSources(layouts)
-	for id, source := range sharedTeleportScriptSources(teleports, components) {
-		sharedSources[id] = source
-	}
-	for id, source := range reusableComponentScriptSources(components, scriptUsage) {
-		sharedSources[id] = source
-	}
-	entrySources := map[string]bool{}
-	clientEntry, ok := productionClientEntry()
-	if !ok {
-		clientEntry, err = BuildClientEntry(sharedSources)
-		if err != nil {
-			clientEntry = embeddedRuntimeJS
-		} else if clientEntrySupportsModuleRegistry(clientEntry) {
-			entrySources = sourceIDSet(sharedSources)
-		}
-	} else if clientEntrySupportsModuleRegistry(clientEntry) {
-		entrySources = sourceIDSet(sharedSources)
-	}
 	clientURL := "/_gosh/entry/" + hashText(string(clientEntry)) + ".js"
 	vitalsURL := ""
 	if cfg.Runtime.WebVitals {
@@ -3453,118 +3312,6 @@ func newAppWithLogger(logger *log.Logger) (*App, error) {
 		return nil, err
 	}
 	return app, nil
-}
-
-func (a *App) precompileRouteClientChunks() error {
-	if _, production := productionClientEntry(); production {
-		chunks, routes, ok := productionRouteChunks()
-		if !ok {
-			return nil
-		}
-		for id, chunk := range chunks {
-			a.chunks[id] = string(chunk)
-		}
-		for page, sources := range routes {
-			if a.sourceChunks[page] == nil {
-				a.sourceChunks[page] = map[string]string{}
-			}
-			for sourceID, chunkID := range sources {
-				a.sourceChunks[page][sourceID] = "/_gosh/chunk/" + chunkID + ".js"
-			}
-		}
-		return nil
-	}
-	if a.pages == nil {
-		return nil
-	}
-	for _, page := range append(append([]*Page{}, a.pages.items...), a.pages.NotFound, a.pages.ErrorPage) {
-		if page == nil || page.View == nil {
-			continue
-		}
-		sources := routeClientSources(page, a.components, a.layouts, a.config.Render.DefaultLayout, a.entrySources, a.scriptUsage, a.config.CookieControl.Enabled)
-		if len(sources) == 0 {
-			continue
-		}
-		chunk, err := BuildRouteClientChunk(sources)
-		if err != nil {
-			return err
-		}
-		id := hashText(string(chunk))
-		a.chunks[id] = string(chunk)
-		url := "/_gosh/chunk/" + id + ".js"
-		if a.sourceChunks[page.RelativePath] == nil {
-			a.sourceChunks[page.RelativePath] = map[string]string{}
-		}
-		for sourceID := range sources {
-			a.sourceChunks[page.RelativePath][sourceID] = url
-		}
-	}
-	return nil
-}
-
-func routeClientSources(page *Page, components, layouts *Components, defaultLayout string, entrySources map[string]bool, scriptUsage map[string]int, cookieControlEnabled bool) map[string]string {
-	sources := map[string]string{}
-	seen := map[string]bool{}
-	var visit func(*Component)
-	var nodes func([]Node)
-	visit = func(component *Component) {
-		if component == nil || seen[component.Path] {
-			return
-		}
-		if !cookieControlEnabled && disabledCookieGlobalComponent(component.Name) {
-			return
-		}
-		seen[component.Path] = true
-		for _, block := range component.Scripts {
-			source := strings.TrimSpace(block.Content)
-			id := hashText(source)
-			if source != "" && !entrySources[id] && scriptUsage[id] <= 1 {
-				sources[id] = source
-			}
-		}
-		if component.PreparedSetupSource != "" {
-			source := component.PreparedSetupSource
-			id := hashText(source)
-			if strings.TrimSpace(component.ScriptSetup.Content) != "" && !entrySources[id] && scriptUsage[id] <= 1 {
-				sources[id] = source
-			}
-		}
-		nodes(component.Template)
-	}
-	nodes = func(items []Node) {
-		for _, node := range items {
-			e, ok := node.(*ElementNode)
-			if !ok {
-				continue
-			}
-			if e.IsComponent {
-				if component, ok := components.Get(e.Tag); ok {
-					visit(component)
-				}
-			}
-			nodes(e.Children)
-		}
-	}
-	visit(page.View)
-	layoutName := page.Layout
-	if layoutName == "" {
-		layoutName = defaultLayout
-	}
-	if layoutName != "" && layoutName != "none" && layouts != nil {
-		if layout, ok := layouts.Get(layoutName); ok {
-			visit(layout)
-		}
-	}
-	return sources
-}
-
-func clientEntrySupportsModuleRegistry(entry []byte) bool {
-	return bytes.Contains(entry, []byte("__GOSH_ENTRY_MODULES__"))
-}
-
-func hashText(s string) string {
-	h := sha256.Sum256([]byte(s))
-	return hex.EncodeToString(h[:8])
 }
 
 func (a *App) registerModule(source string) string {
@@ -3829,65 +3576,6 @@ func minifyCSS(css string) string {
 	css = cssWhitespacePattern.ReplaceAllString(css, "$1")
 	css = strings.ReplaceAll(css, ";}", "}")
 	return strings.TrimSpace(css)
-}
-
-func (a *App) precompileStaticStyles() error {
-	if a.precompiledStyles == nil {
-		a.precompiledStyles = map[string][]string{}
-	}
-	compile := func(css string) (string, error) {
-		if strings.TrimSpace(css) == "" {
-			return "", nil
-		}
-		rawID := hashText(css)
-		processed, err := processFinalCSS(css)
-		if err != nil {
-			return "", err
-		}
-		processed = minifyCSS(processed)
-		id := hashText(processed)
-		a.finalCSS[rawID] = processed
-		a.styles[id] = processed
-		return "/_gosh/style/" + id + ".css", nil
-	}
-	if !a.config.Render.SplitCSS {
-		url, err := compile(a.unifiedCSS)
-		if err != nil {
-			return fmt.Errorf("precompile application CSS: %w", err)
-		}
-		for _, page := range pageList(a.pages) {
-			if url != "" {
-				a.precompiledStyles[page.RelativePath] = []string{url}
-			}
-		}
-		return nil
-	}
-
-	common := []string{}
-	for _, chunk := range buildCSSChunks([]string{a.commonCSS}, true, a.config.Render.CSSMinChunkSize, a.config.Render.CSSMaxChunkSize) {
-		url, err := compile(chunk)
-		if err != nil {
-			return fmt.Errorf("precompile common CSS: %w", err)
-		}
-		if url != "" {
-			common = append(common, url)
-		}
-	}
-	for _, page := range pageList(a.pages) {
-		parts := a.staticCSSForPage(page)
-		urls := append([]string(nil), common...)
-		for _, chunk := range buildCSSChunks(parts, true, a.config.Render.CSSMinChunkSize, a.config.Render.CSSMaxChunkSize) {
-			url, err := compile(chunk)
-			if err != nil {
-				return fmt.Errorf("precompile CSS for %s: %w", page.RelativePath, err)
-			}
-			if url != "" {
-				urls = append(urls, url)
-			}
-		}
-		a.precompiledStyles[page.RelativePath] = urls
-	}
-	return nil
 }
 
 func (a *App) staticCSSForPage(page *Page) []string {
@@ -4498,7 +4186,6 @@ func (a *App) cachedModulePlan(cacheKey, pageKey string, bindings []ScriptBindin
 	if len(bindings) == 0 {
 		return ModulePlan{}
 	}
-	cacheKey = cacheKey
 	if aggregateComponents {
 		cacheKey += "|aggregate"
 	}
@@ -6037,66 +5724,6 @@ func sourceIDSet(sources map[string]string) map[string]bool {
 	return ids
 }
 
-type DependencyGraph struct {
-	Components    map[string]bool
-	ServerExports map[string]ServerRef
-}
-
-func BuildDependencyGraph(pages *Pages, components *Components) *DependencyGraph {
-	return BuildDependencyGraphWithLayouts(pages, components, nil, "")
-}
-
-func BuildDependencyGraphWithLayouts(pages *Pages, components, layouts *Components, defaultLayout string) *DependencyGraph {
-	g := &DependencyGraph{Components: map[string]bool{}, ServerExports: map[string]ServerRef{}}
-	seenViews := map[string]bool{}
-	var visitView func(*Component)
-	var visitNodes func([]Node)
-	visitNodes = func(nodes []Node) {
-		for _, node := range nodes {
-			e, ok := node.(*ElementNode)
-			if !ok {
-				continue
-			}
-			if e.IsComponent {
-				if c, ok := components.Get(e.Tag); ok && !g.Components[c.Name] {
-					g.Components[c.Name] = true
-					visitView(c)
-				}
-			}
-			visitNodes(e.Children)
-		}
-	}
-	visitView = func(view *Component) {
-		if view == nil || seenViews[view.Path] {
-			return
-		}
-		seenViews[view.Path] = true
-		for _, ref := range view.ServerRefs {
-			g.ServerExports[ref.Export] = ref
-		}
-		visitNodes(view.Template)
-	}
-	for _, p := range pageList(pages) {
-		if layouts != nil {
-			for _, view := range reachableViewsForPage(p, components, layouts, defaultLayout) {
-				visitView(view)
-			}
-		} else {
-			visitView(p.View)
-		}
-	}
-	return g
-}
-
-func sortedGraphComponents(g *DependencyGraph) []string {
-	out := make([]string, 0, len(g.Components))
-	for k := range g.Components {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
-}
-
 type TailwindBuild struct {
 	CSSByPage map[string]string
 	Sources   map[string][]string
@@ -6169,287 +5796,6 @@ func disabledCookieGlobalComponent(name string) bool {
 	default:
 		return false
 	}
-}
-
-func tailwindSourceForPage(page *Page, components, layouts *Components, defaultLayout string) (string, []string) {
-	views := reachableViewsForPage(page, components, layouts, defaultLayout)
-	var b strings.Builder
-	names := make([]string, 0, len(views))
-	hasClientComponent := false
-	for _, view := range views {
-		if view.Mode == ModeClient {
-			hasClientComponent = true
-		}
-		name := filepath.ToSlash(view.RelativePath)
-		names = append(names, name)
-		b.WriteString("\n<!-- GOSH reachable source: ")
-		b.WriteString(name)
-		b.WriteString(" -->\n")
-		b.WriteString(view.Source)
-		if !strings.HasSuffix(view.Source, "\n") {
-			b.WriteByte('\n')
-		}
-	}
-	if hasClientComponent {
-		loaderPath := filepath.Join(systemTemplatesDir, "loader.gosh")
-		if data, err := sourceReadFile(loaderPath); err == nil {
-			names = append(names, "system/loader.gosh")
-			b.WriteString("\n<!-- GOSH system loader -->\n")
-			b.Write(data)
-			b.WriteByte('\n')
-		}
-	}
-	return b.String(), names
-}
-
-func resolveTailwindBinary() (string, error) {
-	if override := strings.TrimSpace(os.Getenv("MYELOPHONE_TAILWIND_BIN")); override != "" {
-		path, err := filepath.Abs(override)
-		if err == nil {
-			if st, statErr := os.Stat(path); statErr == nil && !st.IsDir() {
-				return path, nil
-			}
-		}
-		if lp, lookErr := exec.LookPath(override); lookErr == nil {
-			return lp, nil
-		}
-		return "", fmt.Errorf("MYELOPHONE_TAILWIND_BIN=%q does not point to an executable", override)
-	}
-
-	localCandidates := []string{
-		filepath.Join(systemTailwindDir, "node_modules", ".bin", "tailwindcss"),
-		filepath.Join(systemTailwindDir, "node_modules", ".bin", "tailwindcss.cmd"),
-	}
-	for _, candidate := range localCandidates {
-		if st, err := os.Stat(candidate); err == nil && !st.IsDir() {
-			path, _ := filepath.Abs(candidate)
-			return path, nil
-		}
-	}
-	if path, err := exec.LookPath("tailwindcss"); err == nil {
-		return path, nil
-	}
-	return "", fmt.Errorf("Tailwind CSS v4 is required but the local CLI was not found; run `yarn --cwd web/system/tailwind install`, set MYELOPHONE_TAILWIND_BIN, or put a standalone `tailwindcss` executable in PATH")
-}
-
-func readTailwindGlobalCSS(root string) (string, error) {
-	dir := filepath.Join(root, "styles")
-	entries, err := sourceReadDir(dir)
-	if os.IsNotExist(err) {
-		return "", nil
-	}
-	if err != nil {
-		return "", err
-	}
-	sort.Slice(entries, func(i, j int) bool { return entries[i].Name() < entries[j].Name() })
-	var out strings.Builder
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.EqualFold(filepath.Ext(entry.Name()), ".gosh") {
-			continue
-		}
-		path := filepath.Join(dir, entry.Name())
-		data, err := sourceReadFile(path)
-		if err != nil {
-			return "", err
-		}
-		source := string(data)
-		blocks, parseErr := parseSFCBlocks(source)
-		foundStyle := false
-		if parseErr == nil {
-			for _, block := range blocks {
-				if block.Name != "style" {
-					continue
-				}
-				foundStyle = true
-				out.WriteString("\n/* global/styles/")
-				out.WriteString(entry.Name())
-				out.WriteString(" */\n")
-				out.WriteString(block.Block.Content)
-				out.WriteByte('\n')
-			}
-		}
-		if !foundStyle && strings.TrimSpace(source) != "" {
-			out.WriteString("\n/* global/styles/")
-			out.WriteString(entry.Name())
-			out.WriteString(" */\n")
-			out.WriteString(source)
-			out.WriteByte('\n')
-		}
-	}
-	return out.String(), nil
-}
-
-func compileTailwind(binary, source, tailwindGlobalCSS, systemDefaultCSS, projectDefaultCSS, globalCSS string, minify bool) (string, error) {
-	if err := os.MkdirAll(systemTailwindDir, 0o755); err != nil {
-		return "", err
-	}
-	tmpDir, err := os.MkdirTemp(systemTailwindDir, ".myelophone-build-")
-	if err != nil {
-		return "", err
-	}
-	defer os.RemoveAll(tmpDir)
-
-	sourcePath := filepath.Join(tmpDir, "reachable.gosh")
-	inputPath := filepath.Join(tmpDir, "input.css")
-	outputPath := filepath.Join(tmpDir, "output.css")
-	if err := os.WriteFile(sourcePath, []byte(source), 0o600); err != nil {
-		return "", err
-	}
-
-	input := `@import "tailwindcss" source(none);` + "\n"
-	input += `@source "./reachable.gosh";` + "\n"
-	if strings.TrimSpace(tailwindGlobalCSS) != "" {
-		input += "\n/* web/system/tailwind/global.css */\n" + tailwindGlobalCSS + "\n"
-	}
-	if strings.TrimSpace(systemDefaultCSS) != "" {
-		input += "\n/* web/system/css/default.css */\n" + systemDefaultCSS + "\n"
-	}
-	if strings.TrimSpace(projectDefaultCSS) != "" {
-		input += "\n/* web/css/default.css */\n" + projectDefaultCSS + "\n"
-	}
-	if strings.TrimSpace(globalCSS) != "" {
-		input += "\n/* web/global/styles/*.gosh */\n" + globalCSS + "\n"
-	}
-	if err := os.WriteFile(inputPath, []byte(input), 0o600); err != nil {
-		return "", err
-	}
-
-	inputAbs, err := filepath.Abs(inputPath)
-	if err != nil {
-		return "", err
-	}
-	outputAbs, err := filepath.Abs(outputPath)
-	if err != nil {
-		return "", err
-	}
-	args := []string{"-i", inputAbs, "-o", outputAbs}
-	if minify {
-		args = append(args, "--minify")
-	}
-	cmd := exec.Command(binary, args...)
-	cmd.Dir = systemTailwindDir
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		message := strings.TrimSpace(stderr.String())
-		if message != "" {
-			return "", fmt.Errorf("tailwindcss: %w: %s", err, message)
-		}
-		return "", fmt.Errorf("tailwindcss: %w", err)
-	}
-	css, err := os.ReadFile(outputPath)
-	if err != nil {
-		return "", fmt.Errorf("read Tailwind output: %w", err)
-	}
-	return processFinalCSS(string(css))
-}
-
-func resolveNodeBinary() (string, error) {
-	if override := strings.TrimSpace(os.Getenv("MYELOPHONE_NODE_BIN")); override != "" {
-		if path, err := filepath.Abs(override); err == nil {
-			if st, statErr := os.Stat(path); statErr == nil && !st.IsDir() {
-				return path, nil
-			}
-		}
-		if path, err := exec.LookPath(override); err == nil {
-			return path, nil
-		}
-		return "", fmt.Errorf("MYELOPHONE_NODE_BIN=%q does not point to an executable", override)
-	}
-	if path, err := exec.LookPath("node"); err == nil {
-		return path, nil
-	}
-	return "", fmt.Errorf("final CSS processing requires Node.js; install Node or set MYELOPHONE_NODE_BIN")
-}
-
-func processFinalCSS(css string) (string, error) {
-	node, err := resolveNodeBinary()
-	if err != nil {
-		return "", err
-	}
-	runner, err := filepath.Abs(filepath.Join(systemTailwindDir, "postcss-runner.mjs"))
-	if err != nil {
-		return "", err
-	}
-	if st, err := os.Stat(runner); err != nil || st.IsDir() {
-		return "", fmt.Errorf("final CSS PostCSS runner is missing: %s", runner)
-	}
-	tmpDir, err := os.MkdirTemp(systemTailwindDir, ".myelophone-postcss-")
-	if err != nil {
-		return "", err
-	}
-	defer os.RemoveAll(tmpDir)
-	input := filepath.Join(tmpDir, "input.css")
-	output := filepath.Join(tmpDir, "output.css")
-	if err := os.WriteFile(input, []byte(css), 0o600); err != nil {
-		return "", err
-	}
-	inputAbs, err := filepath.Abs(input)
-	if err != nil {
-		return "", err
-	}
-	outputAbs, err := filepath.Abs(output)
-	if err != nil {
-		return "", err
-	}
-	cmd := exec.Command(node, runner, inputAbs, outputAbs)
-	cmd.Dir = systemTailwindDir
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		message := strings.TrimSpace(stderr.String())
-		if message != "" {
-			return "", fmt.Errorf("final CSS PostCSS: %w: %s", err, message)
-		}
-		return "", fmt.Errorf("final CSS PostCSS: %w", err)
-	}
-	processed, err := os.ReadFile(output)
-	if err != nil {
-		return "", fmt.Errorf("read final PostCSS output: %w", err)
-	}
-	return string(processed), nil
-}
-
-func BuildTailwind(pages *Pages, components, layouts *Components, cfg logic.RuntimeConfig) (TailwindBuild, error) {
-	result := TailwindBuild{CSSByPage: map[string]string{}, Sources: map[string][]string{}}
-	binary, err := resolveTailwindBinary()
-	if err != nil {
-		return result, err
-	}
-	result.Binary = binary
-	globalCSS, err := readTailwindGlobalCSS(systemGlobalDir)
-	if err != nil {
-		return result, fmt.Errorf("tailwind global styles: %w", err)
-	}
-	tailwindGlobalCSS, err := loadOptionalCSS(systemTailwindGlobal)
-	if err != nil {
-		return result, fmt.Errorf("tailwind global CSS: %w", err)
-	}
-	systemDefaultCSS, err := loadOptionalCSS(filepath.Join(systemFrameworkCSSDir, "default.css"))
-	if err != nil {
-		return result, fmt.Errorf("system default CSS: %w", err)
-	}
-	projectDefaultCSS, err := loadOptionalCSS(filepath.Join(systemWebCSSDir, "default.css"))
-	if err != nil {
-		return result, fmt.Errorf("project default CSS: %w", err)
-	}
-
-	var combinedSource strings.Builder
-	for _, page := range pageList(pages) {
-		source, names := tailwindSourceForPage(page, components, layouts, cfg.Render.DefaultLayout)
-		result.Sources[page.RelativePath] = names
-		combinedSource.WriteString(source)
-		combinedSource.WriteByte('\n')
-	}
-	if combinedSource.Len() == 0 {
-		return result, nil
-	}
-	css, err := compileTailwind(binary, combinedSource.String(), tailwindGlobalCSS, systemDefaultCSS, projectDefaultCSS, globalCSS, cfg.Tailwind.Minify)
-	if err != nil {
-		return result, fmt.Errorf("compile shared Tailwind CSS: %w", err)
-	}
-	result.CSSByPage["@shared"] = css
-	return result, nil
 }
 
 func (a *App) addTailwind(page *Page, result *RenderResult) {
@@ -6745,4 +6091,13 @@ func addNonceToTrustedHTML(body []byte, nonce string) []byte {
 		offset = tagEnd + 1
 	}
 	return []byte(out.String())
+}
+
+func clientEntrySupportsModuleRegistry(entry []byte) bool {
+	return bytes.Contains(entry, []byte("__GOSH_ENTRY_MODULES__"))
+}
+
+func hashText(s string) string {
+	h := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(h[:8])
 }

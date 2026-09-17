@@ -1,2 +1,2 @@
 @echo off
-go build -o ./tmp/goserver.exe ./cmd/main.go
+go build -o ./tmp/goserver.exe ./cmd

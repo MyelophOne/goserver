@@ -519,3 +519,5 @@ coverage.html
 # clean checkout compiles before the first `web generate`.
 web/system/generated/*
 !web/system/generated/stub.go
+internal/goservergen/
+cmd/web_import_gen.go

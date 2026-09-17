@@ -52,6 +52,7 @@ The implementation is performance-conscious and includes pooled buffers, bounded
 ## Requirements and installation
 
 - Go `1.27` or newer, matching [`go.mod`](./go.mod).
+- Node.js is required only for web setup, development and compilation; the production distribution does not need it.
 - PostgreSQL and Redis are optional and only needed for their corresponding packages.
 - Docker is optional.
 
@@ -65,7 +66,8 @@ The repository itself includes a runnable example in [`cmd/main.go`](./cmd/main.
 
 ```bash
 cp .env.example .env
-go run ./cmd/main.go
+go run -tags webcli ./cmd generate
+go run ./cmd
 ```
 
 The server listens on `:8080` unless `HTTP_PORT` is changed.
@@ -927,7 +929,7 @@ s.Run()
 
 `EnableWeb` installs the application only as the router fallback, so existing routes, middleware, operational endpoints, WebSockets, sessions, cache, database integrations and response helpers remain available. A rendering failure uses goserver's embedded `error.html` through `RenderError`; a file-based `404.gosh` remains available for not-found pages.
 
-The source is read from the host project's `web/` directory, which makes the feature directly extensible by `goserver-template` projects:
+The web source is a layered filesystem: goserver provides the base layer, and the importing application's files override matching relative paths. This works for any consuming Go module, not only `goserver-template`. A consumer only needs to create the files it wants to add or replace:
 
 ```text
 websettings.json             # complete, non-secret web-framework defaults
@@ -939,25 +941,22 @@ web/
   layouts/               # layouts; default.gosh is selected by config
   global/{head,styles,scripts}/
   logic/                 # optional page/component Go logic
-  modules/               # optional distributable Go modules
+  modules/               # local Go modules require explicit imports
   plugins/               # optional client runtime-hook JavaScript
   server/                # optional file-based HTTP handlers (*.method.go)
   stores/
   content/               # Markdown posts available at /post/<filename>
-  system/
-    runtime/             # browser runtime chunks
-    templates/           # loader and SPA fallback templates
-    client/              # private esbuild entry tooling
-    tailwind/            # required Tailwind config, CSS and dependencies
-    generated/           # generated Go bindings; only stub.go is versioned
-assets/                    # shared goserver static files, served under /assets/
+  system/                # optional overrides; inherited from goserver by default
+assets/                  # optional local public files and base-file overrides
+internal/goservergen/     # generated automatically; do not commit
+cmd/web_import_gen.go    # generated automatically; do not commit
 ```
 
-Pages follow Nuxt-style routing: `index.gosh` maps to its directory, `[id].gosh` is a parameter, and `[...all].gosh` is a catch-all. Components support SSR, layouts, scoped CSS, client/lazy components, streaming runtime navigation, server actions, content-addressed JS/CSS assets, route/component SWR rules, SEO composables, and hooks. `web/components/Demo.gosh` and `web/pages/index.gosh` provide a compact example. Server logic is optional and is referenced from a page or component with its `@server path#Export` directive; ordinary server endpoints remain explicit goserver routes outside `web/`.
+Pages follow Nuxt-style routing: `index.gosh` maps to its directory, `[id].gosh` is a parameter, and `[...all].gosh` is a catch-all. Components support SSR, layouts, scoped CSS, client/lazy components, streaming runtime navigation, server actions, content-addressed JS/CSS assets, route/component SWR rules, SEO composables, and hooks. The inherited home page and welcome component are demonstration defaults, intended to be replaced by the application. Server logic is optional and is referenced from a page or component with its `@server path#Export` directive; ordinary server endpoints remain explicit goserver routes outside `web/`.
 
-`web generate` scans every page, component, and layout for `@server` directives. It writes the compile-time bindings under `web/system/generated/`, never into editable `logic/`; only exports referenced by GOSH files are registered. `task run`, `task dev`, `task preview`, and `task build` run generation before compilation. File-based page paths continue to come exclusively from `web/pages` when `EnableWeb()` starts.
+`go run -tags webcli ./cmd generate` scans the merged pages, components, and layouts for `@server` directives. It writes compile-time bindings under `internal/goservergen/`, never into editable `web/logic`; only exports referenced by GOSH files are registered. It also generates `cmd/web_import_gen.go` to link these bindings into the application. Web-enabled Task workflows run generation before compilation. File-based page paths come from the merged `web/pages` layer when `EnableWeb()` starts.
 
-The web framework is opt-in: set `runtime.enabled` to `true` in `websettings.json`, or set `MYELOPHONE_WEB_ENABLED=true`. Without either, `cmd/main.go` starts only the regular goserver application. Development web tooling uses `go run -tags webcli ./cmd <generate|build|audit|clean|prune-unused --yes>`. `audit` is report-only and checks only `assets/`: it reports files with no static reference in project sources. Root `favicon.ico`, `favicon.png`, and `favicon.svg`, as well as `build.includeFiles`, are delivery assets and are excluded from that report. `robots.txt` is embedded in the production binary. `clean` is optional and removes only generated output plus the audit report. Its build-tagged entry point is excluded from normal and production binaries.
+The web framework is opt-in: set `runtime.enabled` to `true` in `websettings.json`, or set `MYELOPHONE_WEB_ENABLED=true`. Without either, `cmd/main.go` starts only the regular goserver application. The repository's Taskfile selects web generation and web builds using `MYELOPHONE_WEB_ENABLED=true`; set that variable for web-enabled Task workflows, or invoke `task web:generate` / `task web:build` explicitly. Development web tooling uses `go run -tags webcli ./cmd <setup|generate|build|audit|clean|prune-unused --yes>`. `audit` is report-only and checks `assets/`: it reports files with no static reference in the layered sources. Root `favicon.ico`, `favicon.png`, and `favicon.svg`, as well as `build.includeFiles`, are delivery assets and are excluded from that report. Only `robots.txt`, when present in the resolved public layer, is embedded in the production binary. `clean` is optional and removes `dist/`, generated bindings/imports, legacy build output and audit reports; it does not remove application source or the shared toolchain cache. The CLI's build-tagged entry point is excluded from normal and production binaries.
 
 `web/server` is optional. A file named `web/server/pogoda.get.go` maps to `GET /pogoda`; `web/server/api/pogoda.get.go` maps to `GET /api/pogoda`. Nested folders become URL segments and are imported as separate Go packages automatically. Dynamic segments belong in the file name (`web/server/users/[id].get.go`), since a Go import path itself cannot contain `[` or `]`. It exports one handler with this public contract:
 
@@ -970,6 +969,26 @@ func Pogoda(event *runtime.Event) error {
 ```
 
 `Event` exposes `Request`, `Context()`, `Param()`, `Query()`, `Header()`, `Status()`, `JSON()`, `Text()`, and `HTML()`. These generated endpoints are fallback routes: an explicit `s.GET`, `s.POST`, and so on always has priority.
+
+### Base layer and consumer overrides
+
+Production and development are separated at compile time. The web builder compiles the final application with `-tags myelophone_prod`; the plain-server Task build uses the same tag. Production excludes the complete development layer, playground, embedded Yarn/tooling configuration, installers, CSS/JS builders, binding generation, and web CLI. It consumes the resolved application bundle and delivered disk assets. Setting `APP_ENV=prod` on an ordinary untagged Go build does not exclude development code.
+
+This also applies to importing applications: the dependency supplies development/build resources without creating a local `web/system` tree, while the consumer's production binary contains only the runtime and prepared application resources. Use a goserver version containing this separation and the production build workflow; do not copy tooling into the consuming repository or final image.
+
+Layers merge by relative file path, not by copying the entire base tree into the consumer. For example, an application's `web/pages/index.gosh` replaces the base home page; `web/pages/about.gosh` adds a page; removing the local `index.gosh` restores the base home page. A missing or empty local `web/pages` directory still inherits the base pages, including the home page, 404 and error pages. Components, layouts, global inserts, CSS, stores, plugins, content, teleports, system templates/runtime and file-based server handlers follow the same file-level rule. File contents are replaced, not concatenated; CSS files participate in the normal cascade described below.
+
+Consumers do not need a duplicate `web/system` tree, a generated-package stub, or empty Go package placeholders. In particular:
+
+- `web/server/server.go` containing only `package server` can be omitted. Add actual `*.method.go` handlers when needed; a same-path local handler replaces the base handler, while a new path adds a route.
+- `web/logic/logic.go` is only a convenience alias facade. It can be omitted when no local code imports that package or uses its aliases. Local handlers can import `github.com/myelophone/goserver/web/runtime` directly.
+- An empty `web/modules/modules.go` can be omitted when not imported. Local modules are not automatically discovered: explicitly import the local module package from application code so its registration runs. The framework imports its own base modules.
+
+Go packages themselves are not merged. For a referenced handler, generation imports the consumer package if that referenced Go file exists locally; otherwise it imports the goserver package. A local replacement must therefore compile as a normal, complete Go package and explicitly import any base functionality it reuses. Regenerate bindings after adding or removing handlers; the web-enabled `task run`, `task dev` and `task build` workflows do this automatically.
+
+The welcome page shows the goserver dependency version from Go build information, not the consuming application's version. When goserver itself is the main module, its main-module version is used, falling back to the VCS revision or `dev` for development builds. A development replacement is not equivalent to a published release.
+
+Use a goserver dependency revision that includes this layer implementation. Updating the library's working tree does not update a consumer pinned to an older release. No permanent workspace, `replace`, module-cache edits or consumer-specific overlay are required for normal use.
 
 `websettings.json` contains every non-secret web-framework setting and its defaults. It deliberately has no listener address or port: the web layer never starts a second HTTP server. Configure the listener once when creating `goserver.NewServer(...)` (normally from `HTTP_PORT`), then attach web with `EnableWeb()`. At startup goserver applies built-in defaults, then the consuming project's local `websettings.json`, then `websettings.{Environment}.json`. `Environment` comes from `APP_ENV`: Task targets map `dev` to `Development` and `prod` to `Production`. Thus a project that imports goserver can keep its own settings files alongside its own `go.mod`; they override framework defaults without modifying the dependency. Environment variables remain the final override layer. `render.serverTiming` is disabled by default; set it to `true` only for profiling builds. `MYELOPHONE_WEB_RENDER_SERVER_TIMING` overrides that setting, and `task web:build:profile` creates a production web build with the header enabled.
 
@@ -1190,23 +1209,40 @@ Set `locales` and `defaultLocale` in `websettings.json` to expose every file-bas
 
 `web/pages/i18n.gosh` is a complete I18n example. Initialize `s.NewI18n("en", []string{"en", "ru", "pl"})` before `EnableWeb`, then open `/i18n`, `/ru/i18n`, or `/pl/i18n`. Its language links are ordinary internal links, so `window._gosh` turns them into SPA navigation while the server re-renders the translated page. In web server logic call `ctx.T("common.web.heading")` to use the existing goserver I18n messages.
 
-Use the included web command or copy its small entrypoint into an application:
+Use the regular application entrypoint and the build-tagged CLI. With `MYELOPHONE_WEB_ENABLED=true` set for the Taskfile:
 
 ```bash
-task web:run       # starts ./cmd/web with web support enabled
-task web:setup     # installs required Tailwind and optional esbuild tooling
-task web:test
-task web:audit     # reports assets without static references; never deletes source files
-task web:clean     # optional: removes generated build output and audit report
+task setup
+task run
+task dev
+task build
+task server
+task web:audit
+task web:clean
 ```
 
-`cmd/web` is a maintenance command for `build`, `audit`, and `clean`; it is not used by `EnableWeb` or `Server.Run`. The application itself always starts through the regular `cmd/main.go` and goserver lifecycle.
+`task setup` installs the builders; `task run` starts development, `task dev` adds Air live reload, `task build` creates the production distribution, and `task server` runs the built executable. Setup also runs automatically before `web:generate` and `web:build`. `setup:client` and `setup:tailwind` are compatibility aliases for the same setup. `web:audit` only reports unused public assets, while `web:clean` removes generated output. `task preview` runs source with production settings; it is not a substitute for testing the built distribution.
+
+Applications can use `goserver.RunWebCLI(os.Args[1:])` in a `cmd/web_cli.go` entrypoint tagged `webcli`, with the regular main entrypoint tagged `!webcli`. Invoke it with `go run -tags webcli ./cmd setup`, `generate`, or `build`. Always run/build the entire `./cmd` package, not `./cmd/main.go`: single-file compilation omits the generated importer. The generated importer is excluded from CLI builds, allowing generation from a clean checkout or after `web:clean`, without a committed stub.
+
+Production resources belong to the importing application. The production build generates reachable embedded sources, compiled CSS, client bundles and resolved configuration under `internal/goservergen`. It invokes normal Go compilation of `./cmd` with the production build tag and registers the resulting resources through `web/runtime.ProductionBundle`. The library's production helpers are always available; importing goserver does not require production-generated symbols inside the dependency. Temporary production source/config/embed files are removed after the build, while handler bindings and the generated importer remain for subsequent development. The goserver dependency and Go module cache are never modified. The resulting binary starts without project source files, Go, Node.js or Tailwind installed; public files still require the deployed `assets/` directory. This contract works with any application module path, including applications that do not use goserver-template.
+
+Generated files must not be committed. Add these entries to the consuming project's `.gitignore` and exclude them from Docker build contexts and live-reload inputs:
+
+```gitignore
+internal/goservergen/
+cmd/web_import_gen.go
+```
+
+The web layer is inherited from goserver. Pages, components, layouts, global inserts, CSS, stores, plugins, teleports, templates, content and public assets are merged with the importing application's files. A local file overrides the base file at the same relative path; removing the local override restores the base file. Generated Go bindings import a local handler package when the referenced Go file exists in the application, otherwise they import the base goserver package. JavaScript compilation uses temporary merged inputs under `tmp/goserver/build` that are removed after compilation. Projects do not need `web/system`: `task setup` installs the embedded, lockfile-pinned esbuild, Tailwind and PostCSS toolchains in the user cache. The default cache is `os.UserCacheDir()/myelophone/goserver/toolchains/<fingerprint>`; the fingerprint includes tool configuration, OS and architecture. Set `MYELOPHONE_TOOLCHAIN_CACHE` to choose another cache root. Optional local toolchain configuration overrides use a separate cache entry; lockfiles are installed in immutable mode. Existing installations are reused, with locking to coordinate concurrent setup. Node.js is required for setup, development and compilation, but not for running the production binary. Keep the base `web/system` files in the goserver library itself: they supply the inherited resources and embedded tool definitions.
+
+Public assets are not embedded in the binary. Development resolves the goserver module directory with `go list -m -json` and reads its base assets from disk, with application files overriding the same relative paths. This uses the actually selected dependency, including development replacements/workspaces if explicitly configured. Production builds merge the selected public layers into `dist/assets`, applying the configured unused-file filtering and image optimization. Deploy the executable together with that directory. Relative production public asset roots resolve beside the executable, independent of the process working directory. Only the resolved `robots.txt`, when present, is embedded; a local `assets/robots.txt` overrides the base version. Other public files are served from disk, including files with application-specific names and paths selected through web settings. Changing a disk asset changes what is served; removing it produces a 404 rather than falling back to an embedded image. Files addressed dynamically must be listed in `build.includeFiles` when they have no detectable static reference.
 
 When web support is enabled, `task build` writes `tmp/web-assets.json`: the immutable final JS/CSS URLs with raw and gzip sizes. Build extensions can observe the same manifest in every environment with `logic.HookBuildAssetsBefore` and `logic.HookBuildAssetsAfter`; the latter receives `[]logic.BuildAsset`.
 
 Set `render.spaLoadingTemplate` to `true` to insert `web/system/templates/spa-loading-template.html` before `#app`. It remains visible while the deferred runtime is loading and is removed immediately after `window._gosh.start()` succeeds. The option is disabled by default and can also be set with `MYELOPHONE_WEB_RENDER_SPA_LOADING_TEMPLATE=true`.
 
-Tailwind CSS v4 is required by the web layer. Run `task web:setup` before starting the application; `tailwind.minify` controls only minification. The compiler builds Tailwind once for the full reachable graph and emits it as a content-addressed common asset. With `render.splitCss=true`, every response loads that common CSS separately and then only its page/component CSS; both are split at `render.cssMaxChunkSize`. `render.cssMinChunkSize` rebalances CSS rules between the final chunks when that keeps every chunk within the configured maximum; a small single page asset remains separate so the common CSS stays cacheable. A single CSS rule larger than the maximum is emitted intact. With `render.splitCss=false`, startup builds exactly one immutable stylesheet from Tailwind plus every known page, layout, component, and lazy-component style. Every route receives the same URL and lazy streaming never adds another CSS file.
+Tailwind CSS v4 is required by the web layer. `task setup` installs the cached builders and is also invoked automatically by the web generation/build tasks; `tailwind.minify` controls only minification. Production freezes the compiled styles and their page bindings during the build, so starting the production executable does not re-run Tailwind or PostCSS. The compiler builds Tailwind once for the full reachable graph and emits it as a content-addressed common asset. With `render.splitCss=true`, every response loads that common CSS separately and then only its page/component CSS; both are split at `render.cssMaxChunkSize`. `render.cssMinChunkSize` rebalances CSS rules between the final chunks when that keeps every chunk within the configured maximum; a small single page asset remains separate so the common CSS stays cacheable. A single CSS rule larger than the maximum is emitted intact. With `render.splitCss=false`, startup builds exactly one immutable stylesheet from Tailwind plus every known page, layout, component, and lazy-component style. Every route receives the same URL and lazy streaming never adds another CSS file.
 
 The `Generated assets` section of `task build` lists only immutable files created during the production build: the shared Tailwind CSS, browser entry, WebSocket chunk, and optional Web Vitals chunk. A shared CSS file smaller than `render.cssMaxChunkSize` remains one file even with `render.splitCss=true`. Route-specific component/page CSS is emitted on demand as `/_gosh/style/<hash>.css`. Likewise, page/component client scripts are route-scoped and emitted on demand as `/_gosh/chunk/<hash>.js`; they are not pre-listed by the build output. The browser runtime API is `window._gosh` (and `_gosh` in client scripts); it exposes hooks, stores, navigation, and SEO helpers. Environment variables override configuration files: `MYELOPHONE_WEB_RUNTIME_CACHE_TTL`, `MYELOPHONE_WEB_RUNTIME_WEB_VITALS`, `MYELOPHONE_WEB_RUNTIME_PREFETCH_DELAY`, `MYELOPHONE_WEB_RUNTIME_PREFETCH_MAX_CONCURRENT`, `MYELOPHONE_WEB_RENDER_DEFAULT_LAYOUT`, `MYELOPHONE_WEB_CONTENT_LAYOUT`, `MYELOPHONE_WEB_LOCALES`, `MYELOPHONE_WEB_DEFAULT_LOCALE`, `MYELOPHONE_WEB_RENDER_EARLY_HINTS`, `MYELOPHONE_WEB_RENDER_PRELOAD_RUNTIME`, `MYELOPHONE_WEB_RENDER_PRELOAD_PAGE_STYLES`, `MYELOPHONE_WEB_RENDER_SPLIT_CSS`, `MYELOPHONE_WEB_RENDER_CSS_MIN_CHUNK_SIZE`, `MYELOPHONE_WEB_RENDER_CSS_MAX_CHUNK_SIZE`, `MYELOPHONE_WEB_RENDER_SPA_LOADING_TEMPLATE`, `MYELOPHONE_WEB_TAILWIND_MINIFY`, `MYELOPHONE_WEB_IMAGES_OPTIMIZE`, and `MYELOPHONE_WEB_IMAGES_JPEG_QUALITY`.
 
@@ -1608,7 +1644,7 @@ s.GET("/demo", func(w http.ResponseWriter, r *http.Request) {
 
 ### Static files
 
-Put public files in `./assets` and install `StaticAssetsMiddleware` (included in `Defaults`). `/assets/app.css` resolves to `assets/app.css`. `PublicFiles` also serves `/robots.txt` from the same directory.
+Put public files in `./assets` and install `StaticAssetsMiddleware` (included in `Defaults`). `/assets/app.css` resolves to `assets/app.css`; existing public files are also available at root paths such as `/icon.svg`. Development uses the public disk layers, with local files overriding the goserver base. The production distribution serves ordinary public files from its on-disk `assets/` directory; it does not embed images, favicons, downloads or arbitrary public files. The only public asset embedded by the web production build is the resolved `robots.txt`, if present. Public middleware supports GET/HEAD without changing the original request URL.
 
 ### Internationalization
 
@@ -1891,7 +1927,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-The web-enabled image uses a non-root Node Alpine runtime because Tailwind and the optional client bundle are compiled when the application starts. It contains the `web/` tree and shared `assets/` directory; Compose includes a `/healthz` health check, restart policy, bounded JSON logs, and configurable host binding through `DOCKER_PORT_BINDING`.
+The Dockerfile uses Node only in the Go builder stage, where the CLI installs its cached toolchain and compiles the production distribution. It does not copy a consumer's `web/system` dependencies or preinstalled `node_modules`. The final image is Alpine with CA certificates and a non-root user; it receives `dist/`, including the executable and public `assets/`, but no Go, Node, Tailwind or project web source tree. Compose includes a `/healthz` health check, restart policy, bounded JSON logs, and configurable host binding through `DOCKER_PORT_BINDING`.
 
 ## Configuration
 
@@ -1910,6 +1946,9 @@ CONCURRENCY_LIMIT=500
 RATE_LIMIT_RATE=1000
 RATE_LIMIT_WINDOW=1m
 ENABLE_GZIP=true
+MAINTENANCE_MODE=false
+MAINTENANCE_CHECK_INTERVAL=5s
+MAINTENANCE_BYPASS_TOKEN=replace-with-a-long-random-token
 
 SESSION_KEY=replace-with-a-long-random-secret
 JWT_SECRET=replace-with-another-long-random-secret
@@ -1946,6 +1985,9 @@ The following table covers the environment variables consumed by the server, exa
 | `RELOAD_SHUTDOWN_TIMEOUT`   | `30s`                         | Graceful drain deadline.                                                                                                          |
 | `ENABLE_SLOWLORIS_CHECK`    | `false`                       | Loaded compatibility flag; header deadlines are applied independently.                                                            |
 | `ENABLE_GZIP`               | `true`                        | Gzip is only applied when `GzipMiddleware` or `WithGzip` is used. Defaults() uses GzipMiddleware.                                 |
+| `MAINTENANCE_MODE`          | `false`                       | Static override: when `true`, every request returns `503 Service Unavailable` with a temporary, non-cacheable maintenance page. For dynamic file switching, leave it `false`. |
+| `MAINTENANCE_CHECK_INTERVAL` | `5s`                         | Interval for checking for a file named `maintenance` beside the running executable. If the file exists, maintenance mode is enabled; removing it disables maintenance mode without restarting. |
+| `MAINTENANCE_BYPASS_TOKEN`  | empty                         | Secret token that permits a request through maintenance mode when sent in the `X-Goserver-Maintenance-Token` header. It is redacted from startup logs. |
 | `RATE_LIMIT_SIZE`           | `10000`                       | Number of client IP entries retained by an LRU limiter.                                                                           |
 | `RATE_LIMIT_RATE`           | `360`                         | Requests allowed per window.                                                                                                      |
 | `RATE_LIMIT_WINDOW`         | `1m`                          | Rate-limit window.                                                                                                                |
@@ -2109,12 +2151,20 @@ For dependency maintenance, `task check-updates` is read-only; `task update` cha
 
 | Command                   | What it does                                                                                                           | Additional requirement or note                                                       |
 | ------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `task run`                | Runs `go run ./cmd/main.go` with `APP_ENV=dev`.                                                                        | Go toolchain.                                                                        |
+| `task setup`              | Installs the lockfile-pinned web toolchain into the user cache. | Go and Node.js; network access on first installation. |
+| `task setup:client`, `task setup:tailwind` | Compatibility aliases for `task setup`. | No project `web/system` tree required. |
+| `task web:generate`       | Generates layered handler/server bindings and the application importer. | Runs setup first; generated files are not committed. |
+| `task web:build`          | Builds the production executable and public assets in `dist/`. | Go and Node.js during compilation only. |
+| `task web:asset-report`   | Generates bindings and writes `tmp/web-assets.json`. | Runs setup first. |
+| `task web:audit`          | Reports public assets without detectable static references. | Does not delete source files. |
+| `task web:clean`          | Removes generated build output, bindings/imports and audit reports. | Does not clear the shared toolchain cache. |
+| `task run`                | Runs `go run ./cmd` with `APP_ENV=dev`; generates bindings when web is selected. | Go; Node.js when web is enabled. |
 | `task dev`                | Runs the server in development mode with live reload and metrics enabled.                                              | Requires `air`; uses `.air.toml`.                                                    |
 | `task preview`            | Runs the example server with `APP_ENV=prod`.                                                                           | Go toolchain.                                                                        |
-| `task build`              | Builds `./tmp/goserver` with `CGO_ENABLED=0`, trimpath, PGO, stripped symbols, prod environment, and Git hash version. | Go and Git.                                                                          |
+| `task build`              | Builds `dist/goserver` (with the platform executable suffix); selects web or plain-server compilation. | Set `MYELOPHONE_WEB_ENABLED=true` for web; Node.js is needed for web compilation. |
 | `task web:build:profile`  | Builds the standalone production web distribution with `Server-Timing` profiling enabled.                              | Use only for profiling; the header exposes server timing details.                    |
-| `task view -- [args]`     | Runs the binary produced by `task build`, forwarding optional arguments.                                               | Run `task build` first.                                                              |
+| `task profile`            | Selects a web profiling build or a plain-server build. | Web profiling enables `Server-Timing`. |
+| `task server -- [args]`   | Runs the executable in `dist/`, forwarding optional arguments. | Run `task build` first; runs from dist; production assets resolve beside the executable. |
 | `task lint`               | Runs golangci-lint over the repository.                                                                                | Requires `golangci-lint`.                                                            |
 | `task format`             | Formats all Go packages with `go fmt ./...`.                                                                           | Go toolchain.                                                                        |
 | `task vet`                | Runs `go vet ./...`.                                                                                                   | Go toolchain.                                                                        |

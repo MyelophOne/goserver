@@ -16,22 +16,15 @@ tasks:
     desc: Install the required Tailwind and client-entry builders for GOSH
     silent: true
     cmds:
-      - task: setup:tailwind
-      - task: setup:client
+      - go run -tags webcli ./cmd setup
   setup:tailwind:
-    dir: web/system/tailwind
     silent: true
-    status:
-      - test -d node_modules
     cmds:
-      - yarn install
+      - task: setup
   setup:client:
-    dir: web/system/client
     silent: true
-    status:
-      - test -d node_modules
     cmds:
-      - yarn install
+      - task: setup
   web:audit:
     desc: Report unused assets; never deletes source files
     silent: true
@@ -86,7 +79,7 @@ tasks:
     cmds:
       - cmd: echo "Start running app..."
       - task: '{{if eq .MYELOPHONE_WEB_ENABLED "true"}}web:generate{{end}}'
-      - go run ./cmd/main.go
+      - go run ./cmd
   dev:
     env:
       APP_ENV: dev
@@ -102,7 +95,7 @@ tasks:
     cmds:
       - cmd: echo "Start previewing app..."
       - task: '{{if eq .MYELOPHONE_WEB_ENABLED "true"}}web:generate{{end}}'
-      - go run ./cmd/main.go
+      - go run ./cmd
   profile:
     silent: true
     env:
@@ -126,7 +119,7 @@ tasks:
       APP_ENV: prod
       GIT_COMMIT_HASH: "{{.GIT_HASH}}"
     cmds:
-      - CGO_ENABLED=0 GOFLAGS="-trimpath" go build -pgo=auto -ldflags="-s -w -X github.com/myelophone/goserver.AppEnv=prod -X github.com/myelophone/goserver.AppVersion=${GIT_COMMIT_HASH}" -o {{.BIN}} ./cmd/main.go
+      - CGO_ENABLED=0 GOFLAGS="-trimpath" go build -tags myelophone_prod -pgo=auto -ldflags="-s -w -X github.com/myelophone/goserver.AppEnv=prod -X github.com/myelophone/goserver.AppVersion=${GIT_COMMIT_HASH}" -o {{.BIN}} ./cmd
   server:
     silent: true
     cmds:
@@ -135,13 +128,15 @@ tasks:
   server:web:
     internal: true
     silent: true
+    dir: dist
     cmds:
-      - "{{.WEBBIN}} {{.CLI_ARGS}}"
+      - "./goserver{{.EXT}} {{.CLI_ARGS}}"
   server:plain:
     internal: true
     silent: true
+    dir: dist
     cmds:
-      - "{{.BIN}} {{.CLI_ARGS}}"
+      - "./goserver{{.EXT}} {{.CLI_ARGS}}"
   lint:
     cmds:
       - golangci-lint run
@@ -159,6 +154,7 @@ tasks:
       - go test -v ./...
   clean:
     cmds:
+      - go clean -cache
       - go clean -modcache
   cover:
     desc: Run tests with coverage

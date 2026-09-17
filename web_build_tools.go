@@ -1,3 +1,5 @@
+//go:build !myelophone_prod
+
 package goserver
 
 import (
@@ -84,7 +86,7 @@ func unusedPublicAssetsWithConfig(cfg logic.RuntimeConfig) []UnusedFile {
 		}
 	}
 
-	_ = filepath.WalkDir(".", func(path string, entry fs.DirEntry, err error) error {
+	_ = sourceWalkDir(".", func(path string, entry fs.DirEntry, err error) error {
 		if err != nil || pathWithin(path, systemPublicDir) {
 			if entry != nil && entry.IsDir() && pathWithin(path, systemPublicDir) {
 				return filepath.SkipDir
@@ -92,6 +94,9 @@ func unusedPublicAssetsWithConfig(cfg logic.RuntimeConfig) []UnusedFile {
 			return nil
 		}
 		if entry.IsDir() {
+			if strings.HasPrefix(entry.Name(), ".") && path != "." {
+				return fs.SkipDir
+			}
 			switch entry.Name() {
 			case ".git", ".build-check", ".myelophone-build", ".myelophone-cache", ".task", "dist", "node_modules", "tmp":
 				return filepath.SkipDir
@@ -104,7 +109,7 @@ func unusedPublicAssetsWithConfig(cfg logic.RuntimeConfig) []UnusedFile {
 		if info, infoErr := entry.Info(); infoErr != nil || info.Size() > 4<<20 {
 			return nil
 		}
-		if data, readErr := os.ReadFile(path); readErr == nil {
+		if data, readErr := sourceReadFile(path); readErr == nil {
 			readReferences(data)
 		}
 		return nil
@@ -186,19 +191,6 @@ func auditTextFile(path string) bool {
 	}
 }
 
-func pathWithin(path, root string) bool {
-	pathAbs, err := filepath.Abs(path)
-	if err != nil {
-		return false
-	}
-	rootAbs, err := filepath.Abs(root)
-	if err != nil {
-		return false
-	}
-	rel, err := filepath.Rel(rootAbs, pathAbs)
-	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
-}
-
 func WriteUnusedReport(report UnusedReport) error {
 	if len(report.Files) == 0 {
 		if err := os.Remove(unusedReportPath); err != nil && !os.IsNotExist(err) {
@@ -226,7 +218,6 @@ func WriteUnusedReport(report UnusedReport) error {
 
 func PrintUnusedReport(report UnusedReport) {
 	if len(report.Files) == 0 {
-		fmt.Println("Unused 0 file(s)")
 		return
 	}
 	fmt.Printf("Unused %d file(s); report saved to `%s`\n", len(report.Files), unusedReportPath)
@@ -270,12 +261,19 @@ func optimizePublicImage(src, dst string, cfg logic.RuntimeConfig) (bool, error)
 	if !cfg.Images.Optimize || (ext != ".jpg" && ext != ".jpeg" && ext != ".png") {
 		return false, nil
 	}
-	f, err := os.Open(src)
+	original, err := os.ReadFile(src)
 	if err != nil {
 		return false, err
 	}
-	img, _, err := image.Decode(f)
-	_ = f.Close()
+	return optimizePublicImageData(src, dst, original, cfg)
+}
+
+func optimizePublicImageData(src, dst string, original []byte, cfg logic.RuntimeConfig) (bool, error) {
+	ext := strings.ToLower(filepath.Ext(src))
+	if !cfg.Images.Optimize || (ext != ".jpg" && ext != ".jpeg" && ext != ".png") {
+		return false, nil
+	}
+	img, _, err := image.Decode(bytes.NewReader(original))
 	if err != nil {
 		return false, nil
 	}
@@ -293,10 +291,6 @@ func optimizePublicImage(src, dst string, cfg logic.RuntimeConfig) (bool, error)
 	if err != nil {
 		return false, err
 	}
-	original, err := os.ReadFile(src)
-	if err != nil {
-		return false, err
-	}
 	if buf.Len() >= len(original) {
 		return false, nil
 	}
@@ -307,17 +301,14 @@ func copyPublicOptimized(src, dst string, cfg logic.RuntimeConfig, unused map[st
 	if err := os.RemoveAll(dst); err != nil {
 		return err
 	}
-	if _, err := os.Stat(src); os.IsNotExist(err) {
-		return os.MkdirAll(dst, 0o755)
-	}
-	return filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
+	assets := publicAssetsFS(src)
+	return fs.WalkDir(assets, ".", func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		rel, _ := filepath.Rel(src, p)
-		target := filepath.Join(dst, rel)
+		target := filepath.Join(dst, filepath.FromSlash(p))
 		if d.IsDir() {
-			if strings.HasPrefix(d.Name(), ".") && p != src {
+			if strings.HasPrefix(d.Name(), ".") && p != "." {
 				return filepath.SkipDir
 			}
 			return os.MkdirAll(target, 0o755)
@@ -325,17 +316,17 @@ func copyPublicOptimized(src, dst string, cfg logic.RuntimeConfig, unused map[st
 		if strings.HasPrefix(d.Name(), ".") {
 			return nil
 		}
-		if unused[sourcePath(p)] {
+		if unused[sourcePath(filepath.Join(src, filepath.FromSlash(p)))] {
 			return nil
 		}
-		if ok, err := optimizePublicImage(p, target, cfg); err != nil {
+		data, err := fs.ReadFile(assets, p)
+		if err != nil {
+			return err
+		}
+		if ok, err := optimizePublicImageData(p, target, data, cfg); err != nil {
 			return err
 		} else if ok {
 			return nil
-		}
-		data, err := os.ReadFile(p)
-		if err != nil {
-			return err
 		}
 		info, _ := d.Info()
 		mode := os.FileMode(0o644)

@@ -2,6 +2,7 @@ package goserver
 
 import (
 	"bytes"
+	"io/fs"
 	"net/http"
 	"os"
 	"path"
@@ -13,8 +14,7 @@ import (
 func (s *Server) StaticAssetsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/assets/") {
-			reqCopy := new(http.Request)
-			*reqCopy = *r
+			reqCopy := r.Clone(r.Context())
 
 			reqCopy.URL.Path = strings.TrimPrefix(r.URL.Path, "/assets")
 
@@ -60,7 +60,8 @@ func (s *Server) PublicFiles(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if info, err := os.Stat(filepath.Join("assets", filepath.FromSlash(cleanPath))); err != nil || info.IsDir() {
+	if info, err := fs.Stat(publicAssetsFS("./assets"), cleanPath); err != nil || info.IsDir() {
+		w.Header().Set("Cache-Control", "no-store")
 		http.NotFound(w, r)
 		return
 	}
@@ -79,17 +80,8 @@ func HasPublicFile(urlPath string) bool {
 		info, err := os.Stat(generatedWorker)
 		return err == nil && !info.IsDir()
 	}
-	info, err := os.Stat(filepath.Join("assets", filepath.FromSlash(cleanPath)))
+	info, err := fs.Stat(publicAssetsFS("./assets"), cleanPath)
 	return err == nil && !info.IsDir()
-}
-
-func generatedSiteSearchWorker(cleanPath string) (string, bool) {
-	switch cleanPath {
-	case "site-search-worker.js", "site-search-server-worker.js":
-		return filepath.Join("tmp", "site-search", cleanPath), true
-	default:
-		return "", false
-	}
 }
 
 func publicAssetPath(urlPath string) (string, bool) {
@@ -102,6 +94,9 @@ func publicAssetPath(urlPath string) (string, bool) {
 }
 
 func embeddedPublicAsset(name string) ([]byte, bool) {
+	if name != "robots.txt" {
+		return nil, false
+	}
 	if _, production := sourceFS(); !production {
 		return nil, false
 	}

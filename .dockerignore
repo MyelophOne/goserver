@@ -44,6 +44,8 @@ logs/
 *.log
 tmp/
 .cache/
+internal/goservergen/
+cmd/web_import_gen.go
 
 load-test.yml
 biome.json

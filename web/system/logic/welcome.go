@@ -34,6 +34,21 @@ func goserverVersion() string {
 	if !ok {
 		return "dev"
 	}
+	return goserverBuildVersion(info)
+}
+
+func goserverBuildVersion(info *debug.BuildInfo) string {
+	for _, dependency := range info.Deps {
+		if dependency.Path == "github.com/myelophone/goserver" {
+			if dependency.Replace != nil && dependency.Replace.Version != "" {
+				return dependency.Replace.Version
+			}
+			if dependency.Version != "" && dependency.Version != "(devel)" {
+				return dependency.Version
+			}
+			return "dev"
+		}
+	}
 	if version := strings.TrimSpace(info.Main.Version); version != "" && version != "(devel)" {
 		return version
 	}
