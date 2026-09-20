@@ -172,23 +172,44 @@ const (
 
 var ErrCircuitBreakerOpen = errors.New("circuit breaker is open")
 
+type CircuitBreakerOpenError struct {
+	Host  string
+	Cause error
+}
+
+func (e *CircuitBreakerOpenError) Error() string {
+	if e.Cause == nil {
+		return fmt.Sprintf("%s for %s", ErrCircuitBreakerOpen, e.Host)
+	}
+	return fmt.Sprintf("%s for %s; last failure: %v", ErrCircuitBreakerOpen, e.Host, e.Cause)
+}
+
+func (e *CircuitBreakerOpenError) Unwrap() []error {
+	if e.Cause == nil {
+		return []error{ErrCircuitBreakerOpen}
+	}
+	return []error{ErrCircuitBreakerOpen, e.Cause}
+}
+
 type ClientConfig struct {
-	ProxyURL          *url.URL
-	ProxyFunc         func() *url.URL
-	OnProxyError      func(*url.URL)
-	MetricsCallback   func(Metrics)
-	Timeout           time.Duration
-	MaxRetries        int
-	BaseBackoffDelay  time.Duration
-	MaxBackoffDelay   time.Duration
-	RandomDelayMin    time.Duration
-	RandomDelayMax    time.Duration
-	CBMaxFailures     int
-	CBResetTimeout    time.Duration
-	DNSCacheTTL       time.Duration
-	AllowInsecureSSRF bool
-	DisableDNSCache   bool
-	EnableMetrics     bool
+	ProxyURL              *url.URL
+	ProxyFunc             func() *url.URL
+	OnProxyError          func(*url.URL)
+	MetricsCallback       func(Metrics)
+	Timeout               time.Duration
+	MaxRetries            int
+	BaseBackoffDelay      time.Duration
+	MaxBackoffDelay       time.Duration
+	RandomDelayMin        time.Duration
+	RandomDelayMax        time.Duration
+	CBMaxFailures         int
+	CBResetTimeout        time.Duration
+	DNSCacheTTL           time.Duration
+	AllowInsecureSSRF     bool
+	DisableDNSCache       bool
+	EnableMetrics         bool
+	BrowserTLS            bool
+	DisableCircuitBreaker bool
 }
 
 type Metrics struct {
@@ -216,6 +237,10 @@ func DefaultClientConfig() ClientConfig {
 
 type ClientOption func(*ClientConfig)
 
+func WithBrowserTLS(enable bool) ClientOption {
+	return func(c *ClientConfig) { c.BrowserTLS = enable }
+}
+
 func WithMaxRetries(r int) ClientOption { return func(c *ClientConfig) { c.MaxRetries = r } }
 func WithProxyFunc(fn func() *url.URL) ClientOption {
 	return func(c *ClientConfig) {
@@ -241,6 +266,10 @@ func WithTimeout(t time.Duration) ClientOption { return func(c *ClientConfig) { 
 func WithCBMaxFailures(f int) ClientOption     { return func(c *ClientConfig) { c.CBMaxFailures = f } }
 func WithCBResetTimeout(t time.Duration) ClientOption {
 	return func(c *ClientConfig) { c.CBResetTimeout = t }
+}
+
+func WithDisableCircuitBreaker(disable bool) ClientOption {
+	return func(c *ClientConfig) { c.DisableCircuitBreaker = disable }
 }
 func WithRandomDelayMin(min time.Duration) ClientOption {
 	return func(c *ClientConfig) { c.RandomDelayMin = min }
@@ -279,11 +308,13 @@ func WithMaxConcurrentRequests(max int) ClientOption {
 }
 
 type CircuitBreaker struct {
-	lastAttempt  int64
-	state        int32
-	failures     int32
-	MaxFailures  int
-	ResetTimeout time.Duration
+	lastFailureMu sync.RWMutex
+	lastFailure   error
+	lastAttempt   int64
+	state         int32
+	failures      int32
+	MaxFailures   int
+	ResetTimeout  time.Duration
 }
 
 func getCircuitBreaker(host string, cfg ClientConfig) *CircuitBreaker {
@@ -321,11 +352,17 @@ func (cb *CircuitBreaker) allowRequest() bool {
 }
 
 func (cb *CircuitBreaker) success() {
+	cb.lastFailureMu.Lock()
+	defer cb.lastFailureMu.Unlock()
+	cb.lastFailure = nil
 	atomic.StoreInt32(&cb.failures, 0)
 	atomic.StoreInt32(&cb.state, 0)
 }
 
-func (cb *CircuitBreaker) failure() {
+func (cb *CircuitBreaker) failure(cause error) {
+	cb.lastFailureMu.Lock()
+	defer cb.lastFailureMu.Unlock()
+	cb.lastFailure = cause
 	atomic.StoreInt64(&cb.lastAttempt, time.Now().UnixNano())
 	failures := atomic.AddInt32(&cb.failures, 1)
 
@@ -333,6 +370,12 @@ func (cb *CircuitBreaker) failure() {
 	if state == 2 || failures >= int32(cb.MaxFailures) {
 		atomic.StoreInt32(&cb.state, 1)
 	}
+}
+
+func (cb *CircuitBreaker) openError(host string) error {
+	cb.lastFailureMu.RLock()
+	defer cb.lastFailureMu.RUnlock()
+	return &CircuitBreakerOpenError{Host: host, Cause: cb.lastFailure}
 }
 
 type sessionTransport struct {
@@ -357,6 +400,12 @@ func (st *sessionTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	}
 
 	return st.baseTransport.RoundTrip(reqCopy)
+}
+
+func (st *sessionTransport) CloseIdleConnections() {
+	if t, ok := st.baseTransport.(interface{ CloseIdleConnections() }); ok {
+		t.CloseIdleConnections()
+	}
 }
 
 type HttpClient struct {
@@ -384,7 +433,13 @@ func NewHttpClient(opts ...ClientOption) *HttpClient {
 		opt(&cfg)
 	}
 
-	sessionUA := randomUserAgent()
+	var sessionUA string
+	var browser *browserTransport
+	if cfg.BrowserTLS {
+		sessionUA, browser = newBrowserTransport(cfg.AllowInsecureSSRF)
+	} else {
+		sessionUA = randomUserAgent()
+	}
 	sessionLang := randomAcceptLanguage()
 	secChUa, secChMobile, secChPlatform := generateSecChHeaders(sessionUA)
 
@@ -398,8 +453,18 @@ func NewHttpClient(opts ...ClientOption) *HttpClient {
 	sessionHeaders["Sec-Ch-Ua-Mobile"] = secChMobile
 	sessionHeaders["Sec-Ch-Ua-Platform"] = secChPlatform
 
+	var baseTransport http.RoundTripper = sharedTransport
+	if cfg.BrowserTLS {
+		baseTransport = browser
+		if !strings.Contains(sessionUA, "Chrome/") {
+			delete(sessionHeaders, "Sec-Ch-Ua")
+			delete(sessionHeaders, "Sec-Ch-Ua-Mobile")
+			delete(sessionHeaders, "Sec-Ch-Ua-Platform")
+		}
+		delete(sessionHeaders, "Connection")
+	}
 	transportWithHeaders := &sessionTransport{
-		baseTransport:  sharedTransport,
+		baseTransport:  baseTransport,
 		sessionHeaders: sessionHeaders,
 	}
 
@@ -415,6 +480,8 @@ func NewHttpClient(opts ...ClientOption) *HttpClient {
 	}
 }
 
+func (c *HttpClient) CloseIdleConnections() { c.client.CloseIdleConnections() }
+
 func (c *HttpClient) Do(req *http.Request) (*http.Response, error) {
 	startTime := time.Now()
 	var metrics Metrics
@@ -429,13 +496,47 @@ func (c *HttpClient) Do(req *http.Request) (*http.Response, error) {
 		}
 	}
 
-	cb := getCircuitBreaker(req.URL.Host, c.config)
+	var cb *CircuitBreaker
+	if !c.config.DisableCircuitBreaker {
+		cb = getCircuitBreaker(req.URL.Host, c.config)
+	}
 	retriesLeft := c.config.MaxRetries
 	attempt := 0
+	canReplay := req.Body == nil || req.Body == http.NoBody || req.GetBody != nil
+	var lastResponse *http.Response
+	var lastError error
+	defer func() {
+		if lastResponse != nil && lastResponse.Body != nil {
+			_ = lastResponse.Body.Close()
+		}
+	}()
 
 	for {
-		if !cb.allowRequest() {
-			return nil, ErrCircuitBreakerOpen
+		if err := req.Context().Err(); err != nil {
+			return nil, err
+		}
+		if cb != nil && !cb.allowRequest() {
+			if lastResponse != nil {
+				resp := lastResponse
+				lastResponse = nil
+				if c.config.EnableMetrics && c.config.MetricsCallback != nil {
+					c.config.MetricsCallback(metrics)
+				}
+				return resp, nil
+			}
+			if lastError != nil {
+				if c.config.EnableMetrics && c.config.MetricsCallback != nil {
+					c.config.MetricsCallback(metrics)
+				}
+				return nil, lastError
+			}
+			return nil, cb.openError(req.URL.Host)
+		}
+		if lastResponse != nil {
+			if lastResponse.Body != nil {
+				_ = lastResponse.Body.Close()
+			}
+			lastResponse = nil
 		}
 
 		pURL := c.getProxy()
@@ -447,19 +548,33 @@ func (c *HttpClient) Do(req *http.Request) (*http.Response, error) {
 		ctx = context.WithValue(ctx, ssrfCtxKey{}, c.config.AllowInsecureSSRF)
 
 		reqToExecute := req.WithContext(ctx)
+		if attempt > 0 && req.Body != nil && req.Body != http.NoBody {
+			body, err := req.GetBody()
+			if err != nil {
+				return nil, fmt.Errorf("recreate request body for retry: %w", err)
+			}
+			reqToExecute.Body = body
+		}
 
 		resp, err := c.client.Do(reqToExecute)
 		metrics.RequestDuration = time.Since(startTime)
 		metrics.RetryCount = c.config.MaxRetries - retriesLeft
 
 		if err != nil {
-			cb.failure()
+			if req.Context().Err() != nil {
+				return nil, req.Context().Err()
+			}
+			lastError = err
+			metrics.StatusCode = 0
+			if cb != nil {
+				cb.failure(err)
+			}
 			if pURL != nil && c.config.OnProxyError != nil {
 				c.config.OnProxyError(pURL)
 			}
 			c.rotateProxy()
 
-			if retriesLeft <= 0 {
+			if retriesLeft <= 0 || !canReplay || (cb != nil && atomic.LoadInt32(&cb.state) == 1) {
 				if c.config.EnableMetrics && c.config.MetricsCallback != nil {
 					metrics.StatusCode = 0
 					c.config.MetricsCallback(metrics)
@@ -485,29 +600,31 @@ func (c *HttpClient) Do(req *http.Request) (*http.Response, error) {
 		isAuthErr := statusCode == http.StatusUnauthorized || statusCode == http.StatusForbidden
 
 		if statusCode < 500 && !is429 && (!isAuthErr || c.config.ProxyFunc == nil) {
-			cb.success()
+			if cb != nil {
+				cb.success()
+			}
 			if c.config.EnableMetrics && c.config.MetricsCallback != nil {
 				c.config.MetricsCallback(metrics)
 			}
 			return resp, nil
 		}
 
-		cb.failure()
+		if cb != nil {
+			cb.failure(fmt.Errorf("HTTP %d %s", statusCode, http.StatusText(statusCode)))
+		}
 		if pURL != nil && c.config.OnProxyError != nil {
 			c.config.OnProxyError(pURL)
 		}
 		c.rotateProxy()
 
-		if resp.Body != nil {
-			_ = resp.Body.Close()
-		}
-
-		if retriesLeft <= 0 {
+		if retriesLeft <= 0 || !canReplay || (cb != nil && atomic.LoadInt32(&cb.state) == 1) {
 			if c.config.EnableMetrics && c.config.MetricsCallback != nil {
 				c.config.MetricsCallback(metrics)
 			}
 			return resp, nil
 		}
+		lastResponse = resp
+		lastError = nil
 		retriesLeft--
 
 		backoffDuration := exponentialBackoff(attempt, c.config.BaseBackoffDelay, c.config.MaxBackoffDelay)

@@ -2,6 +2,7 @@ package goserver
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -142,7 +143,7 @@ func TestCircuitBreaker(t *testing.T) {
 
 	circuitOpen := false
 	for _, err := range errors {
-		if err == ErrCircuitBreakerOpen {
+		if stderrors.Is(err, ErrCircuitBreakerOpen) {
 			circuitOpen = true
 			break
 		}

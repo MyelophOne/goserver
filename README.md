@@ -1693,7 +1693,71 @@ status, err := client.CheckStatus(ctx, "https://example.com/file")
 
 Other methods are `Do`, `Post`, `Cookies`, and `ResetCookies`. Call `ClearDNSCache`, `ClearCircuitBreakers`, or `GetCircuitBreakerStats` for process-wide client state. `GetBrowserSimpleHeaders` returns a randomized user agent and accept language.
 
+The circuit breaker is shared by hostname (including the port) across client
+instances. It counts failed attempts, including retries. To disable it for a
+particular client while keeping timeouts and retries:
+
+```go
+client := goserver.NewHttpClient(
+	goserver.WithDisableCircuitBreaker(true),
+	goserver.WithMaxRetries(5),
+	goserver.WithTimeout(7*time.Second),
+)
+```
+
+With the breaker enabled, if it interrupts retries after an actual failed attempt,
+`Do` returns that attempt's transport error or HTTP response, with the response
+body still open for the caller to read and close. A subsequent request rejected
+before any attempt returns `*CircuitBreakerOpenError`, containing the host and
+the previous failure (transport error or HTTP status; response bodies are not
+retained in shared breaker state). Use
+`errors.Is(err, goserver.ErrCircuitBreakerOpen)` instead of direct error equality.
+`errors.As` can retrieve `*goserver.CircuitBreakerOpenError` and its `Cause`.
+
+HTTP 401/403 responses do not trigger retries or breaker failures unless
+`WithProxyFunc` is configured. HTTP 429 and 5xx responses do. Caller context
+cancellation does not count as an upstream failure. Retrying a request with a
+body requires `Request.GetBody`; the built-in `Post` and `PostJSON` helpers
+provide it. Non-replayable bodies are sent only once.
+
 `WithAllowInsecureSSRF(true)` permits private/internal destinations and should only be used for explicitly trusted URLs. Redirected requests still pass through the same transport checks.
+
+### Optional browser TLS
+
+```go
+client := goserver.NewHttpClient(
+	goserver.WithBrowserTLS(true),
+	goserver.WithTimeout(15*time.Second),
+)
+defer client.CloseIdleConnections()
+```
+
+`WithBrowserTLS(true)` randomly selects a session User-Agent from the existing
+`userAgents` list, restricted to Chrome/Firefox versions with a matching profile
+in [`tls-client`](https://github.com/bogdanfinn/tls-client). Unsupported entries
+(including Safari, iOS and Edge for now) are excluded rather than paired with an
+unrelated handshake. The selected User-Agent, TLS ClientHello, HTTP/2 settings and
+header ordering stay together for the lifetime of the client. Chrome extension
+order is randomized; Firefox does not send Chromium client hints. Explicit request
+headers still override session defaults, so overriding User-Agent can introduce a
+profile mismatch. HTTP/1.1 fallback, certificate verification,
+cookies, redirects, retries and HTTP/HTTPS/SOCKS5 proxies are supported. Plain HTTP
+continues to use the standard transport. HTTP/3 is disabled.
+
+The option defaults to `false`; existing clients keep their standard transport.
+No build tags are required. Browser transport instances are created on the first
+HTTPS request and their connection pools are isolated by proxy (up to eight
+retained pools per client). Dependencies are ordinary Go modules resolved during
+build/install, not downloaded dynamically when the option is enabled.
+
+This approximates a browser's network fingerprint, not a full browser environment
+or a guarantee against bot detection by Instagram or other services. IP reputation,
+cookies, JavaScript signals and request behavior still matter. The pinned browser
+profiles and UA list need maintenance as browser versions change.
+`Response.TLS` may be nil for HTTP/1.1 in this mode due to the underlying transport;
+certificate verification remains enabled. As with the standard client, SSRF checks
+apply to directly dialed addresses, including the proxy endpoint; a proxy resolves
+and reaches the destination itself, so use only trusted proxies.
 
 ### Proxy rotation
 
