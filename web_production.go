@@ -757,6 +757,9 @@ func buildProduction(assetReportPath string, assetsOnly bool) error {
 	if version := strings.TrimSpace(os.Getenv("GIT_COMMIT_HASH")); version != "" {
 		linkerFlags = append(linkerFlags, "-X", "github.com/myelophone/goserver.AppVersion="+version)
 	}
+	if version := strings.TrimSpace(os.Getenv("GOSERVER_VERSION")); version != "" {
+		linkerFlags = append(linkerFlags, "-X", "github.com/myelophone/goserver/web/system/logic.BuildVersion="+version)
+	}
 	cmd := exec.Command("go", "build", "-tags", "myelophone_prod", "-trimpath", "-ldflags", strings.Join(linkerFlags, " "), "-o", out, "./cmd")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

@@ -9,6 +9,8 @@ import (
 
 type WelcomeComponent struct{ Noop }
 
+var BuildVersion string
+
 func (WelcomeComponent) Render(ctx *Context, _ Props) (Data, error) {
 	return Data{
 		"welcomeTitle":           welcomeText(ctx, "welcome", "Welcome to"),
@@ -30,6 +32,9 @@ func welcomeText(ctx *Context, key, fallback string) string {
 }
 
 func goserverVersion() string {
+	if BuildVersion != "" {
+		return BuildVersion
+	}
 	info, ok := debug.ReadBuildInfo()
 	if !ok {
 		return "dev"

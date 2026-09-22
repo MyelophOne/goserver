@@ -3,6 +3,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        MYELOPHONE_WEB_ENABLED: ${MYELOPHONE_WEB_ENABLED:-}
     expose:
       - "${HTTP_PORT:-8080}"
     env_file:

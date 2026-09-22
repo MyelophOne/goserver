@@ -28,6 +28,7 @@ docker-compose.yml
 #!git/HEAD
 #!git/refs
 .env.example
+.env
 .gitignore
 .gitkeep
 
@@ -44,6 +45,22 @@ logs/
 *.log
 tmp/
 .cache/
+
+# Local tool caches and temporary build directories
+**/.tmp-*/
+**/.cache/
+**/.gocache/
+**/.gomodcache/
+**/.go-cache/
+**/.go-mod-cache/
+**/.npm/
+**/.pnpm-store/
+**/.yarn/cache/
+**/__pycache__/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+
 internal/goservergen/
 cmd/web_import_gen.go
 
