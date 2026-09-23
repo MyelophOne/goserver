@@ -222,8 +222,8 @@ func UseRuntimeConfig() (RuntimeConfig, error) {
 		if value, ok := os.LookupEnv("MYELOPHONE_WEB_RENDER_SERVER_TIMING"); ok && configErr == nil {
 			runtimeConfig.Render.ServerTiming, configErr = strconv.ParseBool(value)
 		}
-		if value, ok := os.LookupEnv("MYELOPHONE_WEB_ENABLED"); ok && configErr == nil {
-			runtimeConfig.Runtime.Enabled, configErr = strconv.ParseBool(value)
+		if configErr == nil {
+			configErr = configureWebEnabled(&runtimeConfig)
 		}
 	})
 	return runtimeConfig, configErr

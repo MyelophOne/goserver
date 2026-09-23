@@ -116,7 +116,7 @@ func main() {
  if _, err := fs.ReadFile(bundle.Sources, "assets/robots.txt"); err != nil { panic("missing embedded robots") }
  if _, err := fs.ReadFile(bundle.Sources, "assets/icon.svg"); err == nil { panic("embedded public image") }
  cfg, err := runtime.UseRuntimeConfig()
- if err != nil || cfg.SEO.Title != "Consumer title" { panic("missing embedded config") }
+ if err != nil || cfg.SEO.Title != "Consumer title" || !cfg.Runtime.Enabled { panic("missing embedded config or disabled web") }
  pages, err := goserver.LoadPages("web/pages")
  if err != nil || pages.Len() != 1 { panic(fmt.Sprintf("pages: %v", err)) }
  handler, ok := runtime.Resolve("ConsumerPage")
@@ -124,7 +124,8 @@ func main() {
  data, err := handler.Render(&runtime.Context{}, runtime.Props{})
  if err != nil || data["message"] != "consumer-page" { panic("invalid consumer handler") }
  server := goserver.NewServer("0")
- if err := server.EnableWeb(); err != nil { panic(err) }
+ if err := server.EnableWebIfEnabled(); err != nil { panic(err) }
+ if server.Web() == nil { panic("production web disabled by environment") }
  assets := server.StaticAssetsMiddleware(http.NotFoundHandler())
  for _, path := range []string{"/assets/myelophone_eng.png", "/assets/myelophone_eng_white.png", "/assets/seo/goserver-cat.jpg", "/favicon.ico", "/icon.svg", "/assets/icon.svg", "/apple-touch-icon.png", "/assets/custom.txt", "/custom.txt"} {
   for _, method := range []string{http.MethodGet, http.MethodHead} {
@@ -209,10 +210,10 @@ func main() {
 	if err := os.WriteFile(filepath.Join(unrelated, "assets", "icon.svg"), []byte("unrelated-asset"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	for _, cwd := range []string{projectRoot, filepath.Join(projectRoot, "dist"), unrelated} {
+	for i, cwd := range []string{projectRoot, filepath.Join(projectRoot, "dist"), unrelated} {
 		run := exec.Command(bin)
 		run.Dir = cwd
-		run.Env = append(os.Environ(), "APP_ENV=prod", "MYELOPHONE_WEB_ENABLED=true", "PATH=")
+		run.Env = append(os.Environ(), "APP_ENV=prod", "MYELOPHONE_WEB_ENABLED="+[]string{"true", "false", "invalid"}[i], "PATH=")
 		if output, err := run.CombinedOutput(); err != nil || !strings.Contains(string(output), "consumer production ready") {
 			t.Fatalf("standalone consumer from %s: %v\n%s", cwd, err, output)
 		}

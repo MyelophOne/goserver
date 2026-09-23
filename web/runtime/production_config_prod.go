@@ -4,6 +4,9 @@ package runtime
 
 import "io/fs"
 
+// Production uses the mode embedded by the build, never the process environment.
+func configureWebEnabled(*RuntimeConfig) error { return nil }
+
 func environment() string { return "Production" }
 
 func configFile(path string) ([]byte, error) {

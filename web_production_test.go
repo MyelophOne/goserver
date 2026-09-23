@@ -29,6 +29,9 @@ func TestProductionRuntimeConfigEmbedsResolvedSettings(t *testing.T) {
 	if !strings.Contains(string(data), `\"serverTiming\":true`) {
 		t.Fatalf("resolved Server-Timing setting was not embedded: %s", data)
 	}
+	if !strings.Contains(string(data), `\"enabled\":true`) {
+		t.Fatalf("web build did not embed enabled mode: %s", data)
+	}
 }
 
 func TestReachableProductionFilesIncludesTeleportDependencies(t *testing.T) {

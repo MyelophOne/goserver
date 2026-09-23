@@ -381,6 +381,8 @@ func writeWebEntry() (string, error) {
 }
 
 func writeProductionRuntimeConfig(cfg logic.RuntimeConfig) (string, error) {
+	// An explicit web build enables web even when the input settings opt out.
+	cfg.Runtime.Enabled = true
 	data, err := json.Marshal(cfg)
 	if err != nil {
 		return "", err
