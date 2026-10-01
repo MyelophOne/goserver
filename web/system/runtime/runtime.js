@@ -260,6 +260,12 @@
 		window._gosh.useQuery = function (options) {
 			return self.useQuery(options);
 		};
+		window._gosh.useResponseStream = function (options) {
+			return self.useResponseStream(options);
+		};
+		window._gosh.useNDJSONStream = function (options) {
+			return self.useNDJSONStream(options);
+		};
 		window._gosh.invalidateQuery = function (key, exact) {
 			return self.invalidateQuery(key, exact);
 		};
@@ -414,6 +420,20 @@
 					callback(next, old);
 				});
 				return addCleanup(unsubscribe);
+			},
+			useResponseStream: function (options) {
+				var stream = runtime.useResponseStream(options);
+				addCleanup(function () {
+					stream.cancel();
+				});
+				return stream;
+			},
+			useNDJSONStream: function (options) {
+				var stream = runtime.useNDJSONStream(options);
+				addCleanup(function () {
+					stream.cancel();
+				});
+				return stream;
 			},
 			emit: function (name, detail) {
 				if (root && root.dispatchEvent)
@@ -905,6 +925,235 @@
 		error.response = response;
 		return error;
 	}
+
+	Runtime.prototype.useResponseStream = function (options) {
+		options = options || {};
+		if (!options.url) throw new Error('useResponseStream requires a url');
+		var format = options.format || 'bytes';
+		if (
+			typeof format !== 'function' &&
+			['bytes', 'text', 'lines', 'ndjson'].indexOf(format) === -1
+		)
+			throw new Error('Unsupported response stream format: ' + format);
+		var activeController = null;
+		var generation = 0;
+		var running = false;
+		var received = 0;
+		var byteLength = 0;
+		var maxFrameBytes = Math.min(
+			1024 * 1024,
+			Math.max(1024, Number(options.maxFrameBytes) || 64 * 1024),
+		);
+		var maxBytes = Math.min(
+			512 * 1024 * 1024,
+			Math.max(1024, Number(options.maxBytes) || 16 * 1024 * 1024),
+		);
+		var maxItems = Math.min(
+			100000,
+			Math.max(1, Number(options.maxItems) || 10000),
+		);
+		var api = {};
+
+		api.cancel = function () {
+			if (activeController) activeController.abort();
+		};
+		api.start = async function () {
+			api.cancel();
+			var current = ++generation;
+			var controller = new AbortController();
+			activeController = controller;
+			running = true;
+			received = 0;
+			byteLength = 0;
+			var externalSignal = options.signal;
+			var abortFromExternal = function () {
+				controller.abort();
+			};
+			if (externalSignal) {
+				if (externalSignal.aborted) controller.abort();
+				else
+					externalSignal.addEventListener('abort', abortFromExternal, {
+						once: true,
+					});
+			}
+			var response;
+			var reader;
+			try {
+				var url = options.url;
+				var external = new URL(url, location.href).origin !== location.origin;
+				var headers = new Headers(options.headers || undefined);
+				if (options.accept && !headers.has('Accept'))
+					headers.set('Accept', options.accept);
+				response = await fetch(url, {
+					method: options.method || 'GET',
+					headers: headers,
+					body: options.body == null ? undefined : options.body,
+					credentials:
+						options.credentials || (external ? 'omit' : 'same-origin'),
+					mode: options.mode || (external ? 'cors' : 'same-origin'),
+					redirect: options.redirect || 'follow',
+					cache: options.cache || 'no-store',
+					signal: controller.signal,
+				});
+				if (!response.ok) throw queryError(response, url);
+				var expectedType =
+					options.contentType === false
+						? ''
+						: String(options.contentType || '').toLowerCase();
+				var actualType = String(
+					response.headers.get('content-type') || '',
+				).toLowerCase();
+				if (expectedType && actualType.indexOf(expectedType) === -1)
+					throw new Error(
+						'Expected ' + expectedType + ', received ' + (actualType || 'unknown'),
+					);
+				if (!response.body || typeof response.body.getReader !== 'function')
+					throw new Error('ReadableStream is unavailable');
+				if (format !== 'bytes' && typeof format !== 'function' && typeof TextDecoder !== 'function')
+					throw new Error('TextDecoder is unavailable');
+				if ((format === 'lines' || format === 'ndjson') && typeof TextEncoder !== 'function')
+					throw new Error('TextEncoder is unavailable');
+				if (current !== generation || controller.signal.aborted)
+					throw new DOMException('Aborted', 'AbortError');
+				if (typeof options.onOpen === 'function')
+					await options.onOpen(response, api);
+
+				reader = response.body.getReader();
+				var decoder =
+					format === 'bytes' || typeof format === 'function'
+						? null
+						: new TextDecoder(options.encoding || 'utf-8');
+				var frameEncoder =
+					format === 'lines' || format === 'ndjson' ? new TextEncoder() : null;
+				var buffer = '';
+				var frameByteLength = function (value) {
+					return frameEncoder ? frameEncoder.encode(value).byteLength : value.length;
+				};
+				var emitItem = async function (item) {
+					received++;
+					if (received > maxItems)
+						throw new Error('Response stream item count exceeded the configured limit');
+					if (typeof options.onItem === 'function')
+						await options.onItem(item, {
+							index: received,
+							bytes: byteLength,
+							response: response,
+							stream: api,
+						});
+				};
+				var acceptLine = async function (source) {
+					var line = source.endsWith('\r') ? source.slice(0, -1) : source;
+					if (!line && !options.includeEmpty) return;
+					if (frameByteLength(line) > maxFrameBytes)
+						throw new Error('Response stream frame exceeded the configured limit');
+					if (format === 'ndjson') {
+						line = line.trim();
+						if (!line) return;
+						await emitItem(JSON.parse(line));
+					} else {
+						await emitItem(line);
+					}
+				};
+				var acceptText = async function (text, final) {
+					if (format === 'text') {
+						if (text || (final && options.includeEmpty)) await emitItem(text);
+						return;
+					}
+					buffer += text;
+					for (;;) {
+						var newline = buffer.indexOf('\n');
+						if (newline < 0) break;
+						var line = buffer.slice(0, newline);
+						buffer = buffer.slice(newline + 1);
+						await acceptLine(line);
+					}
+					if (frameByteLength(buffer) > maxFrameBytes)
+						throw new Error('Response stream frame exceeded the configured limit');
+					if (final && (buffer || options.includeEmpty)) {
+						await acceptLine(buffer);
+						buffer = '';
+					}
+				};
+				for (;;) {
+					var part = await reader.read();
+					if (part.done) break;
+					if (current !== generation || controller.signal.aborted)
+						throw new DOMException('Aborted', 'AbortError');
+					byteLength += part.value.byteLength;
+					if (byteLength > maxBytes)
+						throw new Error('Response stream exceeded the configured byte limit');
+					if (typeof options.onChunk === 'function')
+						await options.onChunk(part.value, {
+							bytes: byteLength,
+							response: response,
+							stream: api,
+						});
+					if (typeof format === 'function') {
+						await format(part.value, {
+							emit: emitItem,
+							final: false,
+							response: response,
+							stream: api,
+						});
+					} else if (format === 'bytes') {
+						await emitItem(part.value);
+					} else {
+						await acceptText(decoder.decode(part.value, { stream: true }), false);
+					}
+				}
+				if (typeof format === 'function') {
+					await format(null, {
+						emit: emitItem,
+						final: true,
+						response: response,
+						stream: api,
+					});
+				} else if (decoder) {
+					await acceptText(decoder.decode(), true);
+				}
+				var result = { count: received, bytes: byteLength, response: response };
+				if (current === generation && typeof options.onComplete === 'function')
+					await options.onComplete(result, api);
+				return result;
+			} catch (error) {
+				if (current !== generation) throw error;
+				if (error && error.name === 'AbortError') {
+					if (typeof options.onCancel === 'function')
+						await options.onCancel(error, api);
+				} else if (typeof options.onError === 'function') {
+					await options.onError(error, api);
+				}
+				throw error;
+			} finally {
+				if (reader) reader.releaseLock();
+				if (externalSignal)
+					externalSignal.removeEventListener('abort', abortFromExternal);
+				if (current === generation) {
+					running = false;
+					activeController = null;
+				}
+			}
+		};
+		Object.defineProperties(api, {
+			running: { get: function () { return running; } },
+			received: { get: function () { return received; } },
+			bytes: { get: function () { return byteLength; } },
+		});
+		return api;
+	};
+
+	Runtime.prototype.useNDJSONStream = function (options) {
+		return this.useResponseStream(
+			Object.assign(
+				{
+					format: 'ndjson',
+					accept: 'application/x-ndjson',
+					contentType: 'application/x-ndjson',
+				},
+				options || {},
+			),
+		);
+	};
 
 	Runtime.prototype.queryFetch = async function (options, signal) {
 		var url = options.url;

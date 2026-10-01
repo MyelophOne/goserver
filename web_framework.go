@@ -3327,7 +3327,7 @@ func (a *App) registerChunk(source string) string {
 }
 
 func setupScriptSource(source string) string {
-	names := []string{"useRoot", "useElement", "onMounted", "onUnmounted", "useEvent", "useStore", "watchStore", "emit"}
+	names := []string{"useRoot", "useElement", "onMounted", "onUnmounted", "useEvent", "useStore", "watchStore", "useResponseStream", "useNDJSONStream", "emit"}
 	var b strings.Builder
 	b.WriteString("export function mount(ctx){const __gosh=ctx.runtime.createComponentAPI(ctx);")
 	declared := map[string]bool{}
@@ -3351,7 +3351,7 @@ func setupScriptSource(source string) string {
 	return b.String()
 }
 
-var setupHelperDeclarationPattern = regexp.MustCompile(`(?m)\b(?:const|let|var|function)\s+(useRoot|useElement|onMounted|onUnmounted|useEvent|useStore|watchStore|emit)\b`)
+var setupHelperDeclarationPattern = regexp.MustCompile(`(?m)\b(?:const|let|var|function)\s+(useRoot|useElement|onMounted|onUnmounted|useEvent|useStore|watchStore|useResponseStream|useNDJSONStream|emit)\b`)
 
 func (a *App) modulePlan(pageKey string, bindings []ScriptBinding, aggregateComponents bool) ModulePlan {
 	if len(bindings) == 0 {
@@ -4585,6 +4585,13 @@ func (a *App) routeRule(path string) (logic.RouteRule, bool) {
 	return rule, best != ""
 }
 
+func (a *App) ssrStreamEnabled(rule logic.RouteRule, hasRouteRule bool) bool {
+	if hasRouteRule && rule.SSRStream != nil {
+		return *rule.SSRStream
+	}
+	return a.config.SSRStream
+}
+
 func routeTTL(rule logic.RouteRule) (ttl, swr int) {
 	swr = rule.SWR
 	if rule.Cache != nil {
@@ -4869,6 +4876,7 @@ func (a *App) pageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	rule, hasRouteRule := a.routeRule(r.URL.Path)
 	publicStatic := hasRouteRule && rule.PublicStatic
+	streamDocument := a.ssrStreamEnabled(rule, hasRouteRule)
 	result, cacheState, err := a.renderPageCached(r, page, params)
 	renderedAt := time.Now()
 	if err != nil {
@@ -4934,8 +4942,7 @@ func (a *App) pageHandler(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 			}
-			w.WriteHeader(status)
-			_, _ = w.Write(body)
+			writeSSRDocument(w, r, status, body, streamDocument, publicStatic)
 			return
 		}
 	}
@@ -4958,8 +4965,7 @@ func (a *App) pageHandler(w http.ResponseWriter, r *http.Request) {
 		} else {
 			w.Header().Set("Cache-Control", "private, no-store")
 		}
-		w.WriteHeader(status)
-		_, _ = w.Write(body)
+		writeSSRDocument(w, r, status, body, streamDocument, true)
 		return
 	}
 	nonce, err := newCSPNonce()
@@ -4981,8 +4987,93 @@ func (a *App) pageHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache")
 	a.setServerTiming(w, requestStarted, renderedAt)
+	writeSSRDocument(w, r, status, body, streamDocument, false)
+}
+
+const ssrStreamChunkSize = 32 << 10
+
+func writeSSRDocument(w http.ResponseWriter, r *http.Request, status int, body []byte, stream, publicStatic bool) {
+	if !stream || !responseSupportsFlush(w) {
+		w.WriteHeader(status)
+		_, _ = w.Write(body)
+		return
+	}
+
+	w.Header().Set("X-Accel-Buffering", "no")
+	w.Header().Set("X-GOSH-SSR-Stream", "1")
+	if publicStatic {
+		w.Header().Set("Cache-Control", appendNoTransform(w.Header().Get("Cache-Control")))
+	} else {
+		// Every hydrated document contains owner-bound runtime state. Keeping streamed
+		// documents out of all caches prevents an intermediary from replaying it to
+		// another visitor, independently of the route render-cache policy.
+		w.Header().Set("Cache-Control", "private, no-store, no-transform")
+	}
+
 	w.WriteHeader(status)
-	_, _ = w.Write(body)
+	disableResponseCompression(w)
+	controller := http.NewResponseController(w)
+	flushEnabled := true
+	for offset := 0; offset < len(body); {
+		next := min(offset+ssrStreamChunkSize, len(body))
+		if offset == 0 {
+			if headEnd := bytes.Index(body, []byte("</head>")); headEnd >= 0 && headEnd+len("</head>") < next {
+				next = headEnd + len("</head>")
+			}
+		}
+		if _, err := w.Write(body[offset:next]); err != nil {
+			return
+		}
+		if flushEnabled {
+			if err := controller.Flush(); err != nil {
+				flushEnabled = false
+			}
+		}
+		offset = next
+		select {
+		case <-r.Context().Done():
+			return
+		default:
+		}
+	}
+}
+
+func appendNoTransform(value string) string {
+	if value == "" {
+		return "no-transform"
+	}
+	if strings.Contains(strings.ToLower(value), "no-transform") {
+		return value
+	}
+	return value + ", no-transform"
+}
+
+func responseSupportsFlush(w http.ResponseWriter) bool {
+	for w != nil {
+		if _, ok := w.(http.Flusher); ok {
+			return true
+		}
+		unwrapper, ok := w.(interface{ Unwrap() http.ResponseWriter })
+		if !ok {
+			return false
+		}
+		w = unwrapper.Unwrap()
+	}
+	return false
+}
+
+func disableResponseCompression(w http.ResponseWriter) {
+	for w != nil {
+		if disabler, ok := w.(interface{ DisableGzip() }); ok {
+			disabler.DisableGzip()
+			return
+		}
+		unwrapper, ok := w.(interface{ Unwrap() http.ResponseWriter })
+		if !ok {
+			return
+		}
+		w = unwrapper.Unwrap()
+	}
 }
 
 func (a *App) setServerTiming(w http.ResponseWriter, started, rendered time.Time) {
@@ -5016,6 +5107,8 @@ func (a *App) contentHandler(w http.ResponseWriter, r *http.Request) {
 		a.renderHTTPError(w, r, http.StatusNotFound, "post not found")
 		return
 	}
+	rule, hasRouteRule := a.routeRule(r.URL.Path)
+	streamDocument := a.ssrStreamEnabled(rule, hasRouteRule)
 	page := &Page{RelativePath: "@content/" + name}
 	contentKey := "content|" + tenantIDFromRequest(r) + "|" + name + "|" + hashText(post.Title+"\x00"+post.Description+"\x00"+post.HTML)
 	if !isRuntimeRequest(r) && !isSiteSearchRequest(r) {
@@ -5028,8 +5121,7 @@ func (a *App) contentHandler(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("X-MyelophOne-Cache", "hit")
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.Header().Set("Cache-Control", "private, no-cache")
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write(body)
+			writeSSRDocument(w, r, http.StatusOK, body, streamDocument, false)
 			return
 		}
 	}
@@ -5103,8 +5195,7 @@ func (a *App) contentHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "private, no-cache")
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(body)
+	writeSSRDocument(w, r, http.StatusOK, body, streamDocument, false)
 }
 
 func (a *App) renderHTTPError(w http.ResponseWriter, r *http.Request, status int, message string) {

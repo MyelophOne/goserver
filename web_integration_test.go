@@ -3,6 +3,7 @@
 package goserver
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net/http"
@@ -50,6 +51,176 @@ func TestEnableWebServesFileBasedPage(t *testing.T) {
 	}
 	if strings.ContainsAny(response.Body.String(), "\r\n") {
 		t.Fatal("web document was not minified to one line")
+	}
+}
+
+func TestSSRDocumentStreamingIsOptInAndRouteSpecific(t *testing.T) {
+	s := NewServer("0")
+	if err := s.EnableWeb(); err != nil {
+		t.Fatalf("EnableWeb: %v", err)
+	}
+	app := s.Web()
+
+	defaultResponse := httptest.NewRecorder()
+	s.router.ServeHTTP(defaultResponse, httptest.NewRequest(http.MethodGet, "http://example.test/", nil))
+	if got := defaultResponse.Header().Get("X-GOSH-SSR-Stream"); got != "" {
+		t.Fatalf("SSR streaming enabled by default: %q", got)
+	}
+
+	app.config.SSRStream = true
+	disabled := false
+	enabled := true
+	app.config.RouteRules = map[string]logic.RouteRule{
+		"/":             {SSRStream: &disabled},
+		"/missing-page": {SSRStream: &enabled},
+	}
+
+	rootResponse := httptest.NewRecorder()
+	s.router.ServeHTTP(rootResponse, httptest.NewRequest(http.MethodGet, "http://example.test/", nil))
+	if got := rootResponse.Header().Get("X-GOSH-SSR-Stream"); got != "" {
+		t.Fatalf("route did not disable global SSR streaming: %q", got)
+	}
+
+	request := httptest.NewRequest(http.MethodGet, "http://example.test/missing-page", nil)
+	request.AddCookie(&http.Cookie{Name: "session", Value: "visitor-secret"})
+	streamed := httptest.NewRecorder()
+	s.router.ServeHTTP(streamed, request)
+	if streamed.Code != http.StatusNotFound {
+		t.Fatalf("status=%d body=%s", streamed.Code, streamed.Body.String())
+	}
+	if got := streamed.Header().Get("X-GOSH-SSR-Stream"); got != "1" {
+		t.Fatalf("route did not enable SSR streaming: %q", got)
+	}
+	if !streamed.Flushed {
+		t.Fatal("SSR response was not flushed")
+	}
+	if got := streamed.Header().Get("Cache-Control"); got != "private, no-store, no-transform" {
+		t.Fatalf("unsafe streamed cache policy: %q", got)
+	}
+	if got := streamed.Header().Get("X-Accel-Buffering"); got != "no" {
+		t.Fatalf("proxy buffering header = %q", got)
+	}
+	body := streamed.Body.String()
+	if (!strings.Contains(body, `id=app`) && !strings.Contains(body, `id="app"`)) || !strings.Contains(body, "</html>") {
+		t.Fatal("streamed SSR document is incomplete")
+	}
+	if strings.Contains(body, "visitor-secret") {
+		t.Fatal("request cookie leaked into streamed SSR HTML")
+	}
+}
+
+func TestSSRDocumentStreamingDisablesGzipBuffering(t *testing.T) {
+	s := NewServer("0")
+	body := []byte("<!doctype html><html><head><title>stream</title></head><body>" + strings.Repeat("safe", 1000) + "</body></html>")
+	handler := s.GzipMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		writeSSRDocument(w, r, http.StatusOK, body, true, false)
+	}))
+	request := httptest.NewRequest(http.MethodGet, "http://example.test/", nil)
+	request.Header.Set("Accept-Encoding", "gzip")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if got := response.Header().Get("Content-Encoding"); got != "" {
+		t.Fatalf("stream was compressed and buffered: %q", got)
+	}
+	if !response.Flushed || !bytes.Equal(response.Body.Bytes(), body) {
+		t.Fatal("stream did not flush the complete uncompressed document")
+	}
+}
+
+type flushCountingRecorder struct {
+	*httptest.ResponseRecorder
+	flushes int
+}
+
+func (r *flushCountingRecorder) Flush() {
+	r.flushes++
+	r.ResponseRecorder.Flush()
+}
+
+func TestSSRStreamPlaygroundPage(t *testing.T) {
+	s := NewServer("0")
+	if err := s.EnableWeb(); err != nil {
+		t.Fatalf("EnableWeb: %v", err)
+	}
+	response := &flushCountingRecorder{ResponseRecorder: httptest.NewRecorder()}
+	s.router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "http://example.test/ssr-stream", nil))
+	if response.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
+	}
+	if response.Header().Get("X-GOSH-SSR-Stream") != "1" || response.flushes < 4 {
+		t.Fatal("playground route did not stream its SSR document")
+	}
+	if !strings.Contains(response.Body.String(), "data-ssr-stream-example") {
+		t.Fatal("SSR stream playground page was not rendered")
+	}
+	if response.Body.Len() < 3*ssrStreamChunkSize {
+		t.Fatalf("playground document is too small to demonstrate chunking: %d bytes", response.Body.Len())
+	}
+	if !strings.Contains(response.Body.String(), "<script") || !strings.Contains(response.Body.String(), "/_gosh/entry/") {
+		t.Fatal("playground page must keep the normal hydrated SPA runtime")
+	}
+	if !strings.Contains(response.Body.String(), "data-stream-sequence=360") && !strings.Contains(response.Body.String(), `data-stream-sequence="360"`) {
+		t.Fatal("the final SSR proof block was not present in the initial document")
+	}
+}
+
+func TestRESTStreamPlaygroundPageAndEndpoint(t *testing.T) {
+	s := NewServer("0")
+	if err := s.EnableWeb(); err != nil {
+		t.Fatalf("EnableWeb: %v", err)
+	}
+
+	page := httptest.NewRecorder()
+	s.router.ServeHTTP(page, httptest.NewRequest(http.MethodGet, "http://example.test/rest-stream", nil))
+	if page.Code != http.StatusOK || !strings.Contains(page.Body.String(), "data-rest-stream-example") {
+		t.Fatalf("REST stream playground page: status=%d body=%q", page.Code, page.Body.String())
+	}
+	if !strings.Contains(page.Body.String(), "/_gosh/entry/") {
+		t.Fatal("REST stream playground must be a normal hydrated page")
+	}
+
+	response := &flushCountingRecorder{ResponseRecorder: httptest.NewRecorder()}
+	s.router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "http://example.test/api/playground/ndjson-stream?delay=0", nil))
+	if response.Code != http.StatusOK {
+		t.Fatalf("REST stream status=%d body=%s", response.Code, response.Body.String())
+	}
+	if got := response.Header().Get("Content-Type"); !strings.Contains(got, "application/x-ndjson") {
+		t.Fatalf("REST stream content type=%q", got)
+	}
+	if got := response.Header().Get("X-Accel-Buffering"); got != "no" {
+		t.Fatalf("REST stream proxy buffering=%q", got)
+	}
+	lines := strings.Split(strings.TrimSpace(response.Body.String()), "\n")
+	if len(lines) != 36 || !strings.Contains(lines[0], `"sequence":1`) || !strings.Contains(lines[35], `"sequence":36`) {
+		t.Fatalf("REST stream items=%d first=%q last=%q", len(lines), lines[0], lines[len(lines)-1])
+	}
+	if response.flushes < 37 {
+		t.Fatalf("REST stream flushes=%d, want at least 37", response.flushes)
+	}
+}
+
+func TestRuntimeProvidesGenericResponseStreamComposable(t *testing.T) {
+	runtimeSource, err := os.ReadFile(filepath.Join("web", "system", "runtime", "runtime.js"))
+	if err != nil {
+		t.Fatalf("read runtime source: %v", err)
+	}
+	source := string(runtimeSource)
+	for _, expected := range []string{
+		`Runtime.prototype.useResponseStream`,
+		`['bytes', 'text', 'lines', 'ndjson']`,
+		`typeof format === 'function'`,
+		`Response stream exceeded the configured byte limit`,
+		`credentials || (external ? 'omit' : 'same-origin')`,
+		`Runtime.prototype.useNDJSONStream`,
+	} {
+		if !strings.Contains(source, expected) {
+			t.Fatalf("runtime is missing generic response streaming behavior: %s", expected)
+		}
+	}
+	setup := setupScriptSource(`const stream = useResponseStream({url: "/api/stream", format: "text"});`)
+	if !strings.Contains(setup, `const useResponseStream=__gosh.useResponseStream;`) {
+		t.Fatal("GOSH setup scripts do not receive useResponseStream")
 	}
 }
 

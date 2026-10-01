@@ -58,6 +58,7 @@ func (s *Server) NewStreamWithStatus(w http.ResponseWriter, r *http.Request, con
 	w.Header().Set("Cache-Control", "no-cache, no-transform")
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("X-Accel-Buffering", "no")
 
 	w.WriteHeader(statusCode)
 

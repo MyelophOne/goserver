@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -18,6 +19,7 @@ type CachePolicy struct {
 type RouteRule struct {
 	SWR          int          `json:"swr"`
 	Cache        *CachePolicy `json:"cache,omitempty"`
+	SSRStream    *bool        `json:"ssrStream,omitempty"`
 	PublicStatic bool         `json:"publicStatic,omitempty"`
 	Exclude      []string     `json:"exclude,omitempty"`
 }
@@ -133,6 +135,7 @@ type RuntimeConfig struct {
 	Preloader      FullscreenPreloaderInput  `json:"preloader"`
 	CookieControl  CookieControlConfig       `json:"cookieControl"`
 	CookieScripts  map[string][]CookieScript `json:"cookieScripts"`
+	SSRStream      bool                      `json:"ssrStream"`
 	RouteRules     map[string]RouteRule      `json:"routeRules"`
 	ComponentRules map[string]RouteRule      `json:"componentRules"`
 	Images         struct {
@@ -208,6 +211,13 @@ func mergeConfig(path string, cfg *RuntimeConfig) error {
 	return json.Unmarshal(merged, cfg)
 }
 
+func mergePlaygroundConfig(cfg *RuntimeConfig) error {
+	if cfg == nil || !strings.EqualFold(cfg.Environment, "Development") {
+		return nil
+	}
+	return mergeConfig(filepath.Join("web", "playground", "websettings.json"), cfg)
+}
+
 func UseRuntimeConfig() (RuntimeConfig, error) {
 	configOnce.Do(func() {
 		runtimeConfig = defaultConfig()
@@ -215,7 +225,12 @@ func UseRuntimeConfig() (RuntimeConfig, error) {
 		if configErr = mergeConfig("websettings.json", &runtimeConfig); configErr != nil {
 			return
 		}
-		configErr = mergeConfig(filepath.Join("websettings."+runtimeConfig.Environment+".json"), &runtimeConfig)
+		if configErr = mergeConfig(filepath.Join("websettings."+runtimeConfig.Environment+".json"), &runtimeConfig); configErr != nil {
+			return
+		}
+		if configErr = mergePlaygroundConfig(&runtimeConfig); configErr != nil {
+			return
+		}
 		if value, ok := os.LookupEnv("MYELOPHONE_WEB_RUNTIME_WEB_VITALS"); ok {
 			runtimeConfig.Runtime.WebVitals, configErr = strconv.ParseBool(value)
 		}

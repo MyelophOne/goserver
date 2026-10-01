@@ -162,7 +162,9 @@ func (w *gzipResponseWriter) flushBuffer(isClosing bool) (int, error) {
 	}
 
 	ce := w.ResponseWriter.Header().Get("Content-Encoding")
+	cacheControl := strings.ToLower(w.ResponseWriter.Header().Get("Cache-Control"))
 	shouldGzip := !strings.Contains(ce, "gzip") &&
+		!strings.Contains(cacheControl, "no-transform") &&
 		!strings.Contains(ct, "image/") &&
 		!strings.Contains(ct, "zip") &&
 		!strings.Contains(ct, "pdf") &&

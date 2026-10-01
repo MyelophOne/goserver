@@ -63,6 +63,7 @@
   "cookieControl": {
     "enabled": false
   },
+  "ssrStream": false,
   "routeRules": {},
   "componentRules": {},
   "seo": {

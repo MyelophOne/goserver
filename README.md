@@ -590,6 +590,46 @@ s.GET("/api/logs", func(w http.ResponseWriter, r *http.Request) {
 })
 ```
 
+### Rendering a response stream in a GOSH page
+
+`useResponseStream` is the generic browser-side reader for REST response streams. It is available in `<script setup>` and as `_gosh.useResponseStream(options)`. It supports raw `bytes`, decoded `text` chunks, newline-framed `lines`, `ndjson`, or a custom parser function. `useNDJSONStream` is only a convenience wrapper around the same API.
+
+```js
+const stream = useResponseStream({
+ url: "/api/logs",
+ format: "ndjson",
+ accept: "application/x-ndjson",
+ contentType: "application/x-ndjson",
+ maxFrameBytes: 64 * 1024,
+ maxBytes: 16 * 1024 * 1024,
+ maxItems: 10_000,
+ onItem(item) {
+  const row = document.createElement("li");
+  row.textContent = item.message;
+  results.append(row);
+ },
+});
+
+stream.start().catch((error) => {
+ if (error.name !== "AbortError") console.error(error);
+});
+// stream.cancel();
+```
+
+The built-in formats are:
+
+- `bytes` — emits each received `Uint8Array` without decoding.
+- `text` — incrementally decodes UTF-8 and emits decoded transport chunks.
+- `lines` — buffers incomplete text and emits complete newline-delimited frames.
+- `ndjson` — applies `JSON.parse` to every complete non-empty line.
+- `format(chunk, context)` — handles any other framing protocol. The parser receives `context.emit(value)` and one final call with `chunk === null` and `context.final === true`.
+
+HTTP transport chunks do not preserve server `Write` boundaries. Do not treat each `text` or `bytes` item as a complete message or HTML element. A streamed HTML-fragment API should define framing, for example one complete trusted fragment per line, and consume it with `format: "lines"`; a length-prefixed or multipart protocol can use a custom parser. A complete streamed HTML document should normally be loaded as a navigation or in a sandboxed iframe so the browser's HTML parser owns the stream.
+
+Streamed user data is untrusted. Prefer `textContent`, DOM properties, and framework templates. Only insert HTML when the markup is application-owned and user values were contextually escaped or passed through a suitable sanitizer. The composable defaults cross-origin credentials to `omit`, validates an optional response content type, limits bytes, frames, and item counts, uses `no-store`, and aborts automatically when its component unmounts. Callers using the global `_gosh` API own cancellation themselves.
+
+The development playground page `/rest-stream` demonstrates an ordinary hydrated page incrementally rendering 36 NDJSON objects from a GoServer REST stream. Its page code uses `useResponseStream`; changing the `format` selects another protocol without replacing the transport/lifecycle implementation.
+
 ### Interaction with middleware
 
 `TimeoutMiddleware` and `MetricsMiddleware` recognize streaming responses and handle them correctly:
@@ -1304,6 +1344,26 @@ Set `runtime.webVitals` to `true` to dynamically import the separate, dependency
  }
 }
 ```
+
+### SSR document streaming
+
+Initial-document SSR streaming is disabled by default. Enable it globally with `ssrStream`; a route rule may explicitly enable or disable it with `ssrStream`, and the most specific matching rule wins:
+
+```json
+{
+ "ssrStream": true,
+ "routeRules": {
+  "/account/**": { "ssrStream": false },
+  "/catalog/**": { "ssrStream": true }
+ }
+}
+```
+
+goserver completes page logic, layouts, error handling, CSP creation, and owner-bound runtime-state binding before committing the response. Once that transaction succeeds, it flushes the document head and then the body in bounded chunks, disables gzip and proxy transformation for the response, and stops writing when the request context is cancelled. This preserves the correct HTTP status and prevents a late render or authorization error from exposing a partial successful page.
+
+Hydrated streamed documents use `Cache-Control: private, no-store, no-transform`, even when the route render result is held in the server's internal cache. This prevents a shared intermediary from retaining visitor-bound runtime tokens or personalized HTML. `publicStatic` routes retain their explicit public cache policy and add `no-transform`; only combine `publicStatic` with streaming when the page is genuinely identical for every visitor. If the active response writer cannot flush, goserver safely falls back to the normal buffered document response.
+
+In development, open `/ssr-stream` for a runnable playground example. It is a normal hydrated SPA page whose initial document intentionally contains hundreds of server-rendered blocks and spans multiple transport chunks. Use Network throttling and the page's document-reload link to watch the HTML arrive; ordinary in-app links continue to use SPA navigation. Its route opt-in lives in `web/playground/websettings.json`; playground settings are applied only in development and never become part of production runtime configuration.
 
 ### Server cache tags and optimistic actions
 
