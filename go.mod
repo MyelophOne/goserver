@@ -10,9 +10,9 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/hashicorp/golang-lru v1.0.2
 	github.com/jackc/pgx/v5 v5.11.0
-	github.com/redis/go-redis/v9 v9.22.0
+	github.com/redis/go-redis/v9 v9.23.0
 	github.com/rs/xid v1.6.0
-	github.com/tdewolff/minify/v2 v2.24.17
+	github.com/tdewolff/minify/v2 v2.24.19
 	github.com/tdewolff/parse/v2 v2.8.16
 	golang.org/x/net v0.59.0
 	golang.org/x/sync v0.23.0
@@ -31,7 +31,7 @@ require (
 	github.com/cloudflare/circl v1.6.5 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
-	github.com/jackc/puddle/v2 v2.2.2 // indirect
+	github.com/jackc/puddle/v2 v2.2.3 // indirect
 	github.com/klauspost/compress v1.20.1 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/tam7t/hpkp v0.0.0-20160821193359-2b70b4024ed5 // indirect
