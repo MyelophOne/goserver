@@ -1369,6 +1369,8 @@ In development, open `/ssr-stream` for a runnable playground example. It is a no
 
 Route rules retain their existing `cache.maxAge` and `swr` behavior. Web rendering always retains its fast in-process L1 route cache. When `s.Cache` is configured before `EnableWeb`, the same existing `CacheStore` becomes a shared L2 cache for public SSR route renders; this lets cache hits and tag invalidation work across processes or instances without requiring a second cache implementation. A cache-store failure or unavailable entry simply falls back to the normal L1/render path.
 
+HTML finalization removes whitespace-only indentation at document and block tag boundaries in its existing tokenizer pass. Inline word separators are encoded as `&#32;`, and whitespace inside `pre` and `textarea` is preserved.
+
 For public HTML routes, the L1 cache also stores a minified full-document template. On a hit goserver substitutes a newly generated CSP nonce and visitor-bound runtime tokens instead of executing the base template or minifying HTML again. These document templates remain local to the process, are capped at 32 MiB total and 1 MiB per route, and are discarded with the corresponding route entry; L2 continues to store the portable render result.
 
 For HTTP benchmarks and clients that use `Connection: close`, leave `render.earlyHints` disabled (the supplied `websettings.json` does so). A `103 Early Hints` response is an additional informational HTTP response before the final `200`; it is useful only when an HTTP-aware browser/proxy uses the preload links. goserver also suppresses it automatically for requests that ask to close the connection.

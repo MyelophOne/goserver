@@ -16,6 +16,7 @@ import (
 	parse "github.com/tdewolff/parse/v2"
 	jsparse "github.com/tdewolff/parse/v2/js"
 	htmlscan "golang.org/x/net/html"
+	"golang.org/x/net/html/atom"
 )
 
 func (r *Renderer) logError(format string, args ...any) {
@@ -32,6 +33,8 @@ func finalizeTrustedHTML(document []byte, nonce string) []byte {
 	escaped := html.EscapeString(nonce)
 	rawKind := ""
 	preDepth := 0
+	pendingSpace := false
+	blockBoundary := true
 	for {
 		kind := scanner.Next()
 		raw := scanner.Raw()
@@ -39,12 +42,39 @@ func finalizeTrustedHTML(document []byte, nonce string) []byte {
 			out = append(out, raw...)
 			return out
 		}
+		var name []byte
+		var more bool
+		if kind == htmlscan.StartTagToken || kind == htmlscan.SelfClosingTagToken || kind == htmlscan.EndTagToken {
+			// TagName copies the token; ordinary lowercase tags can use its raw bytes.
+			start := 1
+			if kind == htmlscan.EndTagToken {
+				start++
+			}
+			end := start
+			uppercase := false
+			for end < len(raw) && !isHTMLSpace(raw[end]) && raw[end] != '\f' && raw[end] != '>' && raw[end] != '/' {
+				uppercase = uppercase || raw[end] >= 'A' && raw[end] <= 'Z'
+				end++
+			}
+			name = raw[start:end]
+			if uppercase || bytes.Equal(name, []byte("script")) || bytes.Equal(name, []byte("style")) {
+				name, more = scanner.TagName()
+			}
+		}
+		tag := atom.Lookup(name)
+		if pendingSpace && kind != htmlscan.TextToken {
+			if !blockBoundary && !htmlBlockBoundary(tag) {
+				out = append(out, "&#32;"...)
+			}
+			pendingSpace = false
+		}
 		if kind == htmlscan.TextToken {
 			if rawKind == "script" || rawKind == "style" || rawKind == "json" {
 				out = append(out, compactRawSource(rawKind, raw)...)
 			} else if preDepth > 0 || rawKind == "textarea" {
 				out = appendSingleLineText(out, raw)
 			} else {
+				textStart := len(out)
 				for _, b := range raw {
 					if isHTMLSpace(b) || b == '\f' {
 						if len(out) > 0 && out[len(out)-1] != ' ' {
@@ -54,22 +84,37 @@ func finalizeTrustedHTML(document []byte, nonce string) []byte {
 						out = append(out, b)
 					}
 				}
+				if len(out) == textStart+1 && out[textStart] == ' ' {
+					out = out[:textStart]
+					pendingSpace = true
+				}
 			}
 			continue
 		}
+		if kind == htmlscan.StartTagToken || kind == htmlscan.SelfClosingTagToken || kind == htmlscan.EndTagToken {
+			blockBoundary = htmlBlockBoundary(tag)
+		} else if kind == htmlscan.DoctypeToken {
+			blockBoundary = true
+		}
 		if kind == htmlscan.EndTagToken {
-			name, _ := scanner.TagName()
 			if bytes.Equal(name, []byte("pre")) && preDepth > 0 {
 				preDepth--
 			}
 			rawKind = ""
 		}
 		if kind == htmlscan.StartTagToken || kind == htmlscan.SelfClosingTagToken {
-			name, more := scanner.TagName()
 			if bytes.Equal(name, []byte("pre")) {
 				preDepth++
 			}
-			rawKind = string(name)
+			rawKind = ""
+			switch string(name) {
+			case "script":
+				rawKind = "script"
+			case "style":
+				rawKind = "style"
+			case "textarea":
+				rawKind = "textarea"
+			}
 			if bytes.Equal(name, []byte("script")) || bytes.Equal(name, []byte("style")) {
 				hasNonce := false
 				for more {
@@ -103,7 +148,23 @@ func finalizeTrustedHTML(document []byte, nonce string) []byte {
 	}
 }
 
+// Preserve inline word separators while omitting document and block indentation.
+func htmlBlockBoundary(tag atom.Atom) bool {
+	switch tag {
+	case atom.Html, atom.Head, atom.Body, atom.Meta, atom.Link, atom.Title, atom.Script, atom.Style,
+		atom.Address, atom.Article, atom.Aside, atom.Blockquote, atom.Details, atom.Dialog, atom.Div, atom.Dl, atom.Dt, atom.Dd,
+		atom.Fieldset, atom.Figcaption, atom.Figure, atom.Footer, atom.Form, atom.H1, atom.H2, atom.H3, atom.H4, atom.H5, atom.H6,
+		atom.Header, atom.Hgroup, atom.Hr, atom.Li, atom.Main, atom.Nav, atom.Ol, atom.P, atom.Pre, atom.Section, atom.Summary,
+		atom.Table, atom.Thead, atom.Tbody, atom.Tfoot, atom.Tr, atom.Td, atom.Th, atom.Ul:
+		return true
+	}
+	return false
+}
+
 func appendSingleLineTag(out, source []byte) []byte {
+	if !bytes.ContainsAny(source, "\r\n") {
+		return append(out, source...)
+	}
 	var quote byte
 	for _, b := range source {
 		if quote == 0 && (b == '\'' || b == '"') {

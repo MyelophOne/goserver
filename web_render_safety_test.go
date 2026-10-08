@@ -12,8 +12,12 @@ import (
 func TestFinalScannerPreservesContent(t *testing.T) {
 	cases := []struct{ in, want string }{
 		{"<script>// comment\nrun();\n</script>", "<script nonce=\"abc\">run()</script>"},
+		{"<DIV> \f <SECTION> </SECTION> </DIV>", "<DIV><SECTION></SECTION></DIV>"},
+		{"<div\fclass=\"x\"> <section></section> </div>", "<div\fclass=\"x\"><section></section></div>"},
+		{"<pre><span>a</span> \n <span>b</span></pre>", "<pre><span>a</span> &#10; <span>b</span></pre>"},
+		{`<span> one </span> <b> two </b>`, `<span> one </span>&#32;<b> two </b>`},
 		{"<pre> a\n\tb </pre><textarea> x\n y</textarea>", "<pre> a&#10;\tb </pre><textarea> x&#10; y</textarea>"},
-		{`<!-- <script>fake</script> --><span>a</span> <span>b</span>`, `<!-- <script>fake</script> --><span>a</span> <span>b</span>`},
+		{`<!-- <script>fake</script> --><span>a</span> <span>b</span>`, `<!-- <script>fake</script> --><span>a</span>&#32;<span>b</span>`},
 		{`<SCRIPT data-note="nonce=x">a < b</SCRIPT>`, `<SCRIPT nonce="abc" data-note="nonce=x">a < b</SCRIPT>`},
 		{`<script NONCE = 'existing'>x</script>`, `<script NONCE = 'existing'>x</script>`},
 		{"<script>let x='</scripture>';\nrun()</script>", "<script nonce=\"abc\">let x=\"</scripture>\";run()</script>"},
@@ -45,7 +49,7 @@ func TestDocumentFormattingDoesNotBecomeEntities(t *testing.T) {
 	if !strings.HasPrefix(got, "<!DOCTYPE html>") || strings.ContainsAny(got, "\r\n") || strings.Contains(got, "&#10;") || strings.Contains(got, "&#13;") {
 		t.Fatalf("formatting leaked into response: %q", got)
 	}
-	if !strings.Contains(got, "</span> <span>") {
+	if !strings.Contains(got, "</span>&#32;<span>") {
 		t.Fatal("inline word separator lost")
 	}
 }
@@ -209,5 +213,25 @@ func TestRuntimeReadsKeepIsolationAfterUnlock(t *testing.T) {
 	group.Wait()
 	if _, ok := store.Get("other", token); ok {
 		t.Fatal("owner isolation lost")
+	}
+}
+
+func TestFinalScannerIntertagWhitespace(t *testing.T) {
+	for _, source := range []string{
+		"<div> \n\t <section> </section> </div>",
+		"<div> <section> </section> </div>",
+	} {
+		if got := string(finalizeTrustedHTML([]byte(source), "")); got != "<div><section></section></div>" {
+			t.Fatalf("unexpected intertag whitespace: %q", got)
+		}
+	}
+}
+
+func BenchmarkFinalizeTrustedHTML(b *testing.B) {
+	source := []byte(strings.Repeat("<div> \n <span>one</span> <span>two</span> </div>\n", 100))
+	b.ReportAllocs()
+	b.SetBytes(int64(len(source)))
+	for b.Loop() {
+		finalizeTrustedHTML(source, "nonce")
 	}
 }
