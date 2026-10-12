@@ -1,6 +1,6 @@
 module github.com/myelophone/goserver
 
-go 1.27.1
+go 1.27.2
 
 retract v1.0.0
 
